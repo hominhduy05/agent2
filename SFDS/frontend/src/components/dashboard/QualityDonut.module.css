@@ -1,0 +1,40 @@
+.wrap {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 20px;
+  position: relative;
+}
+
+.title {
+  font-family: "Sora", sans-serif;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--text);
+  margin: 0 0 4px;
+}
+
+.centerLabel {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, 18%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  pointer-events: none;
+}
+
+.total {
+  font-family: "Sora", sans-serif;
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--text);
+  line-height: 1;
+}
+
+.totalLabel {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  font-family: "Be Vietnam Pro", sans-serif;
+}

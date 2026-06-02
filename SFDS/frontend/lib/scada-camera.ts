@@ -1,0 +1,893 @@
+"use client";
+
+import { BoundingBox, CLASS_COLORS } from "@/lib/types";
+import {
+  configScadaCameras,
+  detectScadaCamera,
+  detectWebcamFrame,
+  fetchScadaFrame,
+  startScadaCamera,
+  stopScadaCamera,
+} from "@/lib/api";
+
+export type CameraMode = "webcam" | "ip";
+
+export interface ScadaResult {
+  detections: BoundingBox[];
+  imageWidth: number;
+  imageHeight: number;
+  imageDataUrl: string;
+  timestamp: number;
+  cropDataUrl?: string;
+  rawDetectionCount?: number;
+  trackedDetectionCount?: number;
+  confidenceThreshold?: number;
+  quality?: {
+    phase?: string;
+    reason?: string;
+    blurScore?: number;
+    stableFrames?: number;
+    areaRatio?: number;
+    edgeMarginRatio?: number;
+  };
+}
+
+export interface CropHistoryItem {
+  dataUrl: string;
+  timestamp: number;
+  detections: BoundingBox[];
+  imageWidth?: number;
+  imageHeight?: number;
+}
+
+export type InspectionHistoryItem = CropHistoryItem;
+
+export interface CameraChannel {
+  id: number;
+  label: string;
+  mode: CameraMode;
+  stream: MediaStream | null;
+  videoRef: React.RefObject<HTMLVideoElement>;
+  canvasRef: React.RefObject<HTMLCanvasElement>;
+  result: ScadaResult | null;
+  resultHistory: ScadaResult[];
+  isActive: boolean;
+  isDetecting: boolean;
+  error: string | null;
+  deviceId: string | null;
+  deviceLabel: string | null;
+  rtspUrl: string;
+  frameCount: number;
+  autoEnabled: boolean;
+  captureTimer: ReturnType<typeof setInterval> | null;
+  frameTimer: ReturnType<typeof setInterval> | null;
+  ws?: WebSocket;
+  qualityPhase?: string;
+  qualityReason?: string;
+  blurScore?: number;
+  stableFrames?: number;
+  requiredStableFrames?: number;
+  lastRawDetectionCount?: number;
+  lastCropDataUrl?: string;
+  lastCropAt?: number;
+  cropHistory?: CropHistoryItem[];
+  inspectionHistory?: InspectionHistoryItem[];
+}
+
+const CAPTURE_INTERVAL_MS = 2000;
+const FRAME_FETCH_INTERVAL_MS = 500;
+const WS_FRAME_INTERVAL_MS = 300;
+const MAX_HISTORY = 10;
+const ROI = {
+  x1: 0.18,
+  y1: 0.16,
+  x2: 0.82,
+  y2: 0.84,
+};
+
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:9000";
+const WS_PROTOCOL = API_BASE.startsWith("https") ? "wss" : "ws";
+
+function cropStorageKey(cameraId: number) {
+  return `scada:last-durian-crop:${cameraId}`;
+}
+
+function loadStoredCrop(cameraId: number) {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = window.localStorage.getItem(cropStorageKey(cameraId));
+    return raw ? JSON.parse(raw) as { dataUrl: string; timestamp: number } : null;
+  } catch {
+    return null;
+  }
+}
+
+function cropHistoryStorageKey(cameraId: number) {
+  return `scada:last-durian-crops:${cameraId}`;
+}
+
+function loadStoredCropHistory(cameraId: number) {
+  if (typeof window === "undefined") return [];
+  try {
+    const raw = window.localStorage.getItem(cropHistoryStorageKey(cameraId));
+    const parsed = raw ? JSON.parse(raw) as CropHistoryItem[] : [];
+    if (Array.isArray(parsed)) {
+      return parsed
+        .filter((item) => item?.dataUrl)
+        .map((item) => ({
+          dataUrl: item.dataUrl,
+          timestamp: item.timestamp || Date.now(),
+          detections: item.detections || [],
+          imageWidth: item.imageWidth,
+          imageHeight: item.imageHeight,
+        }))
+        .slice(0, 3);
+    }
+  } catch {
+    // Ignore malformed localStorage values.
+  }
+  const single = loadStoredCrop(cameraId);
+  return single ? [{ ...single, detections: [] }] : [];
+}
+
+function saveStoredCropHistory(cameraId: number, history: CropHistoryItem[]) {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.setItem(cropHistoryStorageKey(cameraId), JSON.stringify(history.slice(0, 3)));
+  } catch {
+    // Ignore quota/private mode errors. The live crop still works for this session.
+  }
+}
+
+function inspectionHistoryStorageKey(cameraId: number) {
+  return `scada:inspection-history:${cameraId}`;
+}
+
+function loadStoredInspectionHistory(cameraId: number) {
+  if (typeof window === "undefined") return [];
+  try {
+    const raw = window.localStorage.getItem(inspectionHistoryStorageKey(cameraId));
+    const parsed = raw ? JSON.parse(raw) as InspectionHistoryItem[] : [];
+    if (Array.isArray(parsed)) {
+      return parsed
+        .filter((item) => item?.dataUrl && Array.isArray(item.detections) && item.detections.length > 0)
+        .slice(0, 200);
+    }
+  } catch {
+    // Ignore malformed localStorage values.
+  }
+  return [];
+}
+
+function saveStoredInspectionHistory(cameraId: number, history: InspectionHistoryItem[]) {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.setItem(inspectionHistoryStorageKey(cameraId), JSON.stringify(history.slice(0, 200)));
+  } catch {
+    // Ignore quota/private mode errors. The live session still keeps the history in memory.
+  }
+}
+
+function saveStoredCrop(cameraId: number, dataUrl: string, timestamp: number) {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.setItem(cropStorageKey(cameraId), JSON.stringify({ dataUrl, timestamp }));
+  } catch {
+    // Ignore quota/private mode errors. The live crop still works for this session.
+  }
+}
+
+function dataUrlToBlob(dataUrl: string) {
+  const [meta, content] = dataUrl.split(",");
+  const mime = meta.match(/data:(.*);base64/)?.[1] || "image/jpeg";
+  const binary = atob(content);
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i++) {
+    bytes[i] = binary.charCodeAt(i);
+  }
+  return new Blob([bytes], { type: mime });
+}
+
+function getImagePlacement(canvas: HTMLCanvasElement, imageWidth: number, imageHeight: number) {
+  const scale = Math.min(
+    canvas.width / imageWidth,
+    canvas.height / imageHeight
+  );
+  return {
+    scale,
+    offsetX: (canvas.width - imageWidth * scale) / 2,
+    offsetY: (canvas.height - imageHeight * scale) / 2,
+  };
+}
+
+function drawRoiGuide(
+  ctx: CanvasRenderingContext2D,
+  canvas: HTMLCanvasElement,
+  imageWidth: number,
+  imageHeight: number
+) {
+  const { scale, offsetX, offsetY } = getImagePlacement(canvas, imageWidth, imageHeight);
+  const x = offsetX + ROI.x1 * imageWidth * scale;
+  const y = offsetY + ROI.y1 * imageHeight * scale;
+  const w = (ROI.x2 - ROI.x1) * imageWidth * scale;
+  const h = (ROI.y2 - ROI.y1) * imageHeight * scale;
+
+  ctx.save();
+  ctx.strokeStyle = "rgba(34, 197, 94, 0.95)";
+  ctx.lineWidth = 2;
+  ctx.setLineDash([8, 6]);
+  ctx.roundRect(x, y, w, h, 8);
+  ctx.stroke();
+  ctx.restore();
+}
+
+function drawDetections(
+  ctx: CanvasRenderingContext2D,
+  canvas: HTMLCanvasElement,
+  result: ScadaResult
+) {
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  drawRoiGuide(ctx, canvas, result.imageWidth, result.imageHeight);
+
+  const { scale, offsetX, offsetY } = getImagePlacement(
+    canvas,
+    result.imageWidth,
+    result.imageHeight
+  );
+
+  result.detections.forEach((box) => {
+    const x1 = Math.max(0, Math.min(canvas.width, box.x1 * scale + offsetX));
+    const y1 = Math.max(0, Math.min(canvas.height, box.y1 * scale + offsetY));
+    const x2 = Math.max(0, Math.min(canvas.width, box.x2 * scale + offsetX));
+    const y2 = Math.max(0, Math.min(canvas.height, box.y2 * scale + offsetY));
+    const w = x2 - x1;
+    const h = y2 - y1;
+    if (w <= 1 || h <= 1) return;
+
+    const color = CLASS_COLORS[box.class_name] || "#ffffff";
+
+    const label = `${box.class_name} ${(box.confidence * 100).toFixed(0)}%`;
+    const labelX = Math.max(4, x1 + 4);
+    const labelY = Math.max(18, y1 + 18);
+    ctx.font = "bold 12px Sora, sans-serif";
+    const labelW = ctx.measureText(label).width + 8;
+
+    ctx.fillStyle = `${color}cc`;
+    ctx.beginPath();
+    ctx.roundRect(labelX, labelY - 13, labelW, 18, 3);
+    ctx.fill();
+
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.roundRect(x1, y1, w, h, 4);
+    ctx.stroke();
+
+    ctx.fillStyle = "#fff";
+    ctx.fillText(label, labelX + 4, labelY);
+  });
+}
+
+function scaleCanvasToElement(canvas: HTMLCanvasElement, el: HTMLElement | null) {
+  if (!el) return;
+  const w = el.clientWidth || el.offsetWidth || 640;
+  const h = el.clientHeight || el.offsetHeight || 480;
+  if (canvas.width === w && canvas.height === h) return;
+  canvas.width = w;
+  canvas.height = h;
+}
+
+export class ScadaCameraManager {
+  cameras: CameraChannel[] = [];
+  private threshold = 0.25;
+  private onUpdate: (camera: CameraChannel) => void;
+
+  constructor(count: number, onUpdate: (c: CameraChannel) => void) {
+    this.onUpdate = onUpdate;
+    for (let i = 0; i < count; i++) {
+      this.cameras[i] = this.makeDefault(i);
+    }
+  }
+
+  private makeDefault(id: number): CameraChannel {
+    const storedCrops = loadStoredCropHistory(id);
+    const storedCrop = storedCrops[0];
+    const storedInspections = loadStoredInspectionHistory(id);
+    return {
+      id,
+      label: `Camera ${id + 1}`,
+      mode: "webcam",
+      stream: null,
+      videoRef: { current: null } as React.RefObject<HTMLVideoElement>,
+      canvasRef: { current: null } as React.RefObject<HTMLCanvasElement>,
+      result: null,
+      resultHistory: [],
+      isActive: false,
+      isDetecting: false,
+      error: null,
+      deviceId: null,
+      deviceLabel: null,
+      rtspUrl: "",
+      frameCount: 0,
+      autoEnabled: false,
+      captureTimer: null,
+      frameTimer: null,
+      ws: undefined,
+      qualityPhase: "idle",
+      qualityReason: "waiting_for_fruit",
+      blurScore: undefined,
+      stableFrames: 0,
+      requiredStableFrames: undefined,
+      lastRawDetectionCount: 0,
+      lastCropDataUrl: storedCrop?.dataUrl,
+      lastCropAt: storedCrop?.timestamp,
+      cropHistory: storedCrops,
+      inspectionHistory: storedInspections,
+    };
+  }
+
+  private rememberCrop(index: number, item: CropHistoryItem) {
+    const cam = this.cameras[index];
+    const nextHistory = [item, ...(cam.cropHistory || [])].slice(0, 3);
+    cam.cropHistory = nextHistory;
+    cam.lastCropDataUrl = item.dataUrl;
+    cam.lastCropAt = item.timestamp;
+    saveStoredCrop(index, item.dataUrl, item.timestamp);
+    saveStoredCropHistory(index, nextHistory);
+
+    if (item.detections.length > 0) {
+      const nextInspections = [item, ...(cam.inspectionHistory || [])].slice(0, 200);
+      cam.inspectionHistory = nextInspections;
+      saveStoredInspectionHistory(index, nextInspections);
+    }
+  }
+
+  private async analyzeCrop(index: number, crop: { dataUrl: string; blob: Blob }, fallback: ScadaResult) {
+    let detections: BoundingBox[] = [];
+    let imageWidth: number | undefined;
+    let imageHeight: number | undefined;
+
+    try {
+      const data = await detectWebcamFrame(crop.blob, this.threshold);
+      const cropDetections = (data.detections || []).filter((d) => d.confidence >= this.threshold);
+      detections = cropDetections;
+      imageWidth = data.image_width;
+      imageHeight = data.image_height;
+    } catch {
+      // Do not fall back to frame-level labels. Crop analysis is the source of truth.
+    }
+
+    const item: CropHistoryItem = {
+      dataUrl: crop.dataUrl,
+      timestamp: fallback.timestamp,
+      detections,
+      imageWidth,
+      imageHeight,
+    };
+
+    this.rememberCrop(index, item);
+    fallback.cropDataUrl = crop.dataUrl;
+    fallback.detections = detections;
+  }
+
+  setThreshold(t: number) { this.threshold = t; }
+
+  sendThreshold(index: number) {
+    const cam = this.cameras[index];
+    if (cam.ws && cam.ws.readyState === WebSocket.OPEN) {
+      cam.ws.send(JSON.stringify({ type: "set_confidence", value: this.threshold }));
+    }
+  }
+
+  setRefs(index: number, videoRef: React.RefObject<HTMLVideoElement>, canvasRef: React.RefObject<HTMLCanvasElement>) {
+    this.cameras[index].videoRef = videoRef;
+    this.cameras[index].canvasRef = canvasRef;
+  }
+
+  // ── Webcam mode ────────────────────────────────────────────────
+
+  async startWebcam(index: number, deviceId: string, deviceLabel: string) {
+    const cam = this.cameras[index];
+    if (cam.isActive) return;
+    cam.error = null;
+    cam.mode = "webcam";
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { deviceId: { exact: deviceId } },
+      });
+      cam.stream = stream;
+      cam.deviceId = deviceId;
+      cam.deviceLabel = deviceLabel;
+      cam.isActive = true;
+
+      if (cam.videoRef.current) {
+        cam.videoRef.current.srcObject = stream;
+        cam.videoRef.current.onloadedmetadata = () => {
+          cam.videoRef.current?.play().catch(() => {});
+          this.drawGuide(index);
+          if (cam.autoEnabled) this.startWebSocketDetect(index);
+        };
+        cam.videoRef.current.play().catch(() => {});
+      }
+      this.drawGuide(index);
+      this.onUpdate(cam);
+    } catch (err) {
+      cam.error = err instanceof Error ? err.message : "Loi bat camera";
+      this.onUpdate(cam);
+    }
+  }
+
+  // ── IP Camera (RTSP) mode ───────────────────────────────────────
+
+  async startIPCamera(index: number, rtspUrl: string, label?: string) {
+    const cam = this.cameras[index];
+    if (cam.isActive) return;
+    cam.error = null;
+    cam.mode = "ip";
+    cam.rtspUrl = rtspUrl;
+    cam.deviceLabel = label || rtspUrl;
+
+    try {
+      // Gui RTSP URL len backend truoc (luu cau hinh) roi moi start
+      await configScadaCameras({ [String(index)]: rtspUrl });
+      await startScadaCamera(index);
+      cam.isActive = true;
+
+      // Start frame-fetch loop: pull JPEG from backend, display in <img> via object URL
+      this.startFrameLoop(index);
+      this.drawGuide(index);
+
+      if (cam.autoEnabled) this.startAuto(index);
+      this.onUpdate(cam);
+    } catch (err) {
+      cam.error = err instanceof Error ? err.message : "Loi ket noi IP camera";
+      this.onUpdate(cam);
+    }
+  }
+
+  private startFrameLoop(index: number) {
+    const cam = this.cameras[index];
+    if (cam.frameTimer) clearInterval(cam.frameTimer);
+
+    cam.frameTimer = setInterval(async () => {
+      if (!cam.isActive || cam.mode !== "ip") {
+        clearInterval(cam.frameTimer!);
+        return;
+      }
+      try {
+        const blob = await fetchScadaFrame(index);
+        const url = URL.createObjectURL(blob);
+        if (cam.videoRef.current) {
+          cam.videoRef.current.src = url;
+        }
+      } catch {
+        // Silently ignore frame fetch errors — will retry next interval
+      }
+    }, FRAME_FETCH_INTERVAL_MS);
+  }
+
+  private stopFrameLoop(index: number) {
+    const cam = this.cameras[index];
+    if (cam.frameTimer) {
+      clearInterval(cam.frameTimer);
+      cam.frameTimer = null;
+    }
+    if (cam.videoRef.current) {
+      cam.videoRef.current.src = "";
+    }
+  }
+
+  // ── Stop ───────────────────────────────────────────────────────
+
+  stopCamera(index: number) {
+    const cam = this.cameras[index];
+    this.stopAuto(index);
+    this.stopFrameLoop(index);
+
+    if (cam.mode === "ip") {
+      stopScadaCamera(index).catch(() => {});
+    }
+
+    if (cam.stream) {
+      cam.stream.getTracks().forEach((t) => t.stop());
+      cam.stream = null;
+    }
+    if (cam.ws) {
+      cam.ws.close();
+      cam.ws = undefined;
+    }
+    if (cam.videoRef.current) cam.videoRef.current.srcObject = null;
+    if (cam.canvasRef.current) {
+      const ctx = cam.canvasRef.current.getContext("2d");
+      ctx?.clearRect(0, 0, cam.canvasRef.current.width, cam.canvasRef.current.height);
+    }
+
+    cam.isActive = false;
+    cam.deviceId = null;
+    cam.deviceLabel = null;
+    cam.rtspUrl = "";
+    cam.result = null;
+    cam.resultHistory = [];
+    cam.frameCount = 0;
+    cam.qualityPhase = "idle";
+    cam.qualityReason = "waiting_for_fruit";
+    cam.blurScore = undefined;
+    cam.stableFrames = 0;
+    cam.requiredStableFrames = undefined;
+    cam.lastRawDetectionCount = 0;
+    cam.error = null;
+    this.onUpdate(cam);
+  }
+
+  // ── Auto capture ───────────────────────────────────────────────
+
+  startAuto(index: number) {
+    const cam = this.cameras[index];
+    if (!cam.isActive || cam.autoEnabled) return;
+    cam.autoEnabled = true;
+    if (cam.mode === "webcam") {
+      this.startWebSocketDetect(index);
+    } else {
+      this.captureAndDetect(index);
+      cam.captureTimer = setInterval(() => this.captureAndDetect(index), CAPTURE_INTERVAL_MS);
+    }
+    this.onUpdate(cam);
+  }
+
+  stopAuto(index: number) {
+    const cam = this.cameras[index];
+    if (cam.captureTimer) {
+      clearInterval(cam.captureTimer);
+      cam.captureTimer = null;
+    }
+    if (cam.ws) {
+      cam.ws.close();
+      cam.ws = undefined;
+    }
+    cam.autoEnabled = false;
+    cam.isDetecting = false;
+    this.onUpdate(cam);
+  }
+
+  // ── WebSocket real-time detection (via Bun WS proxy on port 8080) ─────
+
+  startWebSocketDetect(index: number) {
+    const cam = this.cameras[index];
+    if (!cam.isActive || cam.ws) return;
+
+    const url = `${WS_PROTOCOL}://${new URL(API_BASE).host}/ws/scada/detect/${index}/`;
+    const ws = new WebSocket(url);
+
+    ws.onopen = () => {
+      cam.isDetecting = true;
+      this.onUpdate(cam);
+      this._sendWebSocketFrame(index, ws);
+    };
+
+    ws.onmessage = async (event) => {
+      let data: Record<string, unknown>;
+      try {
+        data = JSON.parse(event.data as string);
+      } catch {
+        return;
+      }
+      if (data.type === "error") {
+        cam.error = String(data.message || "Loi nhan dien");
+        this.onUpdate(cam);
+        return;
+      }
+      if (data.type === "quality_status") {
+        cam.qualityPhase = data.phase as string | undefined;
+        cam.qualityReason = data.reason as string | undefined;
+        cam.blurScore = data.blur_score as number | undefined;
+        cam.stableFrames = data.stable_frames as number | undefined;
+        cam.requiredStableFrames = data.required_stable_frames as number | undefined;
+        cam.lastRawDetectionCount = data.raw_detection_count as number | undefined;
+        cam.frameCount += 1;
+        cam.error = null;
+        this.drawGuide(
+          index,
+          (data.image_width as number | undefined) || undefined,
+          (data.image_height as number | undefined) || undefined
+        );
+        this.onUpdate(cam);
+
+        if (cam.isActive && cam.autoEnabled && cam.isDetecting && ws.readyState === WebSocket.OPEN) {
+          setTimeout(() => this._sendWebSocketFrame(index, ws), WS_FRAME_INTERVAL_MS);
+        }
+        return;
+      }
+      if (data.type !== "result") return;
+
+      const quality = data.quality as Record<string, unknown> | undefined;
+      const result: ScadaResult = {
+        detections: (data.detections as ScadaResult["detections"]) || [],
+        imageWidth: (data.image_width as number) || 640,
+        imageHeight: (data.image_height as number) || 480,
+        imageDataUrl: "",
+        timestamp: Date.now(),
+        rawDetectionCount: data.raw_detection_count as number | undefined,
+        trackedDetectionCount: data.tracked_detection_count as number | undefined,
+        confidenceThreshold: data.confidence_threshold as number | undefined,
+        quality: quality
+          ? {
+              phase: quality.phase as string | undefined,
+              reason: quality.reason as string | undefined,
+              blurScore: quality.blur_score as number | undefined,
+              stableFrames: quality.stable_frames as number | undefined,
+              areaRatio: quality.area_ratio as number | undefined,
+              edgeMarginRatio: quality.edge_margin_ratio as number | undefined,
+            }
+          : undefined,
+      };
+
+      this.drawResult(index, result);
+      const crop = this.captureCrop(index, result);
+      if (crop) {
+        await this.analyzeCrop(index, crop, result);
+      }
+      cam.result = result;
+      cam.resultHistory = [result, ...cam.resultHistory].slice(0, MAX_HISTORY);
+      cam.frameCount += 1;
+      cam.qualityPhase = result.quality?.phase || "captured";
+      cam.qualityReason = result.quality?.reason || "frame_accepted";
+      cam.blurScore = result.quality?.blurScore;
+      cam.stableFrames = result.quality?.stableFrames;
+      cam.lastRawDetectionCount = result.rawDetectionCount;
+      cam.error = null;
+      this.onUpdate(cam);
+
+      if (result.detections.length > 0) {
+        cam.qualityPhase = "cooldown";
+        this.onUpdate(cam);
+        setTimeout(() => {
+          const current = this.cameras[index];
+          if (current.isActive) {
+            this.drawGuide(index, result.imageWidth, result.imageHeight);
+          }
+        }, 700);
+      }
+
+      if (cam.isActive && cam.autoEnabled && cam.isDetecting && ws.readyState === WebSocket.OPEN) {
+        setTimeout(() => this._sendWebSocketFrame(index, ws), WS_FRAME_INTERVAL_MS);
+      }
+    };
+
+    ws.onerror = () => {
+      cam.error = "Loi ket noi WebSocket";
+      this.onUpdate(cam);
+    };
+
+    ws.onclose = (e) => {
+      // 1000 = normal close, 1001 = going away — both are intentional
+      const intentional = e.code === 1000 || e.code === 1001;
+      cam.isDetecting = false;
+      cam.ws = undefined;
+      this.onUpdate(cam);
+      if (!intentional && cam.isActive && cam.autoEnabled && cam.mode === "webcam") {
+        setTimeout(() => this.startWebSocketDetect(index), 2000);
+      }
+    };
+
+    cam.ws = ws;
+  }
+
+  private _sendWebSocketFrame(index: number, ws: WebSocket) {
+    const cam = this.cameras[index];
+    if (!cam.isActive || !cam.autoEnabled || !cam.isDetecting || ws.readyState !== WebSocket.OPEN) {
+      return;
+    }
+
+    const video = this.cameras[index].videoRef.current;
+    if (!video || video.readyState < 2 || !video.videoWidth || !video.videoHeight) {
+      setTimeout(() => this._sendWebSocketFrame(index, ws), 100);
+      return;
+    }
+
+    const captureCanvas = document.createElement("canvas");
+    captureCanvas.width = video.videoWidth;
+    captureCanvas.height = video.videoHeight;
+    const ctx = captureCanvas.getContext("2d");
+    if (!ctx) {
+      setTimeout(() => this._sendWebSocketFrame(index, ws), WS_FRAME_INTERVAL_MS);
+      return;
+    }
+    ctx.drawImage(video, 0, 0);
+
+    captureCanvas.toBlob((blob) => {
+      if (blob && ws.readyState === WebSocket.OPEN) {
+        const reader = new FileReader();
+        reader.onload = () => {
+          const base64 = (reader.result as string).split(",")[1];
+          ws.send(JSON.stringify({ type: "frame", data: base64, confidence: this.threshold }));
+        };
+        reader.readAsDataURL(blob);
+      } else if (ws.readyState === WebSocket.OPEN) {
+        setTimeout(() => this._sendWebSocketFrame(index, ws), WS_FRAME_INTERVAL_MS);
+      }
+    }, "image/jpeg", 0.7);
+  }
+
+  // ── Detect ─────────────────────────────────────────────────────
+
+  async captureAndDetect(index: number) {
+    const cam = this.cameras[index];
+    if (!cam.isActive || cam.isDetecting) return;
+
+    const video = cam.videoRef.current;
+    if (!video) return;
+
+    // For IP camera: video.src is already set by frame loop
+    // For webcam: need readyState >= 2
+    if (cam.mode === "webcam" && video.readyState < 2) return;
+
+    cam.isDetecting = true;
+    this.onUpdate(cam);
+
+    try {
+      if (cam.mode === "ip") {
+        // Use backend detection endpoint — sends RTSP frame through YOLO
+        const data = await detectScadaCamera(index, this.threshold);
+        const slotResult = data.results[0];
+
+        // Create a temporary canvas to hold the latest frame image
+        let dataUrl = "";
+        try {
+          const blob = await fetchScadaFrame(index);
+          dataUrl = await blobToDataUrl(blob);
+        } catch {
+          // Use existing video frame
+          const c = document.createElement("canvas");
+          c.width = video.videoWidth || video.clientWidth || 640;
+          c.height = video.videoHeight || video.clientHeight || 480;
+          const ctx2 = c.getContext("2d")!;
+          ctx2.drawImage(video, 0, 0);
+          dataUrl = c.toDataURL("image/jpeg", 0.85);
+        }
+
+        const result: ScadaResult = {
+          detections: slotResult?.detections || [],
+          imageWidth: slotResult?.image_width || 640,
+          imageHeight: slotResult?.image_height || 480,
+          imageDataUrl: dataUrl,
+          timestamp: Date.now(),
+        };
+
+        this.drawResult(index, result);
+        const crop = this.captureCrop(index, result);
+        if (crop) {
+          await this.analyzeCrop(index, crop, result);
+        }
+        cam.result = result;
+        cam.resultHistory = [result, ...cam.resultHistory].slice(0, MAX_HISTORY);
+        cam.frameCount += 1;
+        setTimeout(() => {
+          if (this.cameras[index].isActive) {
+            this.drawGuide(index, result.imageWidth, result.imageHeight);
+          }
+        }, 700);
+
+      } else {
+        // Webcam: capture canvas frame + upload to BE /detect/ endpoint
+        const tempCanvas = document.createElement("canvas");
+        tempCanvas.width = video.videoWidth;
+        tempCanvas.height = video.videoHeight;
+        const tctx = tempCanvas.getContext("2d")!;
+        tctx.drawImage(video, 0, 0);
+
+        const blob = await new Promise<Blob | null>((r) => tempCanvas.toBlob(r, "image/jpeg", 0.85));
+        if (!blob) throw new Error("Blob creation failed");
+
+        // Gui blob vua capture len backend de nhan dien
+        const data = await detectWebcamFrame(blob, this.threshold);
+        const boxes = (data.detections || []).filter(
+          (d) => d.confidence >= this.threshold
+        );
+
+        const result: ScadaResult = {
+          detections: boxes,
+          imageWidth: data.image_width || video.videoWidth,
+          imageHeight: data.image_height || video.videoHeight,
+          imageDataUrl: "",
+          timestamp: Date.now(),
+        };
+
+        this.drawResult(index, result);
+        const crop = this.captureCrop(index, result);
+        if (crop) {
+          await this.analyzeCrop(index, crop, result);
+        }
+        cam.result = result;
+        cam.resultHistory = [result, ...cam.resultHistory].slice(0, MAX_HISTORY);
+        cam.frameCount += 1;
+        setTimeout(() => {
+          if (this.cameras[index].isActive) {
+            this.drawGuide(index, result.imageWidth, result.imageHeight);
+          }
+        }, 700);
+      }
+
+      cam.error = null;
+    } catch (err) {
+      cam.error = err instanceof Error ? err.message : "Loi nhan dien";
+    } finally {
+      cam.isDetecting = false;
+      this.onUpdate(cam);
+    }
+  }
+
+  private drawResult(index: number, result: ScadaResult) {
+    const cam = this.cameras[index];
+    const canvas = cam.canvasRef.current;
+    const video = cam.videoRef.current;
+    if (!canvas || !video) return;
+
+    if (cam.mode === "ip") {
+      // Scale canvas to video element size
+      scaleCanvasToElement(canvas, video);
+      const ctx = canvas.getContext("2d")!;
+      drawDetections(ctx, canvas, result);
+    } else {
+      scaleCanvasToElement(canvas, video);
+      const ctx = canvas.getContext("2d")!;
+      drawDetections(ctx, canvas, result);
+    }
+  }
+
+  private drawGuide(index: number, imageWidth?: number, imageHeight?: number) {
+    const cam = this.cameras[index];
+    const canvas = cam.canvasRef.current;
+    const video = cam.videoRef.current;
+    if (!canvas || !video || !cam.isActive) return;
+
+    scaleCanvasToElement(canvas, video);
+    const width = imageWidth || video.videoWidth || video.clientWidth || 640;
+    const height = imageHeight || video.videoHeight || video.clientHeight || 480;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    drawRoiGuide(ctx, canvas, width, height);
+  }
+
+  private captureCrop(index: number, result: ScadaResult) {
+    if (result.detections.length === 0) return null;
+    const video = this.cameras[index].videoRef.current;
+    if (!video || !video.videoWidth || !video.videoHeight) return null;
+
+    const best = [...result.detections].sort((a, b) => b.confidence - a.confidence)[0];
+    const sx = video.videoWidth / result.imageWidth;
+    const sy = video.videoHeight / result.imageHeight;
+    const padX = Math.max(16, (best.x2 - best.x1) * 0.14);
+    const padY = Math.max(16, (best.y2 - best.y1) * 0.14);
+    const x = Math.max(0, Math.floor((best.x1 - padX) * sx));
+    const y = Math.max(0, Math.floor((best.y1 - padY) * sy));
+    const w = Math.min(video.videoWidth - x, Math.ceil((best.x2 - best.x1 + padX * 2) * sx));
+    const h = Math.min(video.videoHeight - y, Math.ceil((best.y2 - best.y1 + padY * 2) * sy));
+    if (w <= 8 || h <= 8) return null;
+
+    const cropCanvas = document.createElement("canvas");
+    cropCanvas.width = w;
+    cropCanvas.height = h;
+    const ctx = cropCanvas.getContext("2d");
+    if (!ctx) return null;
+    ctx.drawImage(video, x, y, w, h, 0, 0, w, h);
+    const dataUrl = cropCanvas.toDataURL("image/jpeg", 0.88);
+    return {
+      dataUrl,
+      blob: dataUrlToBlob(dataUrl),
+    };
+  }
+
+  cleanup() {
+    this.cameras.forEach((_, i) => this.stopCamera(i));
+  }
+}
+
+function blobToDataUrl(blob: Blob): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result as string);
+    reader.onerror = reject;
+    reader.readAsDataURL(blob);
+  });
+}

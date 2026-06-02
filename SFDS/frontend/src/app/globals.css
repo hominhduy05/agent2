@@ -1,0 +1,325 @@
+@import "tailwindcss";
+
+@custom-variant dark (&:is(.dark *));
+
+@theme {
+  --font-*: initial;
+  --font-outfit: Outfit, sans-serif;
+
+  --breakpoint-*: initial;
+  --breakpoint-2xsm: 375px;
+  --breakpoint-xsm: 425px;
+  --breakpoint-3xl: 2000px;
+  --breakpoint-sm: 640px;
+  --breakpoint-md: 768px;
+  --breakpoint-lg: 1024px;
+  --breakpoint-xl: 1280px;
+  --breakpoint-2xl: 1536px;
+
+  --text-theme-xl: 20px;
+  --text-theme-xl--line-height: 30px;
+  --text-theme-sm: 14px;
+  --text-theme-sm--line-height: 20px;
+  --text-theme-xs: 12px;
+  --text-theme-xs--line-height: 18px;
+
+  /* Brand (Agriculture Emerald) */
+  --color-brand-25: #f0fdf4;
+  --color-brand-50: #dcfce7;
+  --color-brand-100: #bbf7d0;
+  --color-brand-200: #86efac;
+  --color-brand-300: #4ade80;
+  --color-brand-400: #22c55e;
+  --color-brand-500: #16a34a;
+  --color-brand-600: #15803d;
+  --color-brand-700: #14532d;
+  --color-brand-800: #166534;
+  --color-brand-900: #14532d;
+  --color-brand-950: #052e16;
+
+  /* Durian color */
+  --color-durian-50: #f0fdf4;
+  --color-durian-100: #dcfce7;
+  --color-durian-200: #bbf7d0;
+  --color-durian-300: #86efac;
+  --color-durian-400: #4ade80;
+  --color-durian-500: #22c55e;
+  --color-durian-600: #16a34a;
+  --color-durian-700: #15803d;
+  --color-durian-800: #166534;
+  --color-durian-900: #14532d;
+
+  /* Gray */
+  --color-current: currentColor;
+  --color-transparent: transparent;
+  --color-white: #ffffff;
+  --color-black: #101828;
+  --color-gray-25: #fcfcfd;
+  --color-gray-50: #f9fafb;
+  --color-gray-100: #f2f4f7;
+  --color-gray-200: #e4e7ec;
+  --color-gray-300: #d0d5dd;
+  --color-gray-400: #98a2b3;
+  --color-gray-500: #667085;
+  --color-gray-600: #475467;
+  --color-gray-700: #344054;
+  --color-gray-800: #1d2939;
+  --color-gray-900: #101828;
+  --color-gray-950: #0c111d;
+
+  /* Status colors */
+  --color-success-300: #6ce9a6;
+  --color-success-500: #12b76a;
+  --color-error-300: #fda29b;
+  --color-error-500: #f04438;
+  --color-warning-300: #fec84b;
+  --color-warning-500: #f79009;
+}
+
+/* ============================================================
+   DESIGN TOKENS — Dark / Light
+   Aesthetic: Deep forest night — 5-layer dark surfaces,
+   emerald green accent, harvest amber secondary accent.
+   ============================================================ */
+
+:root {
+  --text:           #101828;
+  --text-muted:     #667085;
+  --surface:        #ffffff;
+  --bg-surface:     #ffffff;
+  --bg:            #f2f4f7;
+  --bg-elevated:    #f8f9fa;
+  --bg-overlay:     #ffffff;
+  --bg-hover:       #e9ecef;
+  --bg-input:       #f2f4f7;
+  --border:         #e4e7ec;
+  --border-soft:    #f0f1f3;
+  --border-strong:  #d0d5dd;
+  --accent:         #16a34a;
+  --accent-dim:     rgba(22, 163, 74, 0.1);
+  --accent-faint:   rgba(22, 163, 74, 0.05);
+  --accent-glow:    0 0 0 3px rgba(22, 163, 74, 0.12);
+  --amber:          #d97706;
+  --amber-dim:      rgba(217, 119, 6, 0.1);
+  --amber-faint:    rgba(217, 119, 6, 0.05);
+  --shadow-sm:      0 1px 3px rgba(16, 24, 40, 0.08), 0 1px 2px rgba(16, 24, 40, 0.04);
+  --shadow-md:      0 4px 8px -2px rgba(16, 24, 40, 0.1), 0 2px 4px -2px rgba(16, 24, 40, 0.06);
+  --shadow-lg:      0 12px 16px -4px rgba(16, 24, 40, 0.08), 0 4px 6px -2px rgba(16, 24, 40, 0.04);
+  --radius-sm:      8px;
+  --radius-md:      12px;
+  --radius-lg:      16px;
+
+  /* Harvest amber variant */
+  --harvest-400: #f59e0b;
+  --harvest-50:  #fffbeb;
+  --harvest-500: #d97706;
+  --harvest-600: #b45309;
+
+  /* Success / Error status (light) */
+  --success:      #12b76a;
+  --success-dim:  rgba(18, 183, 106, 0.1);
+  --error:        #f04438;
+  --error-dim:    rgba(240, 68, 56, 0.1);
+  --warning:      #f79009;
+  --warning-dim:  rgba(247, 144, 9, 0.1);
+
+  /* Grade inspection colors */
+  --grade-mature:     #16a34a;
+  --grade-mature-dim: rgba(22, 163, 74, 0.12);
+  --grade-immature:   #d97706;
+  --grade-immature-dim: rgba(217, 119, 6, 0.12);
+  --grade-defective:  #dc2626;
+  --grade-defective-dim: rgba(220, 38, 38, 0.12);
+}
+
+.dark {
+  /* 6-layer deep forest surface hierarchy */
+  --bg:            #060c08;
+  --bg-surface:    #0a130d;
+  --surface:       #0e1a12;
+  --bg-elevated:   #121f16;
+  --bg-overlay:    #17241e;
+  --bg-hover:      #1b2d23;
+  --bg-input:      #0d1610;
+
+  /* Text — warm off-white, never pure white */
+  --text:          #d4e2d6;
+  --text-muted:     #6b8b72;
+  --text-faint:     #3d5440;
+
+  /* Borders — subtle emerald tint */
+  --border:        rgba(74, 222, 128, 0.07);
+  --border-soft:   rgba(74, 222, 128, 0.04);
+  --border-strong: rgba(74, 222, 128, 0.16);
+
+  /* Emerald accent — primary green */
+  --accent:        #4ade80;
+  --accent-dim:    rgba(74, 222, 128, 0.14);
+  --accent-faint:  rgba(74, 222, 128, 0.07);
+  --accent-glow:   0 0 0 3px rgba(74, 222, 128, 0.15), 0 0 20px rgba(74, 222, 128, 0.08);
+
+  /* Harvest amber — warm gold accent */
+  --amber:         #e6b82a;
+  --amber-dim:     rgba(230, 184, 42, 0.12);
+  --amber-faint:   rgba(230, 184, 42, 0.06);
+
+  /* Status */
+  --success:       #4ade80;
+  --success-dim:   rgba(74, 222, 128, 0.12);
+  --error:         #f87171;
+  --error-dim:     rgba(248, 113, 113, 0.12);
+  --warning:       #fbbf24;
+  --warning-dim:   rgba(251, 191, 36, 0.12);
+
+  /* Grade inspection colors */
+  --grade-mature:     #4ade80;
+  --grade-mature-dim: rgba(74, 222, 128, 0.12);
+  --grade-immature:   #fbbf24;
+  --grade-immature-dim: rgba(251, 191, 36, 0.12);
+  --grade-defective:  #f87171;
+  --grade-defective-dim: rgba(248, 113, 113, 0.12);
+
+  /* Harvest variants */
+  --harvest-400:   #f59e0b;
+  --harvest-50:    rgba(245, 158, 11, 0.08);
+  --harvest-500:   #d97706;
+  --harvest-600:   #b45309;
+
+  /* Shadows */
+  --shadow-sm:     0 1px 3px rgba(0, 0, 0, 0.4);
+  --shadow-md:     0 4px 12px rgba(0, 0, 0, 0.5);
+  --shadow-lg:     0 12px 32px rgba(0, 0, 0, 0.6);
+  --shadow-glow:   0 0 20px rgba(74, 222, 128, 0.07);
+
+  --radius-sm:     6px;
+  --radius-md:     10px;
+  --radius-lg:     14px;
+}
+
+@layer base {
+  ::after, ::before, ::backdrop, ::file-selector-button {
+    border-color: var(--border);
+  }
+  button:not(:disabled), [role="button"]:not(:disabled) {
+    cursor: pointer;
+  }
+  body {
+    @apply relative font-normal font-outfit;
+    background-color: var(--bg);
+    color: var(--text);
+  }
+}
+
+/* ============================================================
+   MENU / SIDEBAR UTILITIES
+   ============================================================ */
+
+@utility menu-item {
+  @apply relative flex items-center w-full gap-3 px-3 py-2 font-medium rounded-lg text-theme-sm;
+  color: var(--text-muted);
+  transition: background 0.15s, color 0.15s;
+}
+@utility menu-item-active {
+  background: var(--accent-faint);
+  color: var(--accent);
+}
+@utility menu-item-inactive {
+  &:hover {
+    background: var(--bg-hover);
+    color: var(--text);
+  }
+}
+@utility menu-item-icon {
+  color: var(--accent);
+  opacity: 0.75;
+  transition: opacity 0.15s;
+  .menu-item:hover & { opacity: 1; }
+}
+@utility menu-item-icon-active { color: var(--accent); opacity: 1; }
+@utility menu-item-icon-inactive { opacity: 0.6; .menu-item:hover & { opacity: 0.9; } }
+@utility menu-item-arrow { @apply relative; }
+@utility menu-item-arrow-active { @apply rotate-180; color: var(--accent); }
+@utility menu-item-arrow-inactive { opacity: 0.5; .menu-item:hover & { opacity: 0.8; } }
+@utility menu-dropdown-item {
+  @apply relative flex items-center gap-3 rounded-lg px-3 py-2.5 text-theme-sm font-medium;
+  color: var(--text-muted);
+  transition: background 0.15s, color 0.15s;
+}
+@utility menu-dropdown-item-active { background: var(--accent-dim); color: var(--accent); }
+@utility menu-dropdown-item-inactive {
+  &:hover { background: var(--bg-hover); color: var(--text); }
+}
+@utility menu-dropdown-badge {
+  @apply block rounded-full px-2.5 py-0.5 text-xs font-medium uppercase;
+  background: var(--accent-faint);
+  color: var(--accent);
+}
+@utility menu-dropdown-badge-active { background: var(--accent-dim); }
+@utility menu-dropdown-badge-inactive { opacity: 0.7; &:hover { opacity: 1; } }
+
+@utility no-scrollbar {
+  &::-webkit-scrollbar { display: none; }
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+@utility custom-scrollbar {
+  &::-webkit-scrollbar { width: 6px; }
+  &::-webkit-scrollbar-track { background: transparent; }
+  &::-webkit-scrollbar-thumb {
+    background: var(--border-strong);
+    border-radius: 3px;
+    &:hover { background: var(--accent); }
+  }
+}
+
+/* ============================================================
+   RECHARTS & FLATPICKR
+   ============================================================ */
+
+.recharts-cartesian-grid-horizontal line,
+.recharts-cartesian-grid-vertical line {
+  stroke: var(--border);
+}
+.recharts-text { fill: var(--text-muted); }
+.recharts-tooltip-wrapper { z-index: 99999; }
+
+/* Flatpickr dark */
+.dark .flatpickr-calendar {
+  background: var(--bg-elevated) !important;
+  border: 1px solid var(--border-strong) !important;
+  border-radius: 12px !important;
+  box-shadow: var(--shadow-lg) !important;
+}
+.dark .flatpickr-day { color: var(--text-muted) !important; border-radius: 8px !important; }
+.dark .flatpickr-day:hover { background: var(--bg-hover) !important; border-color: var(--bg-hover) !important; }
+.dark .flatpickr-day.selected { background: var(--accent) !important; border-color: var(--accent) !important; color: #07090a !important; }
+.dark .flatpickr-months .flatpickr-month,
+.dark .flatpickr-current-month .flatpickr-monthDropdown-months { color: var(--text) !important; }
+.dark .flatpickr-weekday { color: var(--text-faint) !important; }
+
+/* Flatpickr light */
+.flatpickr-calendar {
+  background: #ffffff !important;
+  border: 1px solid #e4e7ec !important;
+  border-radius: 12px !important;
+  box-shadow: 0 12px 16px -4px rgba(16, 24, 40, 0.08), 0 4px 6px -2px rgba(16, 24, 40, 0.04) !important;
+}
+.flatpickr-day { color: #344054 !important; border-radius: 8px !important; }
+.flatpickr-day:hover { background: #f2f4f7 !important; border-color: #f2f4f7 !important; }
+.flatpickr-day.selected { background: #16a34a !important; border-color: #16a34a !important; color: #ffffff !important; }
+.flatpickr-months .flatpickr-month,
+.flatpickr-current-month .flatpickr-monthDropdown-months { color: #101828 !important; }
+.flatpickr-weekday { color: #98a2b3 !important; }
+span.flatpickr-weekday { background: transparent !important; }
+
+/* ============================================================
+   GLOBAL INPUT & FORM DEFAULTS (dark)
+   ============================================================ */
+
+.dark input[type="date"]::-webkit-inner-spin-button,
+.dark input[type="time"]::-webkit-inner-spin-button,
+.dark input[type="date"]::-webkit-calendar-picker-indicator,
+.dark input[type="time"]::-webkit-calendar-picker-indicator {
+  filter: invert(0.7);
+}
