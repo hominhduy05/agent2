@@ -1,6 +1,0 @@
-{
-  "files": ["frontend/src/app/layout.tsx"],
-  "insertBefore": "</body>",
-  "commentSyntax": "html",
-  "cspChecked": false
-}
