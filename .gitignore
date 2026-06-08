@@ -69,8 +69,8 @@ frontend/.env.production.local
 # IDE & OS
 # ============================================================
 .cursor/
-.agents/skills/impeccable
-.impeccable/live
+.agents/
+.impeccable/
 .venv/
 .cursor-ai/
 .vscode/
