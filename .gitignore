@@ -1,0 +1,91 @@
+# ============================================================
+# Dataset & Training outputs
+# ============================================================
+"/Durian Thesis.v3i.yolov8/"
+"Durian Thesis.v3i.yolov8/"
+
+/runs/
+*.vott
+*.zip
+*.tar.gz
+*.rar
+*.7z
+
+# ============================================================
+# Trained model files (binary, too large for git)
+# ============================================================
+*.engine
+*.onnx
+*.pt
+*.pth
+*.pkl
+*.h5
+*.mlmodel
+
+# ============================================================
+# Backend
+# ============================================================
+backend/__pycache__/
+backend/*.pyc
+backend/*.db
+backend/durian.db
+backend/durian.db-journal
+backend/*.log
+backend/.venv/
+backend/env/
+backend/env37/
+venv/
+env/
+env37/
+
+# Conda env
+C:\Users\User_06\anaconda3\envs\admin\
+.env
+.env.local
+.env.*.local
+
+# Mosquitto config with local paths (optional, keep if you want to share it)
+/backend/mosquitto.conf
+
+# ============================================================
+# Frontend
+# ============================================================
+frontend/node_modules/
+frontend/.next/
+frontend/out/
+frontend/.vercel/
+frontend/.turbo/
+frontend/.DS_Store
+frontend/npm-debug.log*
+frontend/yarn-debug.log*
+frontend/yarn-error.log*
+frontend/.env
+frontend/.env.local
+frontend/.env.development.local
+frontend/.env.test.local
+frontend/.env.production.local
+
+# ============================================================
+# IDE & OS
+# ============================================================
+.cursor/
+.agents/skills/impeccable
+.impeccable/live
+.venv/
+.cursor-ai/
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+storage/
+# ============================================================
+# Misc
+# ============================================================
+*.bak
+*.tmp
+*.temp
