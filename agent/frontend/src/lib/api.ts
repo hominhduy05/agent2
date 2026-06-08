@@ -26,6 +26,10 @@ export interface SFDSHealthData {
   sfds_status?: "online" | "offline";
   status_code?: number | null;
   status?: string;
+  data?: {
+    status?: string;
+    [key: string]: unknown;
+  };
   cameras?: number;
   message?: string;
   [key: string]: unknown;

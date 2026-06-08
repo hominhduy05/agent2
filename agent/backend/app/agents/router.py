@@ -75,33 +75,10 @@ async def _sse_generator(
 
 @router.get("/models")
 async def list_lm_studio_models():
-    """List models currently exposed by LM Studio's OpenAI-compatible API."""
-    import httpx
-
-    base_url = settings.lm_studio_url.replace("/v1/chat/completions", "")
-    try:
-        async with httpx.AsyncClient(base_url=base_url, timeout=10) as client:
-            response = await client.get("/v1/models")
-            response.raise_for_status()
-            data = response.json()
-    except httpx.ConnectError:
-        raise HTTPException(503, "Cannot connect to LM Studio. Is the server running on port 1234?")
-    except httpx.HTTPStatusError as e:
-        raise HTTPException(e.response.status_code, e.response.text)
-
-    models = []
-    for item in data.get("data", []):
-        model_id = item.get("id")
-        if not model_id:
-            continue
-        if "embed" in model_id.lower() or "embedding" in model_id.lower():
-            continue
-        models.append({"id": model_id, "label": model_id})
-    if not models:
-        models = [{"id": settings.chat_agent_model, "label": settings.chat_agent_model}]
-
+    """Return the single model used by the Chat Agent."""
+    chat_model = {"id": settings.chat_agent_model, "label": settings.chat_agent_model}
     return {
-        "models": models,
+        "models": [chat_model],
         "default_model": settings.chat_agent_model,
         "agent_models": {
             "vision_agent": settings.vision_agent_model,

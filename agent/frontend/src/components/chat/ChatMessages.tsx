@@ -2,6 +2,7 @@
 
 import { memo } from "react";
 import { Check, ChevronDown, Copy, Sparkles } from "lucide-react";
+import { MarkdownContent } from "./MarkdownContent";
 
 interface ChatMessageData {
   id: string;
@@ -56,7 +57,9 @@ function PureChatMessages({
                 <>
                   <div className="cm-avatar cm-avatar--bot"><Sparkles size={14} /></div>
                   <div className="cm-content">
-                    <div className="cm-bubble cm-bubble--assistant">{msg.content}</div>
+                    <div className="cm-bubble cm-bubble--assistant">
+                      <MarkdownContent content={msg.content} />
+                    </div>
                     <div className="cm-actions">
                       <button
                         className={`cm-action-btn${copiedId === msg.id ? " copied" : ""}`}
@@ -99,7 +102,7 @@ function PureChatMessages({
                     <span className="cm-dots">
                       <span /><span /><span />
                     </span>
-                  ) : streamingContent}
+                  ) : <MarkdownContent content={streamingContent} />}
                 </div>
               </div>
             </div>

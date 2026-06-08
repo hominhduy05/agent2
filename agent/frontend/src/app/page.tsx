@@ -40,21 +40,25 @@ export default function HomePage() {
 
   useEffect(() => {
     Promise.allSettled([
-      getHealth().then((d) => { setHealth(d); setHealthErr(false); }),
+      getHealth().then((d) => { setHealth(d); setHealthErr(false); }).catch(() => setHealthErr(true)),
       getSFDSHealth().then((d) => { setSfds(d); setSfdsErr(false); }).catch(() => setSfdsErr(true)),
     ]).finally(() => setLoading(false));
   }, []);
 
   const backendStatus = health ? "online" : healthErr ? "offline" : "offline";
   const lmStatus = health?.lm_studio_url ? "online" : "offline";
-  const sfdsStatus = sfds?.status === "ok" ? "online" : sfdsErr ? "offline" : "offline";
+  const sfdsOnline = sfds?.sfds_status === "online" || sfds?.status === "ok" || sfds?.data?.status === "ok";
+  const sfdsStatus = sfdsOnline ? "online" : sfdsErr ? "offline" : "offline";
+  const sfdsValue = sfdsStatus === "online"
+    ? (typeof sfds?.cameras === "number" ? `${sfds.cameras} cameras` : "Connected")
+    : "Offline";
 
   return (
     <AppShell>
       <div className="status-strip">
         <StatusPill status={backendStatus} label="Backend API" value={backendStatus === "online" ? "Connected" : "Offline"} />
         <StatusPill status={lmStatus} label="LM Studio" value={lmStatus === "online" ? (health?.model?.split("/").pop() ?? "Connected") : "Offline"} />
-        <StatusPill status={sfdsStatus} label="SFDS" value={sfdsStatus === "online" ? `${sfds?.cameras ?? "?"} cameras` : "Offline"} />
+        <StatusPill status={sfdsStatus} label="SFDS" value={sfdsValue} />
       </div>
 
       <div className="metric-grid">

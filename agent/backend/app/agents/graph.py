@@ -20,6 +20,14 @@ from .tools import (
     get_current_sfds_status,
 )
 
+LANGUAGE_RULE = (
+    "Language rule: Always reply in the user's primary language. "
+    "If the user writes Vietnamese, reply in Vietnamese. "
+    "If the user writes English, reply in English. "
+    "If the user mixes languages, use the dominant language of the latest user message. "
+    "Do not switch languages unless the user asks you to."
+)
+
 SYSTEM_PROMPTS = {
     "vision_analyzer": (
         "You are a computer vision expert specializing in SCADA/IoT industrial systems. "
@@ -96,23 +104,27 @@ def _message_has_image(message) -> bool:
     )
 
 
+def _prompt(name: str) -> SystemMessage:
+    return SystemMessage(content=f"{SYSTEM_PROMPTS[name]}\n\n{LANGUAGE_RULE}")
+
+
 @lru_cache(maxsize=16)
 def _get_vision_agent(model: str | None = None):
     from .base import get_llm
     return create_react_agent(
         get_llm(model or settings.vision_agent_model),
         tools=VISION_TOOLS,
-        prompt=SystemMessage(content=SYSTEM_PROMPTS["vision_analyzer"]),
+        prompt=_prompt("vision_analyzer"),
     )
 
 
-@lru_cache(maxsize=16)
-def _get_chat_agent(model: str | None = None):
+@lru_cache(maxsize=1)
+def _get_chat_agent():
     from .base import get_llm
     return create_react_agent(
-        get_llm(model or settings.chat_agent_model),
+        get_llm(settings.chat_agent_model),
         tools=CHAT_TOOLS,
-        prompt=SystemMessage(content=SYSTEM_PROMPTS["operation_assistant"]),
+        prompt=_prompt("operation_assistant"),
     )
 
 
@@ -125,7 +137,8 @@ def _get_report_agent(model: str | None = None):
         prompt=SystemMessage(
             content="You are a professional report generation specialist. "
             "Use the generate_report tool to create well-formatted reports from analysis content. "
-            "Always extract the key information and present it clearly."
+            "Always extract the key information and present it clearly. "
+            f"{LANGUAGE_RULE}"
         ),
     )
 

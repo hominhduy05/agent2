@@ -5,6 +5,14 @@ from typing import Any, AsyncGenerator
 
 from app.core.config import SYSTEM_PROMPTS, settings
 
+LANGUAGE_RULE = (
+    "Language rule: Always reply in the user's primary language. "
+    "If the user writes Vietnamese, reply in Vietnamese. "
+    "If the user writes English, reply in English. "
+    "If the user mixes languages, use the dominant language of the latest user message. "
+    "Do not switch languages unless the user asks you to."
+)
+
 
 class LLMService:
     def __init__(self):
@@ -25,7 +33,7 @@ class LLMService:
     def _build_vision_messages(
         self, image_b64: str, prompt: str, role: str
     ) -> list[dict[str, Any]]:
-        system_content = SYSTEM_PROMPTS[role]
+        system_content = f"{SYSTEM_PROMPTS[role]}\n\n{LANGUAGE_RULE}"
         return [
             {"role": "system", "content": system_content},
             {
@@ -41,9 +49,15 @@ class LLMService:
         ]
 
     def _build_text_messages(
-        self, message: str, role: str, history: list[dict[str, str]] | None = None
+        self,
+        message: str,
+        role: str,
+        history: list[dict[str, str]] | None = None,
+        system_context: str | None = None,
     ) -> list[dict[str, Any]]:
-        system_content = SYSTEM_PROMPTS[role]
+        system_content = f"{SYSTEM_PROMPTS[role]}\n\n{LANGUAGE_RULE}"
+        if system_context:
+            system_content = f"{system_content}\n\n{system_context}"
         messages = [{"role": "system", "content": system_content}]
         if history:
             messages.extend(history[-settings.chat_history_messages:])
@@ -120,18 +134,20 @@ class LLMService:
         message: str,
         history: list[dict[str, str]] | None = None,
         model: str | None = None,
+        system_context: str | None = None,
     ) -> str:
-        messages = self._build_text_messages(message, "operation_assistant", history)
-        return await self._post(messages, model, settings.chat_max_tokens)
+        messages = self._build_text_messages(message, "operation_assistant", history, system_context)
+        return await self._post(messages, settings.chat_agent_model, settings.chat_max_tokens)
 
     async def stream_chat(
         self,
         message: str,
         history: list[dict[str, str]] | None = None,
         model: str | None = None,
+        system_context: str | None = None,
     ) -> AsyncGenerator[str, None]:
-        messages = self._build_text_messages(message, "operation_assistant", history)
-        async for token in self._stream_post(messages, model, settings.chat_max_tokens):
+        messages = self._build_text_messages(message, "operation_assistant", history, system_context)
+        async for token in self._stream_post(messages, settings.chat_agent_model, settings.chat_max_tokens):
             yield token
 
     async def close(self):

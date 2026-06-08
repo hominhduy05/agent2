@@ -1,6 +1,6 @@
 "use client";
 
-import { BoundingBox, CLASS_COLORS } from "@/lib/types";
+import { BoundingBox, CLASS_COLORS, CLASS_DISPLAY_LABELS, CLASS_GRADES } from "@/lib/types";
 import {
   configScadaCameras,
   detectScadaCamera,
@@ -246,25 +246,40 @@ function drawDetections(
 
     const color = CLASS_COLORS[box.class_name] || "#ffffff";
 
-    const label = `${box.class_name} ${(box.confidence * 100).toFixed(0)}%`;
-    const labelX = Math.max(4, x1 + 4);
-    const labelY = Math.max(18, y1 + 18);
-    ctx.font = "bold 12px Sora, sans-serif";
-    const labelW = ctx.measureText(label).width + 8;
-
-    ctx.fillStyle = `${color}cc`;
-    ctx.beginPath();
-    ctx.roundRect(labelX, labelY - 13, labelW, 18, 3);
-    ctx.fill();
-
     ctx.strokeStyle = color;
     ctx.lineWidth = 2;
     ctx.beginPath();
     ctx.roundRect(x1, y1, w, h, 4);
     ctx.stroke();
 
+    const gradeLabel = CLASS_GRADES[box.class_name] || box.class_name;
+    const conditionLabel = CLASS_DISPLAY_LABELS[box.class_name] || box.class_name;
+    const labelHeight = 24;
+    const labelPadX = 8;
+    const labelY = Math.max(labelHeight + 4, y1 + labelHeight);
+    ctx.setLineDash([]);
+    ctx.font = "bold 15px Sora, sans-serif";
+
+    const gradeW = Math.max(28, ctx.measureText(gradeLabel).width + labelPadX * 2);
+    const conditionW = ctx.measureText(conditionLabel).width + labelPadX * 2;
+    const gradeX = Math.max(4, x1 + 4);
+    const conditionX = Math.max(
+      gradeX + gradeW + 6,
+      Math.min(canvas.width - conditionW - 4, x2 - conditionW - 4)
+    );
+
+    ctx.fillStyle = `${color}dd`;
+    ctx.beginPath();
+    ctx.roundRect(gradeX, labelY - labelHeight + 3, gradeW, labelHeight, 4);
+    ctx.fill();
+
+    ctx.beginPath();
+    ctx.roundRect(conditionX, labelY - labelHeight + 3, conditionW, labelHeight, 4);
+    ctx.fill();
+
     ctx.fillStyle = "#fff";
-    ctx.fillText(label, labelX + 4, labelY);
+    ctx.fillText(gradeLabel, gradeX + labelPadX, labelY - 5);
+    ctx.fillText(conditionLabel, conditionX + labelPadX, labelY - 5);
   });
 }
 

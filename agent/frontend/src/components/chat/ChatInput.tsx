@@ -85,6 +85,7 @@ function PureChatInput({
   };
 
   const selectedModelLabel = models.find((m) => m.id === selectedModel)?.label ?? selectedModel;
+  const canChooseModel = models.length > 1;
 
   return (
     <div className="ci-area">
@@ -143,14 +144,14 @@ function PureChatInput({
               <div className="ci-model-wrap" ref={modelRef}>
                 <button
                   className="ci-model-btn"
-                  onClick={() => setModelOpen((v) => !v)}
-                  title="Select model"
+                  onClick={() => canChooseModel && setModelOpen((v) => !v)}
+                  title="Chat Agent model"
                 >
                   <span className="ci-provider-dot" />
                   <span>{selectedModelLabel}</span>
-                  <ChevronDown size={12} />
+                  {canChooseModel && <ChevronDown size={12} />}
                 </button>
-                {modelOpen && (
+                {canChooseModel && modelOpen && (
                   <div className="ci-model-dropdown">
                     {models.map((m) => (
                       <button

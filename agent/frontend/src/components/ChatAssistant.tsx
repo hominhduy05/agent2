@@ -3,6 +3,7 @@
 import { useState, useRef, useEffect } from "react";
 import { Send, MessageSquare, AlertCircle, Bot, User, WifiOff } from "lucide-react";
 import { streamDirectChatMessage } from "@/lib/api";
+import { MarkdownContent } from "@/components/chat/MarkdownContent";
 
 interface Message {
   role: "user" | "assistant";
@@ -132,7 +133,9 @@ export default function ChatAssistant() {
 
         {messages.map((m, i) => (
           <div key={i} className={`chat-bubble-wrap ${m.role}`}>
-            <div className="chat-bubble">{m.content}</div>
+            <div className="chat-bubble">
+              {m.role === "assistant" ? <MarkdownContent content={m.content} /> : m.content}
+            </div>
             <div className="chat-meta">
               {m.role === "user" ? <User size={10} /> : <Bot size={10} />}
               <span style={{ marginLeft: 4 }}>{formatTime(m.timestamp)}</span>
@@ -144,7 +147,7 @@ export default function ChatAssistant() {
         {streamingContent !== null && (
           <div className="chat-bubble-wrap assistant">
             <div className={`chat-bubble${streamingContent === "" ? "" : " streaming-cursor"}`}>
-              {streamingContent}
+              <MarkdownContent content={streamingContent} />
             </div>
             <div className="chat-meta">
               <Bot size={10} />

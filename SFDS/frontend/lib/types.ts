@@ -32,6 +32,18 @@ export const CLASS_LABELS: Record<string, string> = {
   mature:   "Chin",
 };
 
+export const CLASS_GRADES: Record<string, string> = {
+  defective: "C",
+  immature:  "B",
+  mature:    "A",
+};
+
+export const CLASS_DISPLAY_LABELS: Record<string, string> = {
+  defective: "Hư hỏng",
+  immature:  "Chưa chín",
+  mature:    "Chín",
+};
+
 // ---------------------------------------------------------------------------
 // Export grades & actual conditions (for Dataset labeling)
 // ---------------------------------------------------------------------------

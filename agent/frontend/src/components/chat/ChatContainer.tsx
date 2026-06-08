@@ -13,7 +13,7 @@ import {
 import { ChatSidebar } from "./ChatSidebar";
 import { ChatMessages } from "./ChatMessages";
 import { ChatInput } from "./ChatInput";
-import { listAgentModels, LMStudioModel, streamAgentMessage, streamDirectChatMessage } from "@/lib/api";
+import { streamAgentMessage, streamDirectChatMessage } from "@/lib/api";
 
 interface ChatAttachment {
   id: string;
@@ -101,9 +101,7 @@ export default function ChatContainer() {
   const [visibility, setVisibility] = useState<"private" | "public">("private");
   const [visDropOpen, setVisDropOpen] = useState(false);
   const [selectedModel, setSelectedModel] = useState(DEFAULT_MODEL);
-  const [models, setModels] = useState<LMStudioModel[]>([
-    { id: DEFAULT_MODEL, label: DEFAULT_MODEL },
-  ]);
+  const models = [{ id: DEFAULT_MODEL, label: DEFAULT_MODEL }];
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [attachment, setAttachment] = useState<ChatAttachment | null>(null);
 
@@ -169,22 +167,6 @@ export default function ChatContainer() {
     };
     wrap.addEventListener("scroll", onScroll, { passive: true });
     return () => wrap.removeEventListener("scroll", onScroll);
-  }, []);
-
-  useEffect(() => {
-    listAgentModels()
-      .then((data) => {
-        const loadedModels = data.models.length > 0
-          ? data.models
-          : [{ id: data.default_model, label: data.default_model }];
-
-        setModels(loadedModels);
-        setSelectedModel(data.default_model || loadedModels[0].id);
-      })
-      .catch(() => {
-        setModels([{ id: DEFAULT_MODEL, label: DEFAULT_MODEL }]);
-        setSelectedModel(DEFAULT_MODEL);
-      });
   }, []);
 
   // Close visibility dropdown on outside click
@@ -254,7 +236,7 @@ export default function ChatContainer() {
         outgoingText,
         activeSessionId,
         outgoingAttachment.url,
-        selectedModel,
+        undefined,
         (token) => {
           fullContent += token;
           setStreamingContent((prev) => (prev ?? "") + token);
@@ -294,7 +276,7 @@ export default function ChatContainer() {
       : streamDirectChatMessage(
       outgoingText,
       activeSessionId,
-      selectedModel,
+      undefined,
       (token) => {
         fullContent += token;
         setStreamingContent((prev) => (prev ?? "") + token);
@@ -333,7 +315,7 @@ export default function ChatContainer() {
     );
 
     stopStreamRef.current = stop;
-  }, [attachment, isLoading, messages, messagesBySession, selectedModel, sessionId]);
+  }, [attachment, isLoading, messages, messagesBySession, sessionId]);
 
   const handleSend = useCallback(() => {
     sendMessage(input);

@@ -69,6 +69,9 @@ frontend/.env.production.local
 # IDE & OS
 # ============================================================
 .cursor/
+.agents/
+.impeccable/
+.venv/
 .cursor-ai/
 .vscode/
 .idea/
@@ -79,7 +82,7 @@ frontend/.env.production.local
 Thumbs.db
 ehthumbs.db
 Desktop.ini
-
+storage/
 # ============================================================
 # Misc
 # ============================================================
