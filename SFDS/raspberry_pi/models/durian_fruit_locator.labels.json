@@ -1,0 +1,11 @@
+{
+  "class_labels": [
+    "defective",
+    "immature",
+    "mature"
+  ],
+  "imgsz": 640,
+  "opset": 12,
+  "dynamic": false,
+  "nms": false
+}

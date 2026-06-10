@@ -13,7 +13,7 @@ export default function AdminLayout({
 }) {
   const { isExpanded, isHovered, isMobileOpen } = useSidebar();
   const pathname = usePathname();
-  const isScada = pathname.startsWith("/scada");
+  const isRealtimeView = pathname.startsWith("/scada") || pathname.startsWith("/detect");
 
   const mainContentMargin = isMobileOpen
     ? "ml-0"
@@ -31,8 +31,8 @@ export default function AdminLayout({
       >
         <AppHeader />
         <div style={{
-          padding: isScada ? "8px 12px" : "20px 24px",
-          maxWidth: isScada ? "none" : "1440px",
+          padding: isRealtimeView ? "8px 12px" : "20px 24px",
+          maxWidth: isRealtimeView ? "none" : "1440px",
           margin: "0 auto",
         }}>
           {children}
