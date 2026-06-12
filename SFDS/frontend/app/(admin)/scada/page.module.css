@@ -510,7 +510,6 @@
   object-fit: contain;
   background: #000;
   display: block;
-  filter: brightness(0.78) contrast(1.12) saturate(0.92);
 }
 
 .cameraCanvas {

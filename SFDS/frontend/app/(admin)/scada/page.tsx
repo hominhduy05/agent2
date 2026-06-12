@@ -3,6 +3,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import { CameraChannel, ScadaCameraManager } from "@/lib/scada-camera";
 import DetectionPanel from "@/components/scada/DetectionPanel";
+import CameraConfig from "@/components/scada/CameraConfig";
 import styles from "./page.module.css";
 
 interface MediaDevice {
@@ -16,7 +17,9 @@ export default function ScadaPage() {
   const [threshold, setThreshold] = useState(0.25);
   const [devices, setDevices] = useState<MediaDevice[]>([]);
   const [showDeviceModal, setShowDeviceModal] = useState(false);
+  const [showConfigModal, setShowConfigModal] = useState(false);
   const [pendingId, setPendingId] = useState<number | null>(null);
+  const [sourceMode, setSourceMode] = useState<"webcam" | "ip">("webcam");
 
   const managerRef = useRef<ScadaCameraManager | null>(null);
   const videoRefs = useRef<(React.RefObject<HTMLVideoElement | null>)[]>([]);
@@ -98,6 +101,17 @@ export default function ScadaPage() {
     if (selectedId === null) setSelectedId(pendingId);
   };
 
+  const handleStartIPCamera = async (rtspUrl: string) => {
+    if (pendingId === null) return;
+    setShowDeviceModal(false);
+    const m = managerRef.current;
+    if (!m) return;
+    await m.startIPCamera(pendingId, rtspUrl);
+    m.startAuto(pendingId);
+    setPendingId(null);
+    if (selectedId === null) setSelectedId(pendingId);
+  };
+
   const handleToggle = (id: number) => {
     const m = managerRef.current;
     if (!m) return;
@@ -136,6 +150,29 @@ export default function ScadaPage() {
             </p>
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+            {/* Config gear button */}
+            <button
+              onClick={() => setShowConfigModal(true)}
+              title="Cau hinh Camera IP"
+              style={{
+                width: "32px",
+                height: "32px",
+                borderRadius: "8px",
+                border: "1px solid var(--border)",
+                background: "var(--bg-elevated)",
+                cursor: "pointer",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                color: "var(--text-muted)",
+                transition: "all 0.15s",
+              }}
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+                <circle cx="12" cy="12" r="3"/>
+                <path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-2 2 2 2 0 01-2-2v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83 0 2 2 0 010-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 01-2-2 2 2 0 012-2h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 010-2.83 2 2 0 012.83 0l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 012-2 2 2 0 012 2v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 0 2 2 0 010 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 012 2 2 2 0 01-2 2h-.09a1.65 1.65 0 00-1.51 1z"/>
+              </svg>
+            </button>
             <div className={styles.statusRow}>
               <div className={`${styles.statusDot} ${activeCount > 0 ? styles.active : ""}`} />
               <span className={styles.statusLabel}>{activeCount > 0 ? `${activeCount} active` : "Inactive"}</span>
@@ -309,7 +346,7 @@ export default function ScadaPage() {
             Threshold: {(threshold * 100).toFixed(0)}%
           </div>
           <div className={styles.statusItem} style={{ marginLeft: "auto" }}>
-            Webcam PC
+            {sourceMode === "ip" ? "IP Camera" : "Webcam"}
           </div>
         </div>
       </div>
@@ -339,46 +376,195 @@ export default function ScadaPage() {
         )}
       </div>
 
-      {/* ── Webcam Picker Modal ──────────────────────────────────── */}
+      {/* ── Source Picker Modal (webcam vs IP) ───────────────────── */}
       {showDeviceModal && pendingId !== null && (
         <div className={styles.modalOverlay} onClick={() => setShowDeviceModal(false)}>
           <div className={styles.modalCard} onClick={(e) => e.stopPropagation()}>
-            <h2 className={styles.modalTitle}>Chon webcam — Camera {pendingId + 1}</h2>
+            <h2 className={styles.modalTitle}>Chon nguon — Camera {pendingId + 1}</h2>
 
-            {devices.length === 0 ? (
-              <p className={styles.modalEmpty}>
-                Khong tim thay webcam nao.<br />
-                Vui long cam camera vao PC va cho phep truy cap camera.
-              </p>
+            {/* Source mode toggle */}
+            <div style={{ display: "flex", gap: "6px", marginBottom: "16px" }}>
+              <button
+                onClick={() => setSourceMode("webcam")}
+                style={{
+                  flex: 1,
+                  padding: "8px 12px",
+                  borderRadius: "8px",
+                  border: `1px solid ${sourceMode === "webcam" ? "var(--accent)" : "var(--border)"}`,
+                  background: sourceMode === "webcam" ? "var(--accent-dim)" : "var(--bg-elevated)",
+                  color: sourceMode === "webcam" ? "var(--accent)" : "var(--text-muted)",
+                  fontFamily: "var(--font-outfit)",
+                  fontSize: "12px",
+                  fontWeight: 600,
+                  cursor: "pointer",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  gap: "6px",
+                }}
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+                  <path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z"/>
+                  <circle cx="12" cy="13" r="4"/>
+                </svg>
+                Webcam
+              </button>
+              <button
+                onClick={() => setSourceMode("ip")}
+                style={{
+                  flex: 1,
+                  padding: "8px 12px",
+                  borderRadius: "8px",
+                  border: `1px solid ${sourceMode === "ip" ? "var(--accent)" : "var(--border)"}`,
+                  background: sourceMode === "ip" ? "var(--accent-dim)" : "var(--bg-elevated)",
+                  color: sourceMode === "ip" ? "var(--accent)" : "var(--text-muted)",
+                  fontFamily: "var(--font-outfit)",
+                  fontSize: "12px",
+                  fontWeight: 600,
+                  cursor: "pointer",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  gap: "6px",
+                }}
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+                  <rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/>
+                </svg>
+                IP Camera
+              </button>
+            </div>
+
+            {sourceMode === "webcam" ? (
+              devices.length === 0 ? (
+                <p className={styles.modalEmpty}>
+                  Khong tim thay webcam nao.<br />
+                  Vui long cho phep truy cap camera.
+                </p>
+              ) : (
+                <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
+                  {devices.map((dev) => {
+                    const used = cameras.some((c) => c.deviceId === dev.deviceId && c.isActive);
+                    return (
+                      <button
+                        key={dev.deviceId}
+                        className={styles.deviceItem}
+                        onClick={() => handleStartWebcam(dev.deviceId, dev.label)}
+                        disabled={used}
+                      >
+                        <div className={styles.deviceIcon}>
+                          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+                            <path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z"/>
+                            <circle cx="12" cy="13" r="4"/>
+                          </svg>
+                        </div>
+                        <div>
+                          <div className={styles.deviceName}>{dev.label}</div>
+                          {used && <div className={styles.deviceUsed}>Da su dung</div>}
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              )
             ) : (
-              <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
-                {devices.map((dev) => {
-                  const used = cameras.some((c) => c.deviceId === dev.deviceId && c.isActive);
-                  return (
-                    <button
-                      key={dev.deviceId}
-                      className={styles.deviceItem}
-                      onClick={() => handleStartWebcam(dev.deviceId, dev.label)}
-                      disabled={used}
-                    >
-                      <div className={styles.deviceIcon}>
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
-                          <path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z"/>
-                          <circle cx="12" cy="13" r="4"/>
-                        </svg>
-                      </div>
-                      <div>
-                        <div className={styles.deviceName}>{dev.label}</div>
-                        {used && <div className={styles.deviceUsed}>Da su dung</div>}
-                      </div>
-                    </button>
-                  );
-                })}
+              <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
+                <p style={{ fontFamily: "var(--font-outfit)", fontSize: "12px", color: "var(--text-faint)", margin: 0 }}>
+                  Nhap RTSP URL cho Camera {pendingId + 1}. Cau hinh truoc o nut gear neu can.
+                </p>
+                <IPCameraInput onStart={handleStartIPCamera} slot={pendingId} />
               </div>
             )}
           </div>
         </div>
       )}
+
+      {/* ── Camera Config Modal ──────────────────────────────────── */}
+      {showConfigModal && (
+        <CameraConfig
+          onClose={() => setShowConfigModal(false)}
+          onSaved={() => {}}
+        />
+      )}
+    </div>
+  );
+}
+
+/* Inline IP camera RTSP URL input component */
+function IPCameraInput({ onStart, slot }: { onStart: (url: string) => void; slot: number | null }) {
+  const [url, setUrl] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+
+  const handleStart = () => {
+    if (!url.trim()) {
+      setError("Vui long nhap RTSP URL");
+      return;
+    }
+    if (!url.startsWith("rtsp://")) {
+      setError("URL phai bat dau bang rtsp://");
+      return;
+    }
+    setError("");
+    setLoading(true);
+    onStart(url.trim());
+  };
+
+  return (
+    <div>
+      <div style={{
+        display: "flex",
+        alignItems: "center",
+        gap: "8px",
+        padding: "10px 12px",
+        borderRadius: "8px",
+        border: "1px solid var(--border)",
+        background: "var(--bg-elevated)",
+      }}>
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--text-faint)" strokeWidth="1.5">
+          <rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/>
+        </svg>
+        <input
+          type="text"
+          placeholder={`rtsp://192.168.1.${101 + (slot ?? 0)}:554/stream`}
+          value={url}
+          onChange={(e) => setUrl(e.target.value)}
+          onKeyDown={(e) => e.key === "Enter" && handleStart()}
+          style={{
+            flex: 1,
+            border: "none",
+            background: "transparent",
+            color: "var(--text)",
+            fontFamily: "var(--font-outfit)",
+            fontSize: "12px",
+            outline: "none",
+          }}
+        />
+      </div>
+      {error && (
+        <p style={{ fontFamily: "var(--font-outfit)", fontSize: "11px", color: "#f04438", margin: "6px 0 0" }}>
+          {error}
+        </p>
+      )}
+      <button
+        onClick={handleStart}
+        disabled={loading}
+        style={{
+          marginTop: "10px",
+          width: "100%",
+          padding: "9px",
+          borderRadius: "8px",
+          border: "none",
+          background: loading ? "var(--border)" : "var(--accent)",
+          color: "#fff",
+          fontFamily: "var(--font-outfit)",
+          fontSize: "12px",
+          fontWeight: 600,
+          cursor: loading ? "not-allowed" : "pointer",
+        }}
+      >
+        {loading ? "Dang ket noi..." : "Ket noi IP Camera"}
+      </button>
     </div>
   );
 }

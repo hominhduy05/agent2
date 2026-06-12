@@ -15,6 +15,7 @@ from fastapi.responses import StreamingResponse
 from PIL import Image
 import numpy as np
 
+from core.pi_feed import get_latest_pi_feed, get_pi_feeds
 from services.mqtt_publisher import publish_enterprise_event
 from core.sort_tracker import TrackerManager
 from core.shared import (
@@ -45,6 +46,16 @@ def get_tracker_mgr() -> TrackerManager:
 # ---------------------------------------------------------------------------
 CAMERA_RTSP_URLS: dict[int, str] = {0: "", 1: "", 2: "", 3: ""}
 _slot_captures: dict[int, "RtspCapture"] = {}
+
+
+@router.get("/api/scada/pi-feed/")
+async def get_pi_feed() -> dict:
+    return get_latest_pi_feed()
+
+
+@router.get("/api/scada/pi-feeds/")
+async def get_pi_feed_list() -> dict:
+    return get_pi_feeds()
 
 
 # ---------------------------------------------------------------------------
@@ -182,10 +193,10 @@ QUALITY_MAX_CENTER_SHIFT_RATIO = 0.08
 QUALITY_MAX_AREA_SHIFT_RATIO = 0.5
 QUALITY_MIN_BLUR_SCORE = 40.0
 QUALITY_ROI = {
-    "x1": 0.12,
-    "y1": 0.12,
-    "x2": 0.88,
-    "y2": 0.88,
+    "x1": 0.18,
+    "y1": 0.16,
+    "x2": 0.82,
+    "y2": 0.84,
 }
 
 

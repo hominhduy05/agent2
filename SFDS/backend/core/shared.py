@@ -21,39 +21,6 @@ CLASS_NAMES = ["defective", "immature", "mature"]
 ABC_CLASS_NAMES = ["A", "B", "C"]
 
 
-def normalize_image_for_detection(image: Image.Image) -> Image.Image:
-    """Reduce glare before inference while keeping the original image size."""
-    arr = np.asarray(image.convert("RGB"), dtype=np.uint8)
-    gray = arr.mean(axis=2)
-    p98 = float(np.percentile(gray, 98))
-    mean = float(gray.mean())
-    clipped_ratio = float((gray >= 248).mean())
-
-    if mean < 145 and p98 < 230 and clipped_ratio < 0.025:
-        return image
-
-    work = arr.astype(np.float32)
-    if p98 > 205:
-        work *= 205.0 / max(p98, 1.0)
-
-    gamma = 1.22 if mean >= 170 or clipped_ratio >= 0.04 else 1.12
-    work = 255.0 * np.power(np.clip(work, 0, 255) / 255.0, gamma)
-    work = np.clip(work, 0, 255).astype(np.uint8)
-
-    try:
-        import cv2
-        lab = cv2.cvtColor(work, cv2.COLOR_RGB2LAB)
-        l_chan, a_chan, b_chan = cv2.split(lab)
-        clip_limit = 1.4 if clipped_ratio >= 0.04 else 1.8
-        clahe = cv2.createCLAHE(clipLimit=clip_limit, tileGridSize=(8, 8))
-        l_chan = clahe.apply(l_chan)
-        work = cv2.cvtColor(cv2.merge((l_chan, a_chan, b_chan)), cv2.COLOR_LAB2RGB)
-    except Exception:
-        pass
-
-    return Image.fromarray(work)
-
-
 # ---------------------------------------------------------------------------
 # YOLO Engine
 # ---------------------------------------------------------------------------
@@ -63,7 +30,6 @@ class YOLOEngine:
         self.device = device
 
     def predict(self, image: Image.Image, conf: float, iou: float):
-        image = normalize_image_for_detection(image)
         results = self.model.predict(image, conf=conf, iou=iou, verbose=False)
         parsed = []
         for r in (results or []):
@@ -125,7 +91,6 @@ class TRTEngine:
         return tensor.astype(np.float32), scale, xo, yo, float(w), float(h)
 
     def predict(self, image: Image.Image, conf: float, iou: float):
-        image = normalize_image_for_detection(image)
         tensor, scale, xo, yo, orig_w, orig_h = self._preprocess(image)
         outputs = self.session.run(self.output_names, {self.input_name: tensor})
         output = outputs[0]
