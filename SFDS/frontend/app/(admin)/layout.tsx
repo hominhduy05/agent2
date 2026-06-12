@@ -13,7 +13,7 @@ export default function AdminLayout({
 }) {
   const { isExpanded, isHovered, isMobileOpen } = useSidebar();
   const pathname = usePathname();
-  const isRealtimeView = pathname.startsWith("/scada") || pathname.startsWith("/detect");
+  const isRealtimeView = pathname.startsWith("/scada");
 
   const mainContentMargin = isMobileOpen
     ? "ml-0"

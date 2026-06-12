@@ -79,10 +79,10 @@ const FRAME_FETCH_INTERVAL_MS = 500;
 const WS_FRAME_INTERVAL_MS = 300;
 const MAX_HISTORY = 10;
 const ROI = {
-  x1: 0.18,
-  y1: 0.16,
-  x2: 0.82,
-  y2: 0.84,
+  x1: 0.12,
+  y1: 0.12,
+  x2: 0.88,
+  y2: 0.88,
 };
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:9000";

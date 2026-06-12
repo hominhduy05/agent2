@@ -18,11 +18,6 @@ type NavItem = {
 const navItems: NavItem[] = [
   {
     icon: <UserCircleIcon />,
-    name: "Detect",
-    path: "/detect",
-  },
-  {
-    icon: <UserCircleIcon />,
     name: "SCADA",
     path: "/scada",
   },

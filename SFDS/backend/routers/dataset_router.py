@@ -24,7 +24,6 @@ from services.dataset_service import (
     EXPORT_CATEGORIES,
 )
 from services.mqtt_publisher import publish_enterprise_event
-from core.pi_feed import update_pi_feed
 from core.shared import (
     engine_obj, model_loaded, model_format, device_name,
     BoundingBox, DetectionResponse,
@@ -92,72 +91,6 @@ async def detect_objects(
         model_format=model_format,
         detection_count=len(detections),
     )
-
-
-@router.post("/api/detect/batch/")
-async def batch_detect_objects(
-    slot_index: int = Form(0),
-    file: UploadFile = File(...),
-    conf: float = Form(0.25),
-    pi_id: str = Form("pi4"),
-    feed_slot: int | None = Form(None),
-):
-    if not model_loaded or engine_obj is None:
-        raise HTTPException(status_code=503, detail="Model not loaded.")
-    if not (0 <= slot_index <= 3):
-        raise HTTPException(status_code=400, detail="slot_index must be 0-3")
-
-    contents = await file.read()
-    try:
-        image = Image.open(io.BytesIO(contents)).convert("RGB")
-    except Exception:
-        raise HTTPException(status_code=400, detail="Invalid image file")
-
-    width, height = image.size
-    detections = engine_obj.predict(image, conf=conf, iou=0.45)
-    _publish_detection_completed(detections, width, height, conf, slot_index=slot_index)
-    update_pi_feed(
-        pi_id=pi_id,
-        source_camera_id=slot_index,
-        feed_slot=feed_slot,
-        image_bytes=contents,
-        image_width=width,
-        image_height=height,
-        detections=detections,
-        conf=conf,
-        model_format=model_format,
-    )
-
-    CLASS_NAME_TO_ID = {"defective": 0, "immature": 1, "mature": 2, "none": 3}
-    unique_mature   = sum(1 for d in detections if d["class_name"] == "mature")
-    unique_immature = sum(1 for d in detections if d["class_name"] == "immature")
-    unique_defective = sum(1 for d in detections if d["class_name"] == "defective")
-
-    return {
-        "results": [{
-            "slot_index": slot_index,
-            "detections": [
-                {
-                    "x1": d["x1"], "y1": d["y1"],
-                    "x2": d["x2"], "y2": d["y2"],
-                    "confidence": d["confidence"],
-                    "class_id": CLASS_NAME_TO_ID.get(d["class_name"], 3),
-                    "class_name": d["class_name"],
-                }
-                for d in detections
-            ],
-            "image_width": width,
-            "image_height": height,
-            "model_format": model_format,
-            "detection_count": len(detections),
-            "unique_mature": unique_mature,
-            "unique_immature": unique_immature,
-            "unique_defective": unique_defective,
-            "track_ids": [],
-        }],
-        "total_unique_objects": len(detections),
-        "timestamp": datetime.utcnow().isoformat(),
-    }
 
 
 # ---------------------------------------------------------------------------
