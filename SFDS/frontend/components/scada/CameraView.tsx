@@ -2,6 +2,7 @@
 
 import React, { forwardRef } from "react";
 import { CameraChannel } from "@/lib/scada-camera";
+import { classColor } from "@/lib/demo-class-display";
 
 interface CameraViewProps {
   camera: CameraChannel;
@@ -190,14 +191,9 @@ const CameraView = forwardRef<HTMLDivElement, CameraViewProps>(
             <div style={{ display: "flex", gap: "6px", alignItems: "center" }}>
               {camera.result?.detections.length !== undefined && camera.result?.detections.length > 0 && (
                 camera.result.detections.map((d, i) => {
-                  const colorMap: Record<string, string> = {
-                    mature: "#22c55e",
-                    immature: "#f59e0b",
-                    defective: "#ef4444",
-                  };
                   return (
                     <span key={i} style={{
-                      background: `${colorMap[d.class_name] || "#fff"}cc`,
+                      background: `${classColor(d.class_name)}cc`,
                       color: "#fff",
                       padding: "1px 6px",
                       borderRadius: "8px",

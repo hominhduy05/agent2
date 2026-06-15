@@ -64,6 +64,28 @@ export async function fetchScadaFrame(slot: number): Promise<Blob> {
   return res.blob();
 }
 
+export interface ScadaDemoMode {
+  enabled: boolean;
+  same_fruit_window_seconds: number;
+  sequence: string[];
+}
+
+export async function getScadaDemoMode(): Promise<ScadaDemoMode> {
+  const res = await fetch(`${API_BASE}/api/scada/demo-mode/`, { cache: "no-store" });
+  if (!res.ok) throw new Error("Khong the lay che do demo");
+  return res.json();
+}
+
+export async function setScadaDemoMode(enabled: boolean): Promise<ScadaDemoMode> {
+  const res = await fetch(`${API_BASE}/api/scada/demo-mode/`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ enabled }),
+  });
+  if (!res.ok) throw new Error("Khong the cap nhat che do demo");
+  return res.json();
+}
+
 export interface ScadaDetectionResult {
   results: Array<{
     slot_index: number;

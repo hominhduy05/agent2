@@ -1,6 +1,7 @@
 "use client";
 
-import { BoundingBox, CLASS_COLORS, CLASS_DISPLAY_LABELS, CLASS_GRADES } from "@/lib/types";
+import { BoundingBox } from "@/lib/types";
+import { classColor, classDisplayLabel, classGrade } from "@/lib/demo-class-display";
 import {
   configScadaCameras,
   detectScadaCamera,
@@ -84,12 +85,23 @@ const ROI = {
   x2: 0.82,
   y2: 0.84,
 };
+const DEMO_ROI = {
+  x1: 0.08,
+  y1: 0.08,
+  x2: 0.92,
+  y2: 0.92,
+};
+let activeRoi = ROI;
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:9000";
 const WS_PROTOCOL = API_BASE.startsWith("https") ? "wss" : "ws";
 
 function cropStorageKey(cameraId: number) {
   return `scada:last-durian-crop:${cameraId}`;
+}
+
+function isDemoResult(result: ScadaResult) {
+  return result.detections.some((d) => d.class_name.startsWith("demo_grade_"));
 }
 
 function loadStoredCrop(cameraId: number) {
@@ -207,10 +219,10 @@ function drawRoiGuide(
   imageHeight: number
 ) {
   const { scale, offsetX, offsetY } = getImagePlacement(canvas, imageWidth, imageHeight);
-  const x = offsetX + ROI.x1 * imageWidth * scale;
-  const y = offsetY + ROI.y1 * imageHeight * scale;
-  const w = (ROI.x2 - ROI.x1) * imageWidth * scale;
-  const h = (ROI.y2 - ROI.y1) * imageHeight * scale;
+  const x = offsetX + activeRoi.x1 * imageWidth * scale;
+  const y = offsetY + activeRoi.y1 * imageHeight * scale;
+  const w = (activeRoi.x2 - activeRoi.x1) * imageWidth * scale;
+  const h = (activeRoi.y2 - activeRoi.y1) * imageHeight * scale;
 
   ctx.save();
   ctx.strokeStyle = "rgba(34, 197, 94, 0.95)";
@@ -244,7 +256,7 @@ function drawDetections(
     const h = y2 - y1;
     if (w <= 1 || h <= 1) return;
 
-    const color = CLASS_COLORS[box.class_name] || "#ffffff";
+    const color = classColor(box.class_name);
 
     ctx.strokeStyle = color;
     ctx.lineWidth = 2;
@@ -252,8 +264,8 @@ function drawDetections(
     ctx.roundRect(x1, y1, w, h, 4);
     ctx.stroke();
 
-    const gradeLabel = CLASS_GRADES[box.class_name] || box.class_name;
-    const conditionLabel = CLASS_DISPLAY_LABELS[box.class_name] || box.class_name;
+    const gradeLabel = classGrade(box.class_name);
+    const conditionLabel = classDisplayLabel(box.class_name);
     const labelHeight = 24;
     const labelPadX = 8;
     const labelY = Math.max(labelHeight + 4, y1 + labelHeight);
@@ -362,14 +374,23 @@ export class ScadaCameraManager {
     let imageWidth: number | undefined;
     let imageHeight: number | undefined;
 
-    try {
-      const data = await detectWebcamFrame(crop.blob, this.threshold);
-      const cropDetections = (data.detections || []).filter((d) => d.confidence >= this.threshold);
-      detections = cropDetections;
-      imageWidth = data.image_width;
-      imageHeight = data.image_height;
-    } catch {
-      // Do not fall back to frame-level labels. Crop analysis is the source of truth.
+    // DEMO ONLY: backend already assigned B -> A -> C -> D on the accepted frame.
+    // Do not run crop re-detect here, otherwise the second API call can overwrite
+    // the demo label with the model's real class.
+    if (fallback.detections.some((d) => d.class_name.startsWith("demo_grade_"))) {
+      detections = fallback.detections;
+      imageWidth = fallback.imageWidth;
+      imageHeight = fallback.imageHeight;
+    } else {
+      try {
+        const data = await detectWebcamFrame(crop.blob, this.threshold);
+        const cropDetections = (data.detections || []).filter((d) => d.confidence >= this.threshold);
+        detections = cropDetections;
+        imageWidth = data.image_width;
+        imageHeight = data.image_height;
+      } catch {
+        // Do not fall back to frame-level labels. Crop analysis is the source of truth.
+      }
     }
 
     const item: CropHistoryItem = {
@@ -392,6 +413,19 @@ export class ScadaCameraManager {
     if (cam.ws && cam.ws.readyState === WebSocket.OPEN) {
       cam.ws.send(JSON.stringify({ type: "set_confidence", value: this.threshold }));
     }
+  }
+
+  setDemoMode(enabled: boolean) {
+    activeRoi = enabled ? DEMO_ROI : ROI;
+    this.cameras.forEach((cam, index) => {
+      if (!cam.isActive) return;
+      const result = cam.result;
+      if (result?.detections.length) {
+        this.drawResult(index, result);
+      } else {
+        this.drawGuide(index, result?.imageWidth, result?.imageHeight);
+      }
+    });
   }
 
   setRefs(index: number, videoRef: React.RefObject<HTMLVideoElement>, canvasRef: React.RefObject<HTMLCanvasElement>) {
@@ -653,14 +687,17 @@ export class ScadaCameraManager {
       this.onUpdate(cam);
 
       if (result.detections.length > 0) {
-        cam.qualityPhase = "cooldown";
+        const isDemo = isDemoResult(result);
+        cam.qualityPhase = isDemo ? "captured" : "cooldown";
         this.onUpdate(cam);
-        setTimeout(() => {
-          const current = this.cameras[index];
-          if (current.isActive) {
-            this.drawGuide(index, result.imageWidth, result.imageHeight);
-          }
-        }, 700);
+        if (!isDemo) {
+          setTimeout(() => {
+            const current = this.cameras[index];
+            if (current.isActive) {
+              this.drawGuide(index, result.imageWidth, result.imageHeight);
+            }
+          }, 700);
+        }
       }
 
       if (cam.isActive && cam.autoEnabled && cam.isDetecting && ws.readyState === WebSocket.OPEN) {
@@ -776,11 +813,13 @@ export class ScadaCameraManager {
         cam.result = result;
         cam.resultHistory = [result, ...cam.resultHistory].slice(0, MAX_HISTORY);
         cam.frameCount += 1;
-        setTimeout(() => {
-          if (this.cameras[index].isActive) {
-            this.drawGuide(index, result.imageWidth, result.imageHeight);
-          }
-        }, 700);
+        if (!isDemoResult(result)) {
+          setTimeout(() => {
+            if (this.cameras[index].isActive) {
+              this.drawGuide(index, result.imageWidth, result.imageHeight);
+            }
+          }, 700);
+        }
 
       } else {
         // Webcam: capture canvas frame + upload to BE /detect/ endpoint
@@ -815,11 +854,13 @@ export class ScadaCameraManager {
         cam.result = result;
         cam.resultHistory = [result, ...cam.resultHistory].slice(0, MAX_HISTORY);
         cam.frameCount += 1;
-        setTimeout(() => {
-          if (this.cameras[index].isActive) {
-            this.drawGuide(index, result.imageWidth, result.imageHeight);
-          }
-        }, 700);
+        if (!isDemoResult(result)) {
+          setTimeout(() => {
+            if (this.cameras[index].isActive) {
+              this.drawGuide(index, result.imageWidth, result.imageHeight);
+            }
+          }, 700);
+        }
       }
 
       cam.error = null;

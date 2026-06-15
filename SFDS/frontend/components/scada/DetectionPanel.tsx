@@ -2,7 +2,7 @@
 
 import React from "react";
 import { CameraChannel } from "@/lib/scada-camera";
-import { CLASS_LABELS } from "@/lib/types";
+import { classColor, classGrade, classLabel } from "@/lib/demo-class-display";
 
 interface DetectionPanelProps {
   camera: CameraChannel;
@@ -34,13 +34,8 @@ function StatCard({ label, value, color }: { label: string; value: string | numb
 }
 
 function DetetionRow({ box }: { box: { class_name: string; confidence: number; x1: number; y1: number; x2: number; y2: number } }) {
-  const colorMap: Record<string, string> = {
-    mature: "#12b76a",
-    immature: "#f59e0b",
-    defective: "#ef4444",
-  };
-  const color = colorMap[box.class_name] || "var(--text-muted)";
-  const label = CLASS_LABELS[box.class_name] || box.class_name;
+  const color = classColor(box.class_name);
+  const label = classLabel(box.class_name);
 
   return (
     <div style={{
@@ -127,19 +122,15 @@ function HistoryRow({ result }: { result: { detections: { class_name: string }[]
         {time}
       </span>
       {Object.entries(counts).map(([cls, count]) => {
-        const colorMap: Record<string, string> = {
-          mature: "#12b76a",
-          immature: "#f59e0b",
-          defective: "#ef4444",
-        };
+        const color = classColor(cls);
         return (
           <span key={cls} style={{
-            color: colorMap[cls] || "var(--text)",
+            color,
             fontSize: "11px",
             fontFamily: "var(--font-outfit)",
             fontWeight: 700,
           }}>
-            {cls}:{count}
+            {classLabel(cls)}:{count}
           </span>
         );
       })}
@@ -189,9 +180,11 @@ export default function DetectionPanel({
   const inspectionHistory = camera.inspectionHistory || [];
   const displayDetections = inspectionHistory.flatMap((item) => item.detections || []);
 
-  const mature = displayDetections.filter((d) => d.class_name === "mature").length;
-  const immature = displayDetections.filter((d) => d.class_name === "immature").length;
-  const defective = displayDetections.filter((d) => d.class_name === "defective").length;
+  const gradeCounts = displayDetections.reduce<Record<string, number>>((acc, d) => {
+    const grade = classGrade(d.class_name);
+    acc[grade] = (acc[grade] || 0) + 1;
+    return acc;
+  }, {});
   const total = displayDetections.length;
   const avgConf = displayDetections.length
     ? (displayDetections.reduce((sum, d) => sum + d.confidence, 0) / displayDetections.length) * 100
@@ -285,11 +278,14 @@ export default function DetectionPanel({
       {/* Stats grid */}
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "8px" }}>
         <StatCard label="Tổng" value={total} color="var(--text)" />
-        <StatCard label="Chín" value={mature} color="#12b76a" />
-        <StatCard label="Chưa chín" value={immature} color="#f59e0b" />
+        <StatCard label="Loai B" value={gradeCounts.B || 0} color={classColor("demo_grade_b")} />
+        <StatCard label="Loai A" value={gradeCounts.A || 0} color={classColor("demo_grade_a")} />
       </div>
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px" }}>
-        <StatCard label="Hư hỏng" value={defective} color="#ef4444" />
+        <StatCard label="Loai C" value={gradeCounts.C || 0} color={classColor("demo_grade_c")} />
+        <StatCard label="Loai D" value={gradeCounts.D || 0} color={classColor("demo_grade_d")} />
+      </div>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: "8px" }}>
         <StatCard label="Độ tin cậy" value={`${avgConf.toFixed(1)}%`} color="var(--accent)" />
       </div>
 

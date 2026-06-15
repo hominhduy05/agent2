@@ -4,6 +4,8 @@ import React, { useEffect, useRef, useState } from "react";
 import { CameraChannel, ScadaCameraManager } from "@/lib/scada-camera";
 import DetectionPanel from "@/components/scada/DetectionPanel";
 import CameraConfig from "@/components/scada/CameraConfig";
+import { classColor } from "@/lib/demo-class-display";
+import { getScadaDemoMode, setScadaDemoMode } from "@/lib/api";
 import styles from "./page.module.css";
 
 interface MediaDevice {
@@ -20,6 +22,8 @@ export default function ScadaPage() {
   const [showConfigModal, setShowConfigModal] = useState(false);
   const [pendingId, setPendingId] = useState<number | null>(null);
   const [sourceMode, setSourceMode] = useState<"webcam" | "ip">("webcam");
+  const [demoMode, setDemoMode] = useState(false);
+  const [demoBusy, setDemoBusy] = useState(false);
 
   const managerRef = useRef<ScadaCameraManager | null>(null);
   const videoRefs = useRef<(React.RefObject<HTMLVideoElement | null>)[]>([]);
@@ -61,6 +65,16 @@ export default function ScadaPage() {
     loadDevices();
 
     return () => { managerRef.current?.cleanup(); };
+  }, []);
+
+  useEffect(() => {
+    getScadaDemoMode()
+      .then((status) => {
+        const enabled = Boolean(status.enabled);
+        setDemoMode(enabled);
+        managerRef.current?.setDemoMode(enabled);
+      })
+      .catch(() => setDemoMode(false));
   }, []);
 
   useEffect(() => {
@@ -120,6 +134,19 @@ export default function ScadaPage() {
 
   const handleCapture = (id: number) => { managerRef.current?.captureAndDetect(id); };
 
+  const handleDemoModeToggle = async () => {
+    if (demoBusy) return;
+    setDemoBusy(true);
+    try {
+      const status = await setScadaDemoMode(!demoMode);
+      const enabled = Boolean(status.enabled);
+      setDemoMode(enabled);
+      managerRef.current?.setDemoMode(enabled);
+    } finally {
+      setDemoBusy(false);
+    }
+  };
+
   const handleReset = (id: number) => {
     const m = managerRef.current;
     if (!m) return;
@@ -150,6 +177,38 @@ export default function ScadaPage() {
             </p>
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+            <button
+              onClick={handleDemoModeToggle}
+              disabled={demoBusy}
+              title="Bat/tat che do demo gan nhan B-A-C-D"
+              style={{
+                height: "32px",
+                padding: "0 12px",
+                borderRadius: "8px",
+                border: demoMode ? "1px solid rgba(34,197,94,0.55)" : "1px solid var(--border)",
+                background: demoMode ? "rgba(34,197,94,0.14)" : "var(--bg-elevated)",
+                color: demoMode ? "#22c55e" : "var(--text-muted)",
+                cursor: demoBusy ? "wait" : "pointer",
+                display: "flex",
+                alignItems: "center",
+                gap: "6px",
+                fontFamily: "var(--font-outfit)",
+                fontSize: "11px",
+                fontWeight: 800,
+                letterSpacing: "0.02em",
+                transition: "all 0.15s",
+                opacity: demoBusy ? 0.7 : 1,
+              }}
+            >
+              <span style={{
+                width: "7px",
+                height: "7px",
+                borderRadius: "50%",
+                background: demoMode ? "#22c55e" : "var(--text-faint)",
+                boxShadow: demoMode ? "0 0 8px rgba(34,197,94,0.8)" : "none",
+              }} />
+              {demoMode ? "ON" : "OFF"}
+            </button>
             {/* Config gear button */}
             <button
               onClick={() => setShowConfigModal(true)}
@@ -185,7 +244,6 @@ export default function ScadaPage() {
             const isSelected = selectedId === cam.id;
             const badgeKey = cam.error ? "error" : cam.isDetecting ? "detecting" : cam.isActive ? "active" : "off";
             const badgeLabel = cam.error ? "Loi" : cam.isDetecting ? "Dang nhan dien" : cam.isActive ? (cam.autoEnabled ? "Auto" : "Dung") : "Chua bat";
-            const colorMap: Record<string, string> = { mature: "#22c55e", immature: "#f59e0b", defective: "#ef4444" };
             const modeIcon = cam.mode === "ip" ? (
               <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                 <rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/>
@@ -259,7 +317,7 @@ export default function ScadaPage() {
                     <div className={styles.tileDets}>
                       {cam.result && cam.result.detections.length > 0 ? (
                         cam.result.detections.map((d, i) => (
-                          <span key={i} className={styles.tileDet} style={{ background: `${colorMap[d.class_name] || "#fff"}cc` }}>
+                          <span key={i} className={styles.tileDet} style={{ background: `${classColor(d.class_name)}cc` }}>
                             {(d.confidence * 100).toFixed(0)}%
                           </span>
                         ))
