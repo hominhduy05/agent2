@@ -16,6 +16,13 @@ from PIL import Image
 import numpy as np
 
 from core.pi_feed import get_latest_pi_feed, get_pi_feeds
+from core.scale_state import (
+    attach_scale_to_detections,
+    get_scale_snapshot,
+    get_scale_status,
+    reset_scale_reading,
+    update_scale_reading,
+)
 from services.mqtt_publisher import publish_enterprise_event
 from core.demo_label_override import (
     apply_demo_label_override,
@@ -63,6 +70,31 @@ async def get_pi_feed() -> dict:
 @router.get("/api/scada/pi-feeds/")
 async def get_pi_feed_list() -> dict:
     return get_pi_feeds()
+
+
+@router.get("/api/scada/scale/")
+async def get_scada_scale() -> dict:
+    if not is_demo_enabled():
+        return {
+            **get_scale_status(),
+            "online": False,
+            "latest": None,
+            "demo_required": True,
+        }
+    return get_scale_status()
+
+
+@router.post("/api/scada/scale/")
+async def update_scada_scale(payload: dict) -> dict:
+    try:
+        return update_scale_reading(payload)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+
+
+@router.delete("/api/scada/scale/")
+async def clear_scada_scale() -> dict:
+    return reset_scale_reading()
 
 
 # ---------------------------------------------------------------------------
@@ -187,6 +219,8 @@ async def get_scada_demo_mode() -> dict:
 async def set_scada_demo_mode(payload: dict) -> dict:
     enabled = bool(payload.get("enabled", False))
     set_demo_enabled(enabled, reset_sequence=True)
+    if not enabled:
+        reset_scale_reading()
     return get_demo_status()
 
 
@@ -244,6 +278,7 @@ def _publish_detection_completed(
     *,
     track_ids: list[int] | None = None,
     quality: dict | None = None,
+    scale: dict | None = None,
 ):
     counts = {
         "mature": sum(1 for d in detections if d.get("class_name") == "mature"),
@@ -261,6 +296,7 @@ def _publish_detection_completed(
             "model": {"format": model_format},
             "confidence_threshold": conf,
             "quality": quality or {},
+            "scale": scale or {},
         },
         camera_slot=slot,
         topic="detection/completed",
@@ -538,6 +574,8 @@ async def ws_scada_detect(ws: WebSocket, slot: int):
                     final_detections = quality["detections"]
                     # DEMO ONLY: replace model class labels with B -> A -> C -> D.
                     final_detections = apply_demo_label_override(final_detections, slot=slot)
+                    scale = get_scale_snapshot() if is_demo_enabled() else None
+                    final_detections = attach_scale_to_detections(final_detections, scale)
 
                     mature = immature = defective = 0
                     for obj in final_detections:
@@ -559,6 +597,15 @@ async def ws_scada_detect(ws: WebSocket, slot: int):
                                 "confidence": o["confidence"],
                                 "class_id": o.get("class_id", CLASS_NAME_TO_ID.get(o["class_name"], 3)),
                                 "class_name": o["class_name"],
+                                "weight_kg": o.get("weight_kg"),
+                                "weight_unit": o.get("weight_unit"),
+                                "fruit_id": o.get("fruit_id"),
+                                "scale_age_seconds": o.get("scale_age_seconds"),
+                                "scale_stable": o.get("scale_stable"),
+                                "visual_grade": o.get("visual_grade"),
+                                "weight_grade": o.get("weight_grade"),
+                                "final_grade": o.get("final_grade"),
+                                "classification_source": o.get("classification_source"),
                             }
                             for o in final_detections
                         ],
@@ -575,6 +622,7 @@ async def ws_scada_detect(ws: WebSocket, slot: int):
                             "area_ratio": quality.get("area_ratio"),
                             "edge_margin_ratio": quality.get("edge_margin_ratio"),
                         },
+                        "scale": scale,
                         "unique_mature": mature,
                         "unique_immature": immature,
                         "unique_defective": defective,
@@ -588,6 +636,7 @@ async def ws_scada_detect(ws: WebSocket, slot: int):
                         height,
                         frame_conf,
                         quality=result["quality"],
+                        scale=scale,
                     )
                     await _DetectionSessionManager.push_result(slot, result)
                 except Exception as e:
@@ -701,6 +750,8 @@ async def detect_camera_frame(
     tracked = get_tracker_mgr().update(slot, raw)
     # DEMO ONLY: replace model class labels with B -> A -> C -> D.
     tracked = apply_demo_label_override(tracked, slot=slot)
+    scale = get_scale_snapshot() if is_demo_enabled() else None
+    tracked = attach_scale_to_detections(tracked, scale)
 
     unique_mature, unique_immature, unique_defective = 0, 0, 0
     track_ids = []
@@ -726,6 +777,7 @@ async def detect_camera_frame(
         height,
         conf,
         track_ids=track_ids,
+        scale=scale,
     )
 
     return BatchDetectResponse(
@@ -738,6 +790,15 @@ async def detect_camera_frame(
                         confidence=o["confidence"],
                         class_id=o.get("class_id", CLASS_NAME_TO_ID.get(o["class_name"], 3)),
                         class_name=o["class_name"],
+                        weight_kg=o.get("weight_kg"),
+                        weight_unit=o.get("weight_unit"),
+                        fruit_id=o.get("fruit_id"),
+                        scale_age_seconds=o.get("scale_age_seconds"),
+                        scale_stable=o.get("scale_stable"),
+                        visual_grade=o.get("visual_grade"),
+                        weight_grade=o.get("weight_grade"),
+                        final_grade=o.get("final_grade"),
+                        classification_source=o.get("classification_source"),
                     )
                     for o in tracked
                 ],
@@ -749,10 +810,12 @@ async def detect_camera_frame(
                 unique_immature=unique_immature,
                 unique_defective=unique_defective,
                 track_ids=track_ids,
+                scale=scale,
             )
         ],
         total_unique_objects=len(track_ids),
         timestamp=datetime.utcnow().isoformat(),
+        scale=scale,
     )
 
 

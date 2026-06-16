@@ -1,4 +1,0 @@
-numpy==1.26.4; python_version < "3.13"
-numpy>=2.1.0; python_version >= "3.13"
-requests>=2.32.3
-onnxruntime>=1.20.0

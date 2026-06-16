@@ -7,6 +7,7 @@ import {
   detectScadaCamera,
   detectWebcamFrame,
   fetchScadaFrame,
+  ScadaScaleSnapshot,
   startScadaCamera,
   stopScadaCamera,
 } from "@/lib/api";
@@ -23,6 +24,7 @@ export interface ScadaResult {
   rawDetectionCount?: number;
   trackedDetectionCount?: number;
   confidenceThreshold?: number;
+  scale?: ScadaScaleSnapshot | null;
   quality?: {
     phase?: string;
     reason?: string;
@@ -658,6 +660,7 @@ export class ScadaCameraManager {
         rawDetectionCount: data.raw_detection_count as number | undefined,
         trackedDetectionCount: data.tracked_detection_count as number | undefined,
         confidenceThreshold: data.confidence_threshold as number | undefined,
+        scale: (data.scale as ScadaScaleSnapshot | null | undefined) || null,
         quality: quality
           ? {
               phase: quality.phase as string | undefined,
@@ -803,6 +806,7 @@ export class ScadaCameraManager {
           imageHeight: slotResult?.image_height || 480,
           imageDataUrl: dataUrl,
           timestamp: Date.now(),
+          scale: slotResult?.scale || data.scale || null,
         };
 
         this.drawResult(index, result);
@@ -844,6 +848,21 @@ export class ScadaCameraManager {
           imageHeight: data.image_height || video.videoHeight,
           imageDataUrl: "",
           timestamp: Date.now(),
+          scale: data.scale || (
+            boxes[0]?.weight_kg !== undefined
+              ? {
+                  weight_kg: Number(boxes[0]?.weight_kg || 0),
+                  raw_value: Number(boxes[0]?.weight_kg || 0),
+                  unit: "kg",
+                  stable: Boolean(boxes[0]?.scale_stable ?? true),
+                  fruit_id: String(boxes[0]?.fruit_id || ""),
+                  source: "detect",
+                  timestamp: Date.now() / 1000,
+                  age_seconds: Number(boxes[0]?.scale_age_seconds || 0),
+                  timestamp_ms: Date.now(),
+                }
+              : null
+          ),
         };
 
         this.drawResult(index, result);

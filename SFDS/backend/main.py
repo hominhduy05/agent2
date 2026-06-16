@@ -3,6 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from core.database import init_db
 from core.shared import model_loaded, device_name, model_format
+from services.serial_scale_reader import get_serial_scale_status, start_serial_scale_reader
 
 from routers.scada_router import router as scada_router
 from routers.dataset_router import router as dataset_router
@@ -33,6 +34,7 @@ app.add_middleware(
 @app.on_event("startup")
 def on_startup():
     init_db()
+    start_serial_scale_reader()
 
 
 @app.get("/health/")
@@ -43,6 +45,7 @@ def health_check():
         "device": device_name,
         "model_format": model_format,
         "service": "scada",
+        "serial_scale": get_serial_scale_status(),
     }
 
 

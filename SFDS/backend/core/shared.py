@@ -170,6 +170,15 @@ if ABC_PATH.exists():
 class BoundingBox(BaseModel):
     x1: float; y1: float; x2: float; y2: float
     confidence: float; class_id: int; class_name: str
+    weight_kg: Optional[float] = None
+    weight_unit: Optional[str] = None
+    fruit_id: Optional[str] = None
+    scale_age_seconds: Optional[float] = None
+    scale_stable: Optional[bool] = None
+    visual_grade: Optional[str] = None
+    weight_grade: Optional[str] = None
+    final_grade: Optional[str] = None
+    classification_source: Optional[str] = None
 
 
 class DetectionResponse(BaseModel):
@@ -177,6 +186,7 @@ class DetectionResponse(BaseModel):
     image_width: int; image_height: int
     device: str; model_format: str; detection_count: int
     session_id: Optional[int] = None
+    scale: Optional[dict] = None
 
 
 # Auth schemas
@@ -333,12 +343,14 @@ class SlotDetectionResponse(BaseModel):
     unique_immature: int = 0
     unique_defective: int = 0
     track_ids: List[int] = []
+    scale: Optional[dict] = None
 
 
 class BatchDetectResponse(BaseModel):
     results: List[SlotDetectionResponse]
     total_unique_objects: int
     timestamp: str
+    scale: Optional[dict] = None
 
 
 class CameraConfigRequest(BaseModel):

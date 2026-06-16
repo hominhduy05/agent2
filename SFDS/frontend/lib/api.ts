@@ -86,12 +86,46 @@ export async function setScadaDemoMode(enabled: boolean): Promise<ScadaDemoMode>
   return res.json();
 }
 
+export interface ScadaScaleSnapshot {
+  weight_kg: number;
+  raw_value: number;
+  unit: string;
+  stable: boolean;
+  fruit_id: string;
+  source: string;
+  timestamp: number;
+  age_seconds: number;
+  timestamp_ms: number;
+}
+
+export interface ScadaScaleStatus {
+  online: boolean;
+  latest: ScadaScaleSnapshot | null;
+  max_age_seconds: number;
+  same_fruit_window_seconds: number;
+}
+
+export async function getScadaScale(): Promise<ScadaScaleStatus> {
+  const res = await fetch(`${API_BASE}/api/scada/scale/`, { cache: "no-store" });
+  if (!res.ok) throw new Error("Khong the lay du lieu can");
+  return res.json();
+}
+
 export interface ScadaDetectionResult {
   results: Array<{
     slot_index: number;
     detections: Array<{
       x1: number; y1: number; x2: number; y2: number;
       confidence: number; class_id: number; class_name: string;
+      weight_kg?: number | null;
+      weight_unit?: string | null;
+      fruit_id?: string | null;
+      scale_age_seconds?: number | null;
+      scale_stable?: boolean | null;
+      visual_grade?: string | null;
+      weight_grade?: string | null;
+      final_grade?: string | null;
+      classification_source?: string | null;
     }>;
     image_width: number;
     image_height: number;
@@ -101,9 +135,11 @@ export interface ScadaDetectionResult {
     unique_immature: number;
     unique_defective: number;
     track_ids: number[];
+    scale?: ScadaScaleSnapshot | null;
   }>;
   total_unique_objects: number;
   timestamp: string;
+  scale?: ScadaScaleSnapshot | null;
 }
 
 export async function detectScadaCamera(slot: number, conf = 0.25): Promise<ScadaDetectionResult> {
@@ -159,11 +195,21 @@ export interface WebcamDetectResult {
   detections: Array<{
     x1: number; y1: number; x2: number; y2: number;
     confidence: number; class_id: number; class_name: string;
+    weight_kg?: number | null;
+    weight_unit?: string | null;
+    fruit_id?: string | null;
+    scale_age_seconds?: number | null;
+    scale_stable?: boolean | null;
+    visual_grade?: string | null;
+    weight_grade?: string | null;
+    final_grade?: string | null;
+    classification_source?: string | null;
   }>;
   image_width: number;
   image_height: number;
   model_format: string;
   detection_count: number;
+  scale?: ScadaScaleSnapshot | null;
 }
 
 export async function detectWebcamFrame(imageBlob: Blob, conf = 0.25): Promise<WebcamDetectResult> {

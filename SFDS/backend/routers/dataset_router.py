@@ -24,7 +24,9 @@ from services.dataset_service import (
     EXPORT_CATEGORIES,
 )
 from services.mqtt_publisher import publish_enterprise_event
+from core.demo_label_override import is_demo_enabled
 from core.pi_feed import update_pi_feed
+from core.scale_state import attach_scale_to_detections, get_scale_snapshot
 from core.shared import (
     engine_obj, model_loaded, model_format, device_name,
     BoundingBox, DetectionResponse,
@@ -82,6 +84,8 @@ async def detect_objects(
 
     width, height = image.size
     detections = engine_obj.predict(image, conf=conf, iou=0.45)
+    scale = get_scale_snapshot() if is_demo_enabled() else None
+    detections = attach_scale_to_detections(detections, scale)
     _publish_detection_completed(detections, width, height, conf)
 
     return DetectionResponse(
@@ -91,6 +95,7 @@ async def detect_objects(
         device=device_name,
         model_format=model_format,
         detection_count=len(detections),
+        scale=scale,
     )
 
 
@@ -115,6 +120,8 @@ async def batch_detect_objects(
 
     width, height = image.size
     detections = engine_obj.predict(image, conf=conf, iou=0.45)
+    scale = get_scale_snapshot() if is_demo_enabled() else None
+    detections = attach_scale_to_detections(detections, scale)
     _publish_detection_completed(detections, width, height, conf, slot_index=slot_index)
     update_pi_feed(
         pi_id=pi_id,
@@ -154,9 +161,11 @@ async def batch_detect_objects(
             "unique_immature": unique_immature,
             "unique_defective": unique_defective,
             "track_ids": [],
+            "scale": scale,
         }],
         "total_unique_objects": len(detections),
         "timestamp": datetime.utcnow().isoformat(),
+        "scale": scale,
     }
 
 

@@ -2,10 +2,13 @@
 
 import React from "react";
 import { CameraChannel } from "@/lib/scada-camera";
+import { ScadaScaleSnapshot, ScadaScaleStatus } from "@/lib/api";
 import { classColor, classGrade, classLabel } from "@/lib/demo-class-display";
 
 interface DetectionPanelProps {
   camera: CameraChannel;
+  demoMode: boolean;
+  scaleStatus: ScadaScaleStatus | null;
   threshold: number;
   onThresholdChange: (v: number) => void;
   onToggleAuto: () => void;
@@ -33,9 +36,56 @@ function StatCard({ label, value, color }: { label: string; value: string | numb
   );
 }
 
-function DetetionRow({ box }: { box: { class_name: string; confidence: number; x1: number; y1: number; x2: number; y2: number } }) {
+function WeightCard({ scale }: { scale: ScadaScaleSnapshot | null }) {
+  const online = Boolean(scale);
+  return (
+    <div style={{
+      background: "var(--bg-elevated)",
+      borderRadius: "10px",
+      padding: "12px 14px",
+      border: online ? "1px solid rgba(34,197,94,0.35)" : "1px solid var(--border-soft)",
+      display: "grid",
+      gridTemplateColumns: "1fr auto",
+      alignItems: "center",
+      gap: "10px",
+    }}>
+      <div>
+        <span style={{ color: "var(--text-faint)", fontSize: "10px", fontFamily: "var(--font-outfit)", fontWeight: 500, textTransform: "uppercase", letterSpacing: "0.05em" }}>
+          Trong luong
+        </span>
+        <div style={{
+          color: online ? "#22c55e" : "var(--text-faint)",
+          fontSize: "24px",
+          fontFamily: "var(--font-sora)",
+          fontWeight: 800,
+          lineHeight: 1.05,
+          marginTop: "3px",
+        }}>
+          {online ? `${scale!.weight_kg.toFixed(2)} kg` : "-- kg"}
+        </div>
+      </div>
+      <div style={{
+        minWidth: "78px",
+        textAlign: "right",
+        color: "var(--text-faint)",
+        fontFamily: "var(--font-outfit)",
+        fontSize: "10px",
+        lineHeight: 1.5,
+      }}>
+        <div style={{ color: online && scale!.stable ? "#22c55e" : "var(--text-muted)", fontWeight: 700 }}>
+          {online ? (scale!.stable ? "Stable" : "Reading") : "No scale"}
+        </div>
+        <div>{online ? scale!.fruit_id : "ESP32"}</div>
+        <div>{online ? `${scale!.age_seconds.toFixed(1)}s` : "offline"}</div>
+      </div>
+    </div>
+  );
+}
+
+function DetetionRow({ box, showScale }: { box: { class_name: string; confidence: number; x1: number; y1: number; x2: number; y2: number; weight_kg?: number | null; final_grade?: string | null; fruit_id?: string | null }; showScale: boolean }) {
   const color = classColor(box.class_name);
   const label = classLabel(box.class_name);
+  const grade = showScale && box.final_grade ? box.final_grade : classGrade(box.class_name);
 
   return (
     <div style={{
@@ -77,6 +127,8 @@ function DetetionRow({ box }: { box: { class_name: string; confidence: number; x
           marginTop: "2px",
         }}>
           x1:{box.x1.toFixed(0)} y1:{box.y1.toFixed(0)} x2:{box.x2.toFixed(0)} y2:{box.y2.toFixed(0)}
+          {showScale && box.weight_kg !== null && box.weight_kg !== undefined ? ` | ${box.weight_kg.toFixed(2)} kg` : ""}
+          {showScale && box.fruit_id ? ` | ${box.fruit_id}` : ""}
         </div>
       </div>
 
@@ -91,7 +143,7 @@ function DetetionRow({ box }: { box: { class_name: string; confidence: number; x
         fontFamily: "var(--font-outfit)",
         flexShrink: 0,
       }}>
-        Detected
+        {grade}
       </span>
     </div>
   );
@@ -161,6 +213,8 @@ function qualityLabel(reason?: string) {
 
 export default function DetectionPanel({
   camera,
+  demoMode,
+  scaleStatus,
   threshold,
   onThresholdChange,
   onToggleAuto,
@@ -168,6 +222,7 @@ export default function DetectionPanel({
   onReset,
 }: DetectionPanelProps) {
   const result = camera.result;
+  const activeScale = demoMode ? (result?.scale || (scaleStatus?.online ? scaleStatus.latest : null)) : null;
   const qualityText = qualityLabel(camera.qualityReason || result?.quality?.reason);
   const stableText = camera.requiredStableFrames
     ? `${camera.stableFrames ?? 0}/${camera.requiredStableFrames}`
@@ -288,6 +343,7 @@ export default function DetectionPanel({
       <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: "8px" }}>
         <StatCard label="Độ tin cậy" value={`${avgConf.toFixed(1)}%`} color="var(--accent)" />
       </div>
+      {demoMode && <WeightCard scale={activeScale || null} />}
 
       {/* Frames processed */}
       <div style={{
@@ -468,7 +524,7 @@ export default function DetectionPanel({
           </div>
         )}
         {camera.isActive && displayDetections.map((d, i) => (
-          <DetetionRow key={i} box={d} />
+          <DetetionRow key={i} box={d} showScale={demoMode} />
         ))}
       </div>
 

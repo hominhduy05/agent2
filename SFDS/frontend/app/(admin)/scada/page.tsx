@@ -5,7 +5,7 @@ import { CameraChannel, ScadaCameraManager } from "@/lib/scada-camera";
 import DetectionPanel from "@/components/scada/DetectionPanel";
 import CameraConfig from "@/components/scada/CameraConfig";
 import { classColor } from "@/lib/demo-class-display";
-import { getScadaDemoMode, setScadaDemoMode } from "@/lib/api";
+import { getScadaDemoMode, getScadaScale, ScadaScaleStatus, setScadaDemoMode } from "@/lib/api";
 import styles from "./page.module.css";
 
 interface MediaDevice {
@@ -24,6 +24,7 @@ export default function ScadaPage() {
   const [sourceMode, setSourceMode] = useState<"webcam" | "ip">("webcam");
   const [demoMode, setDemoMode] = useState(false);
   const [demoBusy, setDemoBusy] = useState(false);
+  const [scaleStatus, setScaleStatus] = useState<ScadaScaleStatus | null>(null);
 
   const managerRef = useRef<ScadaCameraManager | null>(null);
   const videoRefs = useRef<(React.RefObject<HTMLVideoElement | null>)[]>([]);
@@ -76,6 +77,28 @@ export default function ScadaPage() {
       })
       .catch(() => setDemoMode(false));
   }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    if (!demoMode) {
+      setScaleStatus(null);
+      return () => { cancelled = true; };
+    }
+    async function loadScale() {
+      try {
+        const status = await getScadaScale();
+        if (!cancelled) setScaleStatus(status);
+      } catch {
+        if (!cancelled) setScaleStatus(null);
+      }
+    }
+    loadScale();
+    const timer = window.setInterval(loadScale, 1000);
+    return () => {
+      cancelled = true;
+      window.clearInterval(timer);
+    };
+  }, [demoMode]);
 
   useEffect(() => {
     if (!managerRef.current) return;
@@ -141,6 +164,7 @@ export default function ScadaPage() {
       const status = await setScadaDemoMode(!demoMode);
       const enabled = Boolean(status.enabled);
       setDemoMode(enabled);
+      if (!enabled) setScaleStatus(null);
       managerRef.current?.setDemoMode(enabled);
     } finally {
       setDemoBusy(false);
@@ -164,6 +188,7 @@ export default function ScadaPage() {
 
   const activeCount = cameras.filter((c) => c.isActive).length;
   const selectedCam = selectedId !== null ? cameras[selectedId] : null;
+  const liveWeightKg = demoMode && scaleStatus?.online ? scaleStatus.latest?.weight_kg : null;
 
   return (
     <div className={styles.wrapper}>
@@ -322,6 +347,11 @@ export default function ScadaPage() {
                           </span>
                         ))
                       ) : null}
+                      {liveWeightKg !== null && liveWeightKg !== undefined && (
+                        <span className={styles.tileDet} style={{ background: "rgba(15,23,42,0.82)" }}>
+                          {liveWeightKg.toFixed(2)} kg
+                        </span>
+                      )}
                     </div>
                     <button
                       onClick={(e) => {
@@ -414,6 +444,8 @@ export default function ScadaPage() {
         {selectedCam ? (
           <DetectionPanel
             camera={selectedCam}
+            demoMode={demoMode}
+            scaleStatus={scaleStatus}
             threshold={threshold}
             onThresholdChange={setThreshold}
             onToggleAuto={() => selectedId !== null && handleToggle(selectedId)}

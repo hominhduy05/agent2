@@ -9,6 +9,15 @@ export interface BoundingBox {
   confidence: number;
   class_id: number;
   class_name: string;
+  weight_kg?: number | null;
+  weight_unit?: string | null;
+  fruit_id?: string | null;
+  scale_age_seconds?: number | null;
+  scale_stable?: boolean | null;
+  visual_grade?: string | null;
+  weight_grade?: string | null;
+  final_grade?: string | null;
+  classification_source?: string | null;
 }
 
 export interface DetectionResponse {
