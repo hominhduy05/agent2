@@ -2,7 +2,7 @@ from ultralytics import YOLO
 import torch
 from pathlib import Path
 
-MODEL_PATH = Path(__file__).parent / "model" / "durian_yolov8.pt"
+MODEL_PATH = Path(__file__).parent.parent / "model" / "durian_yolo26m_seg.pt"
 OUT_DIR    = MODEL_PATH.parent
 
 
@@ -15,7 +15,7 @@ def export_onnx():
         simplify=True,
         opset=12,
     )
-    dest = OUT_DIR / "durian_yolov8.onnx"
+    dest = OUT_DIR / "durian_yolo26m_seg.onnx"
     Path(onnx_path).rename(dest)
     print(f"ONNX saved: {dest}")
     return str(dest)
@@ -28,7 +28,7 @@ def export_torchscript():
         format="torchscript",
         imgsz=640,
     )
-    dest = OUT_DIR / "durian_yolov8.torchscript"
+    dest = OUT_DIR / "durian_yolo26m_seg.torchscript"
     Path(ts_path).rename(dest)
     print(f"TorchScript saved: {dest}")
     return str(dest)
@@ -38,8 +38,8 @@ def export_tensorrt():
     print("Exporting TensorRT...")
     import tensorrt as trt
 
-    TRT_PATH = OUT_DIR / "durian_yolov8.engine"
-    onnx_file = OUT_DIR / "durian_yolov8.onnx"
+    TRT_PATH = OUT_DIR / "durian_yolo26m_seg.engine"
+    onnx_file = OUT_DIR / "durian_yolo26m_seg.onnx"
     if not onnx_file.exists():
         print("ONNX not found, exporting first...")
         export_onnx()

@@ -82,10 +82,15 @@ function WeightCard({ scale }: { scale: ScadaScaleSnapshot | null }) {
   );
 }
 
-function DetetionRow({ box, showScale }: { box: { class_name: string; confidence: number; x1: number; y1: number; x2: number; y2: number; weight_kg?: number | null; final_grade?: string | null; fruit_id?: string | null }; showScale: boolean }) {
+function detectionGrade(box: { class_name: string; final_grade?: string | null }) {
+  return box.final_grade || classGrade(box.class_name);
+}
+
+function DetetionRow({ box, showScale }: { box: { class_name: string; confidence: number; x1: number; y1: number; x2: number; y2: number; track_id?: number | null; display_id?: number | null; weight_kg?: number | null; final_grade?: string | null; fruit_id?: string | null }; showScale: boolean }) {
   const color = classColor(box.class_name);
   const label = classLabel(box.class_name);
-  const grade = showScale && box.final_grade ? box.final_grade : classGrade(box.class_name);
+  const grade = detectionGrade(box);
+  const displayId = box.display_id ?? box.track_id ?? "-";
 
   return (
     <div style={{
@@ -126,7 +131,7 @@ function DetetionRow({ box, showScale }: { box: { class_name: string; confidence
           fontFamily: "var(--font-outfit)",
           marginTop: "2px",
         }}>
-          x1:{box.x1.toFixed(0)} y1:{box.y1.toFixed(0)} x2:{box.x2.toFixed(0)} y2:{box.y2.toFixed(0)}
+          ID:{displayId} | x1:{box.x1.toFixed(0)} y1:{box.y1.toFixed(0)} x2:{box.x2.toFixed(0)} y2:{box.y2.toFixed(0)}
           {showScale && box.weight_kg !== null && box.weight_kg !== undefined ? ` | ${box.weight_kg.toFixed(2)} kg` : ""}
           {showScale && box.fruit_id ? ` | ${box.fruit_id}` : ""}
         </div>
@@ -207,6 +212,8 @@ function qualityLabel(reason?: string) {
     low_confidence: "Độ tin cậy thấp",
     frame_accepted: "Đã chụp frame",
     fruit_already_captured: "Đã chụp, cho trái rời vùng",
+    active_fruit_lost_before_capture: "Trái đang theo dõi đã rời khung",
+    tracked_fruit_left_frame: "Trái đã rời khung hình",
   };
   return labels[reason || ""] || "Đang kiểm tra chất lượng";
 }
@@ -236,7 +243,7 @@ export default function DetectionPanel({
   const displayDetections = inspectionHistory.flatMap((item) => item.detections || []);
 
   const gradeCounts = displayDetections.reduce<Record<string, number>>((acc, d) => {
-    const grade = classGrade(d.class_name);
+    const grade = detectionGrade(d);
     acc[grade] = (acc[grade] || 0) + 1;
     return acc;
   }, {});

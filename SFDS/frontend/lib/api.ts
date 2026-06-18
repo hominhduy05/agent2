@@ -117,6 +117,9 @@ export interface ScadaDetectionResult {
     detections: Array<{
       x1: number; y1: number; x2: number; y2: number;
       confidence: number; class_id: number; class_name: string;
+      polygon?: number[][] | null;
+      track_id?: number | null;
+      display_id?: number | null;
       weight_kg?: number | null;
       weight_unit?: string | null;
       fruit_id?: string | null;
@@ -164,6 +167,9 @@ export interface ScadaPiFeed {
   detections?: Array<{
     x1: number; y1: number; x2: number; y2: number;
     confidence: number; class_id: number; class_name: string;
+    polygon?: number[][] | null;
+    track_id?: number | null;
+    display_id?: number | null;
   }>;
   detection_count?: number;
   confidence_threshold?: number;
@@ -195,6 +201,9 @@ export interface WebcamDetectResult {
   detections: Array<{
     x1: number; y1: number; x2: number; y2: number;
     confidence: number; class_id: number; class_name: string;
+    polygon?: number[][] | null;
+    track_id?: number | null;
+    display_id?: number | null;
     weight_kg?: number | null;
     weight_unit?: string | null;
     fruit_id?: string | null;

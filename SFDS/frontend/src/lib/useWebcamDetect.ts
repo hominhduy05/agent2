@@ -119,6 +119,28 @@ export function useWebcamDetect(
         };
         const color = colorMap[box.class_name] || "#ffffff";
 
+        if (box.polygon && box.polygon.length >= 3) {
+          ctx.save();
+          ctx.beginPath();
+          box.polygon.forEach((point, index) => {
+            const [px, py] = point;
+            const x = px * scaleX;
+            const y = py * scaleY;
+            if (index === 0) {
+              ctx.moveTo(x, y);
+            } else {
+              ctx.lineTo(x, y);
+            }
+          });
+          ctx.closePath();
+          ctx.fillStyle = `${color}35`;
+          ctx.strokeStyle = `${color}e6`;
+          ctx.lineWidth = 2;
+          ctx.fill();
+          ctx.stroke();
+          ctx.restore();
+        }
+
         // Label
         const label = `${box.class_name} ${(box.confidence * 100).toFixed(0)}%`;
         const labelX = x1 + 4;

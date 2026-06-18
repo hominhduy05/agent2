@@ -228,7 +228,9 @@ class SortTracker:
     def reset(self) -> None:
         self.tracks = []
         self._frame_count = 0
-        KalmanBoxTracker._count = 0
+        # Keep the ID counter alive across fruit departures. The slot reset is
+        # only meant to clear active tracks; resetting IDs would make the next
+        # fruit appear as the same object to the UI/crop-once logic.
 
     def update(self, detections: List[dict]) -> List[dict]:
         """
@@ -276,17 +278,23 @@ class SortTracker:
         else:
             matches, u_det, u_trk = [], list(range(n_det)), list(range(n_trk))
 
+        matched_by_track: dict[int, dict] = {}
+
         # Update matched tracks
         for det_idx, trk_idx in matches:
             det = detections[det_idx]
             det_box = [det["x1"], det["y1"], det["x2"], det["y2"]]
-            self.tracks[trk_idx].update(det_box)
+            track = self.tracks[trk_idx]
+            track.update(det_box)
+            matched_by_track[id(track)] = det
 
         # Create new tracks for unmatched detections
         for i in u_det:
             det = detections[i]
             det_box = [det["x1"], det["y1"], det["x2"], det["y2"]]
-            self.tracks.append(KalmanBoxTracker(det_box))
+            track = KalmanBoxTracker(det_box)
+            self.tracks.append(track)
+            matched_by_track[id(track)] = det
 
         # Remove dead tracks
         surviving = [t for t in self.tracks if t.time_since_update <= self.max_age]
@@ -297,15 +305,12 @@ class SortTracker:
         det_boxes_np = [np.array([d["x1"], d["y1"], d["x2"], d["y2"]]) for d in detections]
 
         for t in self.tracks:
-            if t.age >= self.min_hits:
+            if t.age >= self.min_hits and t.time_since_update == 0:
                 state = t.get_state()
-                matched_det = None
-                if t.time_since_update == 0:
-                    for det_idx, trk_idx in matches:
-                        if self.tracks[trk_idx] is t:
-                            matched_det = detections[det_idx]
-                            break
+                matched_det = matched_by_track.get(id(t))
                 if matched_det is None:
+                    if not detections:
+                        continue
                     best_iou = -1
                     for j, det in enumerate(detections):
                         iou_val = iou(state, det_boxes_np[j])
@@ -319,7 +324,9 @@ class SortTracker:
                     "x2": float(state[2]),
                     "y2": float(state[3]),
                     "confidence": float(matched_det["confidence"]) if matched_det else 0.0,
+                    "class_id": matched_det.get("class_id") if matched_det else None,
                     "class_name": str(matched_det["class_name"]) if matched_det else "unknown",
+                    "polygon": matched_det.get("polygon") if matched_det else None,
                     "track_id": t.id,
                 })
 

@@ -174,16 +174,12 @@ export default function ScadaPage() {
   const handleReset = (id: number) => {
     const m = managerRef.current;
     if (!m) return;
-    m.stopAuto(id);
-    const cam = m.cameras[id];
-    cam.resultHistory = [];
-    cam.frameCount = 0;
-    if (cam.canvasRef.current) {
-      const ctx = cam.canvasRef.current.getContext("2d");
-      if (ctx) ctx.clearRect(0, 0, cam.canvasRef.current.width, cam.canvasRef.current.height);
-    }
-    cam.result = null;
-    setCameras((prev) => { const n = [...prev]; n[id] = { ...cam }; return n; });
+    m.resetSession(id);
+    setCameras((prev) => {
+      const n = [...prev];
+      n[id] = { ...m.cameras[id] };
+      return n;
+    });
   };
 
   const activeCount = cameras.filter((c) => c.isActive).length;

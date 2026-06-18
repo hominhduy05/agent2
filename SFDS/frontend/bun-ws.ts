@@ -33,6 +33,8 @@ interface DetectResponse {
     confidence: number;
     class_id: number;
     class_name: string;
+    polygon?: number[][] | null;
+    track_id?: number | null;
   }>;
   image_width: number;
   image_height: number;

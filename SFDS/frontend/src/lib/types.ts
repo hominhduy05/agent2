@@ -9,6 +9,8 @@ export interface BoundingBox {
   confidence: number;
   class_id: number;
   class_name: string;
+  polygon?: number[][] | null;
+  track_id?: number | null;
 }
 
 export interface DetectionResponse {

@@ -52,6 +52,7 @@ _demo_enabled = os.getenv("DURIAN_DEMO_LABEL_OVERRIDE", "0").strip().lower() in 
 }
 _fruit_counter = 0
 _events_by_group: dict[int, dict] = {}
+_track_labels_by_group: dict[int, dict[int, tuple[str, int, int]]] = {}
 
 
 def is_demo_enabled() -> bool:
@@ -60,19 +61,21 @@ def is_demo_enabled() -> bool:
 
 
 def reset_demo_sequence() -> None:
-    global _fruit_counter, _events_by_group
+    global _fruit_counter, _events_by_group, _track_labels_by_group
     with _lock:
         _fruit_counter = 0
         _events_by_group = {}
+        _track_labels_by_group = {}
 
 
 def set_demo_enabled(enabled: bool, *, reset_sequence: bool = True) -> bool:
-    global _demo_enabled, _fruit_counter, _events_by_group
+    global _demo_enabled, _fruit_counter, _events_by_group, _track_labels_by_group
     with _lock:
         _demo_enabled = enabled
         if reset_sequence:
             _fruit_counter = 0
             _events_by_group = {}
+            _track_labels_by_group = {}
     return enabled
 
 
@@ -100,6 +103,15 @@ def mark_demo_slot_empty(slot: int | None) -> None:
         seen_slots = event.setdefault("seen_slots", set())
         if slot in seen_slots:
             event.setdefault("empty_slots", set()).add(slot)
+
+
+def clear_demo_track_labels(slot: int | None) -> None:
+    """Clear active track-label bindings for a slot group after the fruit leaves."""
+    if slot is None:
+        return
+    group = _group_for_slot(slot)
+    with _lock:
+        _track_labels_by_group.pop(group, None)
 
 
 def _next_demo_event() -> tuple[str, int, int]:
@@ -166,6 +178,20 @@ def _current_demo_label(slot: int | None) -> tuple[str, int, int]:
     )
 
 
+def _current_demo_label_for_track(slot: int | None, track_id: int | None) -> tuple[str, int, int]:
+    if track_id is None:
+        return _current_demo_label(slot)
+
+    group = _group_for_slot(slot)
+    labels_for_group = _track_labels_by_group.setdefault(group, {})
+    if track_id not in labels_for_group:
+        # A YOLO/SORT track can fragment while the same physical fruit is still
+        # in view. Reuse the active fruit event label so one fruit cannot turn
+        # into two demo grades just because its internal track_id changed.
+        labels_for_group[track_id] = _current_demo_label(slot)
+    return labels_for_group[track_id]
+
+
 def apply_demo_label_override(detections: list[dict], *, slot: int | None = None) -> list[dict]:
     """Return copied detections with demo class labels applied in fixed order."""
     if not detections:
@@ -174,11 +200,17 @@ def apply_demo_label_override(detections: list[dict], *, slot: int | None = None
     with _lock:
         if not _demo_enabled:
             return detections
-        class_name, class_id, demo_index = _current_demo_label(slot)
+        labels = [
+            _current_demo_label_for_track(
+                slot,
+                int(det["track_id"]) if det.get("track_id") is not None else None,
+            )
+            for det in detections
+        ]
 
     output = deepcopy(detections)
 
-    for det in output:
+    for det, (class_name, class_id, demo_index) in zip(output, labels):
         det["class_name"] = class_name
         det["class_id"] = class_id
         det["demo_override"] = True

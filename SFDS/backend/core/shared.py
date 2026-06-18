@@ -13,10 +13,10 @@ from ultralytics import YOLO
 # Model configuration
 # ---------------------------------------------------------------------------
 MODEL_DIR   = Path(__file__).parent.parent / "model"
-PT_PATH     = MODEL_DIR / "durian_yolov8.pt"
+PT_PATH     = MODEL_DIR / "durian_yolo26m_seg.pt"
 ABC_PATH    = MODEL_DIR / "durian_abc.pt"
-ONNX_PATH   = MODEL_DIR / "durian_yolov8.onnx"
-TRT_ENGINE  = MODEL_DIR / "durian_yolov8.engine"
+ONNX_PATH   = MODEL_DIR / "durian_yolo26m_seg.onnx"
+TRT_ENGINE  = MODEL_DIR / "durian_yolo26m_seg.engine"
 CLASS_NAMES = ["defective", "immature", "mature"]
 ABC_CLASS_NAMES = ["A", "B", "C"]
 
@@ -30,21 +30,34 @@ class YOLOEngine:
         self.device = device
 
     def predict(self, image: Image.Image, conf: float, iou: float):
-        results = self.model.predict(image, conf=conf, iou=iou, verbose=False)
+        results = self.model.predict(image, conf=conf, iou=iou, device=self.device, verbose=False)
         parsed = []
         for r in (results or []):
             if r.boxes is None or len(r.boxes) == 0:
                 continue
+            polygons = []
+            if getattr(r, "masks", None) is not None and getattr(r.masks, "xy", None) is not None:
+                polygons = r.masks.xy or []
             for i in range(len(r.boxes)):
                 xyxy = r.boxes.xyxy[i].cpu().numpy()
                 c = float(r.boxes.conf[i].cpu().numpy())
                 cls_id = int(r.boxes.cls[i].cpu().numpy())
+                polygon = None
+                if i < len(polygons):
+                    points = polygons[i]
+                    if len(points) > 0:
+                        step = max(1, len(points) // 220)
+                        polygon = [
+                            [float(x), float(y)]
+                            for x, y in points[::step]
+                        ]
                 parsed.append(dict(
                     x1=float(xyxy[0]), y1=float(xyxy[1]),
                     x2=float(xyxy[2]), y2=float(xyxy[3]),
                     confidence=round(c, 4),
                     class_id=cls_id,
                     class_name=CLASS_NAMES[cls_id] if cls_id < len(CLASS_NAMES) else "unknown",
+                    polygon=polygon,
                 ))
         return parsed
 
@@ -170,6 +183,8 @@ if ABC_PATH.exists():
 class BoundingBox(BaseModel):
     x1: float; y1: float; x2: float; y2: float
     confidence: float; class_id: int; class_name: str
+    polygon: Optional[List[List[float]]] = None
+    track_id: Optional[int] = None
     weight_kg: Optional[float] = None
     weight_unit: Optional[str] = None
     fruit_id: Optional[str] = None

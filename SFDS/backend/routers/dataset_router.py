@@ -148,8 +148,9 @@ async def batch_detect_objects(
                     "x1": d["x1"], "y1": d["y1"],
                     "x2": d["x2"], "y2": d["y2"],
                     "confidence": d["confidence"],
-                    "class_id": CLASS_NAME_TO_ID.get(d["class_name"], 3),
+                    "class_id": d.get("class_id", CLASS_NAME_TO_ID.get(d["class_name"], 3)),
                     "class_name": d["class_name"],
+                    "polygon": d.get("polygon"),
                 }
                 for d in detections
             ],

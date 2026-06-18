@@ -1,7 +1,7 @@
 "use client";
 
 import { BoundingBox } from "@/lib/types";
-import { classColor, classDisplayLabel, classGrade } from "@/lib/demo-class-display";
+import { classColor, classGrade } from "@/lib/demo-class-display";
 import {
   configScadaCameras,
   detectScadaCamera,
@@ -75,6 +75,8 @@ export interface CameraChannel {
   lastCropAt?: number;
   cropHistory?: CropHistoryItem[];
   inspectionHistory?: InspectionHistoryItem[];
+  croppedTrackIds?: Set<number>;
+  cropLockedUntilEmpty?: boolean;
 }
 
 const CAPTURE_INTERVAL_MS = 2000;
@@ -97,6 +99,8 @@ let activeRoi = ROI;
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:9000";
 const WS_PROTOCOL = API_BASE.startsWith("https") ? "wss" : "ws";
+const SCADA_SESSION_STORAGE_VERSION = "display-id-v2";
+const SCADA_SESSION_VERSION_KEY = "scada:session-storage-version";
 
 function cropStorageKey(cameraId: number) {
   return `scada:last-durian-crop:${cameraId}`;
@@ -182,6 +186,36 @@ function saveStoredInspectionHistory(cameraId: number, history: InspectionHistor
   }
 }
 
+function clearStoredCameraSession(cameraId: number) {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.removeItem(cropStorageKey(cameraId));
+    window.localStorage.removeItem(cropHistoryStorageKey(cameraId));
+    window.localStorage.removeItem(inspectionHistoryStorageKey(cameraId));
+  } catch {
+    // Ignore private mode/localStorage errors.
+  }
+}
+
+function clearStaleStoredSessions(cameraCount: number) {
+  if (typeof window === "undefined") return;
+  try {
+    if (window.localStorage.getItem(SCADA_SESSION_VERSION_KEY) === SCADA_SESSION_STORAGE_VERSION) {
+      return;
+    }
+    for (let i = 0; i < cameraCount; i++) {
+      clearStoredCameraSession(i);
+    }
+    window.localStorage.setItem(SCADA_SESSION_VERSION_KEY, SCADA_SESSION_STORAGE_VERSION);
+  } catch {
+    // Ignore localStorage errors; resetSession still clears in-memory state.
+  }
+}
+
+function detectionGrade(det: BoundingBox) {
+  return det.final_grade || classGrade(det.class_name);
+}
+
 function saveStoredCrop(cameraId: number, dataUrl: string, timestamp: number) {
   if (typeof window === "undefined") return;
   try {
@@ -235,6 +269,37 @@ function drawRoiGuide(
   ctx.restore();
 }
 
+function drawMaskPolygon(
+  ctx: CanvasRenderingContext2D,
+  polygon: number[][] | null | undefined,
+  scale: number,
+  offsetX: number,
+  offsetY: number,
+  color: string
+) {
+  if (!polygon || polygon.length < 3) return;
+
+  ctx.save();
+  ctx.beginPath();
+  polygon.forEach((point, index) => {
+    const [px, py] = point;
+    const x = px * scale + offsetX;
+    const y = py * scale + offsetY;
+    if (index === 0) {
+      ctx.moveTo(x, y);
+    } else {
+      ctx.lineTo(x, y);
+    }
+  });
+  ctx.closePath();
+  ctx.fillStyle = `${color}35`;
+  ctx.strokeStyle = `${color}e6`;
+  ctx.lineWidth = 2;
+  ctx.fill();
+  ctx.stroke();
+  ctx.restore();
+}
+
 function drawDetections(
   ctx: CanvasRenderingContext2D,
   canvas: HTMLCanvasElement,
@@ -259,6 +324,7 @@ function drawDetections(
     if (w <= 1 || h <= 1) return;
 
     const color = classColor(box.class_name);
+    drawMaskPolygon(ctx, box.polygon, scale, offsetX, offsetY, color);
 
     ctx.strokeStyle = color;
     ctx.lineWidth = 2;
@@ -266,34 +332,34 @@ function drawDetections(
     ctx.roundRect(x1, y1, w, h, 4);
     ctx.stroke();
 
+    const idLabel = `ID ${box.display_id ?? box.track_id ?? "-"}`;
     const gradeLabel = classGrade(box.class_name);
-    const conditionLabel = classDisplayLabel(box.class_name);
     const labelHeight = 24;
     const labelPadX = 8;
     const labelY = Math.max(labelHeight + 4, y1 + labelHeight);
     ctx.setLineDash([]);
     ctx.font = "bold 15px Sora, sans-serif";
 
-    const gradeW = Math.max(28, ctx.measureText(gradeLabel).width + labelPadX * 2);
-    const conditionW = ctx.measureText(conditionLabel).width + labelPadX * 2;
-    const gradeX = Math.max(4, x1 + 4);
-    const conditionX = Math.max(
-      gradeX + gradeW + 6,
-      Math.min(canvas.width - conditionW - 4, x2 - conditionW - 4)
+    const idW = Math.max(42, ctx.measureText(idLabel).width + labelPadX * 2);
+    const gradeW = Math.max(34, ctx.measureText(gradeLabel).width + labelPadX * 2);
+    const idX = Math.max(4, x1 + 4);
+    const gradeX = Math.max(
+      idX + idW + 6,
+      Math.min(canvas.width - gradeW - 4, x2 - gradeW - 4)
     );
 
     ctx.fillStyle = `${color}dd`;
     ctx.beginPath();
-    ctx.roundRect(gradeX, labelY - labelHeight + 3, gradeW, labelHeight, 4);
+    ctx.roundRect(idX, labelY - labelHeight + 3, idW, labelHeight, 4);
     ctx.fill();
 
     ctx.beginPath();
-    ctx.roundRect(conditionX, labelY - labelHeight + 3, conditionW, labelHeight, 4);
+    ctx.roundRect(gradeX, labelY - labelHeight + 3, gradeW, labelHeight, 4);
     ctx.fill();
 
     ctx.fillStyle = "#fff";
+    ctx.fillText(idLabel, idX + labelPadX, labelY - 5);
     ctx.fillText(gradeLabel, gradeX + labelPadX, labelY - 5);
-    ctx.fillText(conditionLabel, conditionX + labelPadX, labelY - 5);
   });
 }
 
@@ -310,11 +376,16 @@ export class ScadaCameraManager {
   cameras: CameraChannel[] = [];
   private threshold = 0.25;
   private onUpdate: (camera: CameraChannel) => void;
+  private displayIdsByTrack: Map<string, number>[] = [];
+  private gradeCounters: Record<string, number>[] = [];
 
   constructor(count: number, onUpdate: (c: CameraChannel) => void) {
     this.onUpdate = onUpdate;
+    clearStaleStoredSessions(count);
     for (let i = 0; i < count; i++) {
       this.cameras[i] = this.makeDefault(i);
+      this.displayIdsByTrack[i] = new Map<string, number>();
+      this.gradeCounters[i] = this.countGrades(this.cameras[i].inspectionHistory || []);
     }
   }
 
@@ -352,7 +423,52 @@ export class ScadaCameraManager {
       lastCropAt: storedCrop?.timestamp,
       cropHistory: storedCrops,
       inspectionHistory: storedInspections,
+      croppedTrackIds: new Set<number>(),
+      cropLockedUntilEmpty: false,
     };
+  }
+
+  private countGrades(history: InspectionHistoryItem[]) {
+    const counts: Record<string, number> = { A: 0, B: 0, C: 0, D: 0 };
+    history.forEach((item) => {
+      (item.detections || []).forEach((det) => {
+        const grade = detectionGrade(det);
+        counts[grade] = Math.max(counts[grade] || 0, det.display_id || 0);
+        if (!det.display_id) {
+          counts[grade] = (counts[grade] || 0) + 1;
+          det.display_id = counts[grade];
+        }
+      });
+    });
+    return counts;
+  }
+
+  private displayKey(det: BoundingBox) {
+    if (typeof det.track_id === "number") return `track:${det.track_id}`;
+    return `box:${detectionGrade(det)}:${Math.round(det.x1)}:${Math.round(det.y1)}:${Math.round(det.x2)}:${Math.round(det.y2)}`;
+  }
+
+  private decorateDisplayIds(index: number, detections: BoundingBox[], allowCreate: boolean) {
+    const idMap = this.displayIdsByTrack[index] || new Map<string, number>();
+    const counters = this.gradeCounters[index] || { A: 0, B: 0, C: 0, D: 0 };
+    this.displayIdsByTrack[index] = idMap;
+    this.gradeCounters[index] = counters;
+
+    detections.forEach((det) => {
+      if (typeof det.display_id === "number") return;
+      const key = this.displayKey(det);
+      const known = idMap.get(key);
+      if (known !== undefined) {
+        det.display_id = known;
+        return;
+      }
+      if (!allowCreate) return;
+      const grade = detectionGrade(det);
+      const nextId = (counters[grade] || 0) + 1;
+      counters[grade] = nextId;
+      idMap.set(key, nextId);
+      det.display_id = nextId;
+    });
   }
 
   private rememberCrop(index: number, item: CropHistoryItem) {
@@ -369,6 +485,33 @@ export class ScadaCameraManager {
       cam.inspectionHistory = nextInspections;
       saveStoredInspectionHistory(index, nextInspections);
     }
+  }
+
+  private hasCapturedTrack(index: number, result: ScadaResult) {
+    if (result.quality?.phase === "captured" && this.cameras[index].cropLockedUntilEmpty) {
+      return true;
+    }
+    const trackId = this.getPrimaryTrackId(result);
+    if (trackId == null) return false;
+    return this.cameras[index].croppedTrackIds?.has(trackId) ?? false;
+  }
+
+  private markCapturedTrack(index: number, result: ScadaResult) {
+    if (result.quality?.phase === "captured") {
+      this.cameras[index].cropLockedUntilEmpty = true;
+    }
+    const trackId = this.getPrimaryTrackId(result);
+    if (trackId == null) return;
+    if (!this.cameras[index].croppedTrackIds) {
+      this.cameras[index].croppedTrackIds = new Set<number>();
+    }
+    this.cameras[index].croppedTrackIds.add(trackId);
+  }
+
+  private getPrimaryTrackId(result: ScadaResult) {
+    if (!result.detections.length) return null;
+    const best = [...result.detections].sort((a, b) => b.confidence - a.confidence)[0];
+    return typeof best.track_id === "number" ? best.track_id : null;
   }
 
   private async analyzeCrop(index: number, crop: { dataUrl: string; blob: Blob }, fallback: ScadaResult) {
@@ -395,6 +538,8 @@ export class ScadaCameraManager {
       }
     }
 
+    this.decorateDisplayIds(index, detections, true);
+
     const item: CropHistoryItem = {
       dataUrl: crop.dataUrl,
       timestamp: fallback.timestamp,
@@ -404,6 +549,7 @@ export class ScadaCameraManager {
     };
 
     this.rememberCrop(index, item);
+    this.markCapturedTrack(index, fallback);
     fallback.cropDataUrl = crop.dataUrl;
     fallback.detections = detections;
   }
@@ -433,6 +579,46 @@ export class ScadaCameraManager {
   setRefs(index: number, videoRef: React.RefObject<HTMLVideoElement>, canvasRef: React.RefObject<HTMLCanvasElement>) {
     this.cameras[index].videoRef = videoRef;
     this.cameras[index].canvasRef = canvasRef;
+  }
+
+  resetSession(index: number) {
+    const cam = this.cameras[index];
+    if (!cam) return;
+
+    const shouldResumeAuto = cam.isActive && cam.autoEnabled;
+    this.stopAuto(index);
+    clearStoredCameraSession(index);
+    this.displayIdsByTrack[index] = new Map<string, number>();
+    this.gradeCounters[index] = { A: 0, B: 0, C: 0, D: 0 };
+    cam.result = null;
+    cam.resultHistory = [];
+    cam.frameCount = 0;
+    cam.lastCropDataUrl = undefined;
+    cam.lastCropAt = undefined;
+    cam.cropHistory = [];
+    cam.inspectionHistory = [];
+    cam.croppedTrackIds = new Set<number>();
+    cam.cropLockedUntilEmpty = false;
+    cam.qualityPhase = "idle";
+    cam.qualityReason = "waiting_for_fruit";
+    cam.blurScore = undefined;
+    cam.stableFrames = 0;
+    cam.requiredStableFrames = undefined;
+    cam.lastRawDetectionCount = 0;
+    cam.error = null;
+
+    if (cam.canvasRef.current) {
+      const ctx = cam.canvasRef.current.getContext("2d");
+      ctx?.clearRect(0, 0, cam.canvasRef.current.width, cam.canvasRef.current.height);
+    }
+    if (cam.isActive) {
+      this.drawGuide(index);
+    }
+    this.onUpdate(cam);
+
+    if (shouldResumeAuto) {
+      setTimeout(() => this.startAuto(index), 120);
+    }
   }
 
   // ── Webcam mode ────────────────────────────────────────────────
@@ -559,6 +745,8 @@ export class ScadaCameraManager {
     cam.rtspUrl = "";
     cam.result = null;
     cam.resultHistory = [];
+    cam.croppedTrackIds = new Set<number>();
+    cam.cropLockedUntilEmpty = false;
     cam.frameCount = 0;
     cam.qualityPhase = "idle";
     cam.qualityReason = "waiting_for_fruit";
@@ -628,8 +816,12 @@ export class ScadaCameraManager {
         return;
       }
       if (data.type === "quality_status") {
+        const reason = data.reason as string | undefined;
+        if (reason === "tracked_fruit_left_frame" || reason === "active_fruit_lost_before_capture") {
+          cam.cropLockedUntilEmpty = false;
+        }
         cam.qualityPhase = data.phase as string | undefined;
-        cam.qualityReason = data.reason as string | undefined;
+        cam.qualityReason = reason;
         cam.blurScore = data.blur_score as number | undefined;
         cam.stableFrames = data.stable_frames as number | undefined;
         cam.requiredStableFrames = data.required_stable_frames as number | undefined;
@@ -673,11 +865,13 @@ export class ScadaCameraManager {
           : undefined,
       };
 
-      this.drawResult(index, result);
-      const crop = this.captureCrop(index, result);
+      const crop = this.hasCapturedTrack(index, result) ? null : this.captureCrop(index, result);
       if (crop) {
         await this.analyzeCrop(index, crop, result);
+      } else {
+        this.decorateDisplayIds(index, result.detections, false);
       }
+      this.drawResult(index, result);
       cam.result = result;
       cam.resultHistory = [result, ...cam.resultHistory].slice(0, MAX_HISTORY);
       cam.frameCount += 1;
@@ -809,11 +1003,13 @@ export class ScadaCameraManager {
           scale: slotResult?.scale || data.scale || null,
         };
 
-        this.drawResult(index, result);
-        const crop = this.captureCrop(index, result);
+        const crop = this.hasCapturedTrack(index, result) ? null : this.captureCrop(index, result);
         if (crop) {
           await this.analyzeCrop(index, crop, result);
+        } else {
+          this.decorateDisplayIds(index, result.detections, false);
         }
+        this.drawResult(index, result);
         cam.result = result;
         cam.resultHistory = [result, ...cam.resultHistory].slice(0, MAX_HISTORY);
         cam.frameCount += 1;
@@ -865,11 +1061,13 @@ export class ScadaCameraManager {
           ),
         };
 
-        this.drawResult(index, result);
-        const crop = this.captureCrop(index, result);
+        const crop = this.hasCapturedTrack(index, result) ? null : this.captureCrop(index, result);
         if (crop) {
           await this.analyzeCrop(index, crop, result);
+        } else {
+          this.decorateDisplayIds(index, result.detections, false);
         }
+        this.drawResult(index, result);
         cam.result = result;
         cam.resultHistory = [result, ...cam.resultHistory].slice(0, MAX_HISTORY);
         cam.frameCount += 1;

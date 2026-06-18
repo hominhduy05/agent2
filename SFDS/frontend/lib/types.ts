@@ -9,6 +9,9 @@ export interface BoundingBox {
   confidence: number;
   class_id: number;
   class_name: string;
+  polygon?: number[][] | null;
+  track_id?: number | null;
+  display_id?: number | null;
   weight_kg?: number | null;
   weight_unit?: string | null;
   fruit_id?: string | null;

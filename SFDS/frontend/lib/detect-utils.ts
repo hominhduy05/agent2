@@ -11,6 +11,7 @@ export interface TrackedDetection extends BBox {
   confidence: number;
   class_name: string;
   class_id?: number;
+  polygon?: number[][] | null;
   track_id?: number;
 }
 

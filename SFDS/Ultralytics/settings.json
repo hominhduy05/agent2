@@ -1,9 +1,9 @@
 {
   "settings_version": "0.0.6",
-  "datasets_dir": "D:\\NEWAI\\system\\datasets",
+  "datasets_dir": "F:\\system\\SFDS\\datasets",
   "weights_dir": "weights",
   "runs_dir": "runs",
-  "uuid": "dabfc7c5f211f68afb9cb28a5983127bdc9566085eb55e17b5e421ddf87b29c4",
+  "uuid": "ab85e3f5fad91552d87c24cf53efc491f632bcbcccdb080e8e22ea71019f26bb",
   "sync": true,
   "api_key": "",
   "openai_api_key": "",
@@ -14,8 +14,7 @@
   "mlflow": true,
   "neptune": true,
   "raytune": true,
-  "tensorboard": false,
-  "wandb": false,
-  "vscode_msg": true,
-  "openvino_msg": true
+  "tensorboard": true,
+  "wandb": true,
+  "vscode_msg": true
 }

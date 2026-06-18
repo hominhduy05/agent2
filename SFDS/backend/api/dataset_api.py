@@ -41,6 +41,7 @@ def register(app: FastAPI):
 class BoundingBoxSchema(BaseModel):
     x1: float; y1: float; x2: float; y2: float
     confidence: float; class_id: int; class_name: str
+    polygon: list[list[float]] | None = None
 
 
 class DetectionResultSchema(BaseModel):
@@ -79,6 +80,7 @@ async def detect_bounding_boxes(
                 confidence=d["confidence"],
                 class_id=d["class_id"],
                 class_name=d["class_name"],
+                polygon=d.get("polygon"),
             )
             for d in detections
         ],

@@ -3,6 +3,7 @@ SCADA Router — WebSocket realtime detection, RTSP camera proxy.
 Mounted into app_scada.py.
 """
 import io
+import os
 import time
 import threading
 import base64
@@ -26,6 +27,7 @@ from core.scale_state import (
 from services.mqtt_publisher import publish_enterprise_event
 from core.demo_label_override import (
     apply_demo_label_override,
+    clear_demo_track_labels,
     get_demo_status,
     is_demo_enabled,
     mark_demo_slot_empty,
@@ -233,6 +235,8 @@ class _QualityGateState:
     last_area_ratio: float = 0.0
     best_score: float = -1.0
     best_raw: list[dict] = field(default_factory=list)
+    active_track_id: int | None = None
+    captured_track_id: int | None = None
 
     def reset_tracking(self):
         self.phase = "idle"
@@ -242,6 +246,8 @@ class _QualityGateState:
         self.last_area_ratio = 0.0
         self.best_score = -1.0
         self.best_raw = []
+        self.active_track_id = None
+        self.captured_track_id = None
 
 
 _quality_states: dict[int, _QualityGateState] = {}
@@ -253,6 +259,7 @@ QUALITY_MIN_AREA_RATIO = 0.02
 QUALITY_MAX_AREA_RATIO = 0.75   
 QUALITY_MIN_EDGE_MARGIN_RATIO = 0.035
 QUALITY_MAX_CENTER_SHIFT_RATIO = 0.08
+QUALITY_REASSOC_MAX_CENTER_SHIFT_RATIO = 0.22
 QUALITY_MAX_AREA_SHIFT_RATIO = 0.5
 QUALITY_MIN_BLUR_SCORE = 40.0
 QUALITY_ROI = {
@@ -267,6 +274,7 @@ DEMO_QUALITY_ROI = {
     "x2": 0.92,
     "y2": 0.92,
 }
+CONVEYOR_FLOW = os.getenv("DURIAN_CONVEYOR_FLOW", "left_to_right").strip().lower()
 
 
 def _publish_detection_completed(
@@ -352,11 +360,128 @@ def _center_inside_roi(center: tuple[float, float]) -> bool:
     )
 
 
+def _detection_center(det: dict, width: int, height: int) -> tuple[float, float]:
+    x1, y1 = float(det["x1"]), float(det["y1"])
+    x2, y2 = float(det["x2"]), float(det["y2"])
+    return ((x1 + x2) / 2 / max(width, 1), (y1 + y2) / 2 / max(height, 1))
+
+
+def _is_same_physical_candidate(
+    state: _QualityGateState,
+    det: dict | None,
+    width: int,
+    height: int,
+) -> bool:
+    if det is None:
+        return False
+    if state.last_center is None:
+        return True
+    center = _detection_center(det, width, height)
+    dx = center[0] - state.last_center[0]
+    dy = center[1] - state.last_center[1]
+    return (dx * dx + dy * dy) ** 0.5 <= QUALITY_REASSOC_MAX_CENTER_SHIFT_RATIO
+
+
+def _select_leading_detection(detections: list[dict], width: int, height: int) -> dict | None:
+    candidates = [
+        (det, *_detection_center(det, width, height))
+        for det in detections
+        if _center_inside_roi(_detection_center(det, width, height))
+    ]
+    if not candidates:
+        return None
+
+    if CONVEYOR_FLOW == "right_to_left":
+        return min(candidates, key=lambda item: item[1])[0]
+    if CONVEYOR_FLOW == "top_to_bottom":
+        return max(candidates, key=lambda item: item[2])[0]
+    if CONVEYOR_FLOW == "bottom_to_top":
+        return min(candidates, key=lambda item: item[2])[0]
+    return max(candidates, key=lambda item: item[1])[0]
+
+
 def _quality_gate(slot: int, raw: list[dict], image: Image.Image, width: int, height: int, frame_conf: float) -> dict:
     state = get_quality_state(slot)
     active_roi = DEMO_QUALITY_ROI if is_demo_enabled() else QUALITY_ROI
     blur = _blur_score(image)
-    candidate = _best_detection(raw)
+    candidate = None
+    was_captured = state.phase == "captured"
+
+    if was_captured and state.captured_track_id is not None:
+        candidate = next(
+            (obj for obj in raw if obj.get("track_id") == state.captured_track_id),
+            None,
+        )
+        if candidate is None:
+            candidate = _select_leading_detection(raw, width, height)
+            if _is_same_physical_candidate(state, candidate, width, height):
+                state.captured_track_id = candidate.get("track_id")
+            else:
+                candidate = None
+            if candidate is None:
+                state.empty_frames += 1
+                if state.empty_frames >= QUALITY_EMPTY_RESET_FRAMES:
+                    mark_demo_slot_empty(slot)
+                    state.reset_tracking()
+                    return {
+                        "ready": False,
+                        "phase": "waiting",
+                        "reason": "tracked_fruit_left_frame",
+                        "blur_score": round(blur, 2),
+                        "stable_frames": 0,
+                        "roi": active_roi,
+                        "raw_detection_count": len(raw),
+                        "confidence_threshold": frame_conf,
+                    }
+                return {
+                    "ready": False,
+                    "phase": "captured",
+                    "reason": "waiting_for_fruit",
+                    "blur_score": round(blur, 2),
+                    "stable_frames": state.stable_frames,
+                    "roi": active_roi,
+                    "raw_detection_count": len(raw),
+                    "confidence_threshold": frame_conf,
+                }
+    elif state.active_track_id is not None:
+        candidate = next(
+            (obj for obj in raw if obj.get("track_id") == state.active_track_id),
+            None,
+        )
+        if candidate is None:
+            candidate = _select_leading_detection(raw, width, height)
+            if _is_same_physical_candidate(state, candidate, width, height):
+                state.active_track_id = candidate.get("track_id")
+            else:
+                candidate = None
+            if candidate is None:
+                state.empty_frames += 1
+                if state.empty_frames >= QUALITY_EMPTY_RESET_FRAMES:
+                    state.reset_tracking()
+                    return {
+                        "ready": False,
+                        "phase": "waiting",
+                        "reason": "active_fruit_lost_before_capture",
+                        "blur_score": round(blur, 2),
+                        "stable_frames": 0,
+                        "roi": active_roi,
+                        "raw_detection_count": len(raw),
+                        "confidence_threshold": frame_conf,
+                    }
+                return {
+                    "ready": False,
+                    "phase": "tracking",
+                    "reason": "waiting_for_fruit",
+                    "blur_score": round(blur, 2),
+                    "stable_frames": state.stable_frames,
+                    "roi": active_roi,
+                    "raw_detection_count": len(raw),
+                    "confidence_threshold": frame_conf,
+                }
+    else:
+        candidate = _select_leading_detection(raw, width, height)
+        if candidate is not None:
+            state.active_track_id = candidate.get("track_id")
 
     if candidate is None:
         state.empty_frames += 1
@@ -381,7 +506,6 @@ def _quality_gate(slot: int, raw: list[dict], image: Image.Image, width: int, he
     area_ratio = (box_w * box_h) / max(float(width * height), 1.0)
     center = ((x1 + x2) / 2 / max(width, 1), (y1 + y2) / 2 / max(height, 1))
     edge_margin = _edge_margin_ratio(candidate, width, height)
-    was_captured = state.phase == "captured"
 
     if state.last_center is None:
         stable = False
@@ -412,7 +536,7 @@ def _quality_gate(slot: int, raw: list[dict], image: Image.Image, width: int, he
                     "ready": True,
                     "phase": "captured",
                     "reason": "demo_tracking",
-                    "detections": [dict(obj) for obj in raw],
+                    "detections": [dict(candidate)],
                     "blur_score": round(blur, 2),
                     "stable_frames": state.stable_frames,
                     "area_ratio": round(area_ratio, 4),
@@ -454,7 +578,7 @@ def _quality_gate(slot: int, raw: list[dict], image: Image.Image, width: int, he
     )
     if has_good_area and is_in_roi and is_inside_frame and is_sharp and quality_score > state.best_score:
         state.best_score = quality_score
-        state.best_raw = [dict(obj) for obj in raw]
+        state.best_raw = [dict(candidate)]
 
     checks = {
         "area_ok": has_good_area,
@@ -468,6 +592,7 @@ def _quality_gate(slot: int, raw: list[dict], image: Image.Image, width: int, he
     if all(checks.values()) and state.best_raw:
         detections = state.best_raw
         state.phase = "captured"
+        state.captured_track_id = detections[0].get("track_id")
         return {
             "ready": True,
             "phase": "captured",
@@ -523,6 +648,8 @@ async def ws_scada_detect(ws: WebSocket, slot: int):
     conf = 0.25
     _DetectionSessionManager.register(slot, ws, conf)
     reset_quality_state(slot)
+    get_tracker_mgr().reset_slot(slot)
+    clear_demo_track_labels(slot)
 
     try:
         while True:
@@ -552,15 +679,22 @@ async def ws_scada_detect(ws: WebSocket, slot: int):
 
                 try:
                     raw = engine_obj.predict(image, conf=frame_conf, iou=0.45)
+                    tracked = get_tracker_mgr().update(slot, raw)
                 except Exception as e:
                     print(f"[WS] Inference error slot {slot}: {e}")
                     await ws.send_json({"type": "error", "message": f"Inference error: {e}"})
                     continue
 
                 try:
-                    quality = _quality_gate(slot, raw, image, width, height, frame_conf)
+                    quality = _quality_gate(slot, tracked, image, width, height, frame_conf)
 
                     if not quality["ready"]:
+                        if quality.get("reason") == "tracked_fruit_left_frame":
+                            get_tracker_mgr().reset_slot(slot)
+                            clear_demo_track_labels(slot)
+                        elif quality.get("reason") == "active_fruit_lost_before_capture":
+                            get_tracker_mgr().reset_slot(slot)
+                            clear_demo_track_labels(slot)
                         await ws.send_json({
                             "type": "quality_status",
                             "slot": slot,
@@ -578,7 +712,11 @@ async def ws_scada_detect(ws: WebSocket, slot: int):
                     final_detections = attach_scale_to_detections(final_detections, scale)
 
                     mature = immature = defective = 0
+                    track_ids = []
                     for obj in final_detections:
+                        tid = obj.get("track_id")
+                        if tid is not None and tid not in track_ids:
+                            track_ids.append(tid)
                         cls = obj.get("class_name", "")
                         if cls == "mature":
                             mature += 1
@@ -597,6 +735,8 @@ async def ws_scada_detect(ws: WebSocket, slot: int):
                                 "confidence": o["confidence"],
                                 "class_id": o.get("class_id", CLASS_NAME_TO_ID.get(o["class_name"], 3)),
                                 "class_name": o["class_name"],
+                                "polygon": o.get("polygon"),
+                                "track_id": o.get("track_id"),
                                 "weight_kg": o.get("weight_kg"),
                                 "weight_unit": o.get("weight_unit"),
                                 "fruit_id": o.get("fruit_id"),
@@ -635,6 +775,7 @@ async def ws_scada_detect(ws: WebSocket, slot: int):
                         width,
                         height,
                         frame_conf,
+                        track_ids=track_ids,
                         quality=result["quality"],
                         scale=scale,
                     )
@@ -790,6 +931,7 @@ async def detect_camera_frame(
                         confidence=o["confidence"],
                         class_id=o.get("class_id", CLASS_NAME_TO_ID.get(o["class_name"], 3)),
                         class_name=o["class_name"],
+                        polygon=o.get("polygon"),
                         weight_kg=o.get("weight_kg"),
                         weight_unit=o.get("weight_unit"),
                         fruit_id=o.get("fruit_id"),

@@ -2,8 +2,8 @@ from ultralytics import YOLO
 import torch
 from pathlib import Path
 
-MODEL_PATH = Path(__file__).parent / "model" / "durian_yolov8.pt"
-DATA_YAML  = Path(__file__).parent.parent / "Durian Thesis.v3i.yolov8" / "data.yaml"
+MODEL_PATH = Path(__file__).parent.parent / "model" / "durian_yolo26m_seg.pt"
+DATA_YAML  = Path(__file__).parent.parent / "Durian Thesis.v3i.yolo26_prepared_seg" / "data.yaml"
 
 CLASS_NAMES = ["defective", "immature", "mature"]
 
