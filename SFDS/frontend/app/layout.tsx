@@ -8,7 +8,7 @@ export const metadata: Metadata = {
   title: "DurianPro — Smart Agriculture",
   description: "AI-powered durian ripeness detection and quality inspection dashboard",
   icons: {
-    icon: "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><text y='20' font-size='20'>🌿</text></svg>",
+    icon: "/logo.png",
   },
 };
 

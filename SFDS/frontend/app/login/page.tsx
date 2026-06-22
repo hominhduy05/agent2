@@ -54,8 +54,8 @@ export default function LoginPage() {
       {/* Brand panel (Left) */}
       <div className={styles.left}>
         <div className={styles.brand}>
-          <div style={{ width: 48, height: 48, overflow: "hidden", borderRadius: 10, display: "flex", alignItems: "center", justifyContent: "center" }}>
-            <Image src={logoImg} alt="Logo" width={80} height={80} style={{ minWidth: "165%", minHeight: "165%", objectFit: "cover" }} />
+          <div style={{ width: 56, height: 56, overflow: "hidden", borderRadius: 12, display: "flex", alignItems: "center", justifyContent: "center" }}>
+            <Image src={logoImg} alt="Logo" width={92} height={92} style={{ minWidth: "165%", minHeight: "165%", objectFit: "cover" }} />
           </div>
           <span className={styles.brandName} style={{ marginLeft: "10px" }}>DurianPro</span>
         </div>
@@ -91,6 +91,13 @@ export default function LoginPage() {
       {/* Login Form Panel (Right) */}
       <div className={styles.right}>
         <div className={styles.formWrap}>
+          <div className={styles.mobileBrand}>
+            <div style={{ width: 44, height: 44, overflow: "hidden", borderRadius: 10, display: "flex", alignItems: "center", justifyContent: "center" }}>
+              <Image src={logoImg} alt="Logo" width={72} height={72} style={{ minWidth: "165%", minHeight: "165%", objectFit: "cover" }} />
+            </div>
+            <span className={styles.brandName} style={{ marginLeft: "10px" }}>DurianPro</span>
+          </div>
+
           <div className={styles.formHead}>
             <h2 className={styles.formTitle}>Đăng nhập</h2>
             <p className={styles.formSub}>Hệ thống quản lý sản xuất nội bộ</p>
