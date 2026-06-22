@@ -1,14 +1,14 @@
 # SFDS — Durian Sorting & Fault Detection System
 
-He thong IoT thoi gian thuc phan loai sau rieng ket hop AI vision assistant. Bao gom 2 he thong con: **SFDS** (SCADA + YOLO) va **Agent** (Multi-Agent AI).
+A real-time IoT system for durian sorting combined with an AI vision assistant. It consists of two subsystems: **SFDS** (SCADA + YOLO) and **Agent** (Multi-Agent AI).
 
 ---
 
-## Muc luc
+## Table of Contents
 
-1. [Kien truc tong quan](#kien-truc-tong-quan)
-2. [Cai dat](#cai-dat)
-3. [Khoi dong he thong](#khoi-dong-he-thong)
+1. [System Architecture](#system-architecture)
+2. [Installation](#installation)
+3. [Launching the System](#launching-the-system)
 4. [LM Studio — LLM Inference Server](#lm-studio--llm-inference-server)
 5. [SFDS Backend — SCADA + YOLO Detection](#sfds-backend--scada--yolo-detection)
 6. [SFDS Frontend — Dashboard & SCADA UI](#sfds-frontend--dashboard--scada-ui)
@@ -21,7 +21,7 @@ He thong IoT thoi gian thuc phan loai sau rieng ket hop AI vision assistant. Bao
 
 ---
 
-## Kien truc tong quan
+## System Architecture
 
 ```
 BROWSER
@@ -41,36 +41,36 @@ BROWSER
 │              │   Vision / Chat /     │
 │              │   Report             │
 │              └───────────┬───────────┘
-│                          │ httpx (gọi SFDS health/cameras/stats)
+│                          │ httpx (calls SFDS health/cameras/stats)
 │              ┌───────────▼───────────┐
 │              │   SFDS Backend        │  port 9000
 │              │   FastAPI + YOLOv8    │  (SCADA Detection API)
 │              │   WebSocket Server    │
 │              └───────────┬───────────┘
-│                          │ httpx (gọi LLM)
+│                          │ httpx (calls LLM)
 │              ┌───────────▼───────────┐
 │              │   LM Studio          │  port 1234
 │              │   LLM Inference      │  (nvidia/nemotron-3-nano-*)
 │              └───────────────────────┘
 ```
 
-### Hai he thong con
+### Two Subsystems
 
-| He thong | Thu muc | Mo ta | Port |
-|----------|---------|-------|------|
-| **SFDS** | `SFDS/` | SCADA realtime + YOLO detection + Dataset management | 9000 |
+| Subsystem | Directory | Description | Port |
+|-----------|-----------|-------------|------|
+| **SFDS** | `SFDS/` | Real-time SCADA + YOLO detection + Dataset management | 9000 |
 | **Agent** | `agent/` | Multi-agent AI assistant (vision analysis, chat, reports) | 8001 |
 
 ---
 
-## Cai dat
+## Installation
 
-### Yeu cau he thong
+### System Requirements
 
 - Python 3.10+
-- Node.js / Bun (cho frontend)
-- GPU CUDA (tuy chon, de tang toc do YOLO inference)
-- [LM Studio](https://lmstudio.ai/) (chay LLM locally)
+- Node.js / Bun (for frontend)
+- CUDA-capable GPU (optional, for faster YOLO inference)
+- [LM Studio](https://lmstudio.ai/) (for running LLM locally)
 
 ### 1. SFDS Backend
 
@@ -102,26 +102,26 @@ npm install
 
 ---
 
-## Khoi dong he thong
+## Launching the System
 
-### Thứ tự bắt buộc
+### Required Startup Order
 
 ```
 1. LM Studio        Load model + Start Server  →  port 1234
 2. SFDS Backend     uvicorn main:app           →  port 9000
 3. Agent Backend    uvicorn app.main:app       →  port 8001
-4. SFDS Frontend    bun run dev                →  port 5173 (hoặc 3000)
+4. SFDS Frontend    bun run dev                →  port 5173 (or 3000)
 5. Agent Frontend   npm run dev                →  port 3000
 ```
 
 ### 1. LM Studio
 
-1. Mo LM Studio, tai model:
-   - `nvidia/nemotron-3-nano-omni` (cho Vision Agent)
-   - `nvidia/nemotron-3-nano-4b` (cho Chat Agent)
-   - `qwen/qwen3.5-9b` (cho Report Agent)
-2. Bam **Server** (bien tuong goc trai duoi) → **Start Server**
-3. Mac dinh: `http://localhost:1234`
+1. Open LM Studio and download models:
+   - `nvidia/nemotron-3-nano-omni` (for Vision Agent)
+   - `nvidia/nemotron-3-nano-4b` (for Chat Agent)
+   - `qwen/qwen3.5-9b` (for Report Agent)
+2. Click **Server** (developer icon in the bottom-left corner) → **Start Server**
+3. Default: `http://localhost:1234`
 
 ### 2. SFDS Backend
 
@@ -132,7 +132,7 @@ uvicorn main:app --reload --port 9000
 
 - API docs: http://localhost:9000/docs
 - Health: http://localhost:9000/health/
-- Model tu dong load khi start (`.pt` → `.onnx` → TensorRT)
+- Model auto-loads on startup (`.pt` → `.onnx` → TensorRT)
 
 ### 3. Agent Backend
 
@@ -163,7 +163,7 @@ cd F:/system/agent/frontend
 npm run dev
 ```
 
-- Trang chu: http://localhost:3000
+- Home: http://localhost:3000
 - Chat: http://localhost:3000/chat
 - Analyze: http://localhost:3000/analyze
 - Reports: http://localhost:3000/reports
@@ -172,11 +172,11 @@ npm run dev
 
 ## LM Studio — LLM Inference Server
 
-LM Studio la Local LLM inference server. Ca **Agent Backend** va **SFDS Backend** deu goi LM Studio qua REST API.
+LM Studio is a local LLM inference server. Both the **Agent Backend** and **SFDS Backend** call LM Studio via REST API.
 
-### Cau hinh trong Agent Backend
+### Configuration in Agent Backend
 
-Tao file `agent/backend/.env` neu can:
+Create the file `agent/backend/.env` if needed:
 
 ```env
 lm_studio_url=http://localhost:1234/v1/chat/completions
@@ -196,7 +196,7 @@ curl http://localhost:1234/v1/models
 
 ## SFDS Backend — SCADA + YOLO Detection
 
-### Cau truc
+### Structure
 
 ```
 SFDS/backend/
@@ -209,69 +209,69 @@ SFDS/backend/
 │   ├── database.py             # SQLite models
 │   └── sort_tracker.py         # SORT Kalman tracking
 ├── services/
-│   ├── dataset_service.py      # Luu anh + YOLO labels
+│   ├── dataset_service.py      # Save images + YOLO labels
 │   └── mqtt_publisher.py       # MQTT broker client
 ├── scripts/
 │   ├── train.py               # Train YOLOv8
 │   ├── export_model.py        # Export .pt → .onnx
 │   └── evaluate_model.py      # Evaluation
 └── model/
-    ├── durian_yolov8.pt       # YOLOv8 PyTorch (UU TIEN)
+    ├── durian_yolov8.pt       # YOLOv8 PyTorch (PREFERRED)
     ├── durian_yolov8.onnx     # YOLOv8 ONNX
     ├── durian_yolov8.engine   # TensorRT CUDA
     ├── durian_abc.pt          # ABC grading model (A/B/C)
     └── durian_abc.onnx
 ```
 
-### Model loading priority
+### Model Loading Priority
 
-| Thu tu | File | Engine | Thiet bi |
-|--------|------|--------|----------|
+| Order | File | Engine | Device |
+|-------|------|--------|--------|
 | 1 | `durian_yolov8.pt` | YOLOEngine (ultralytics) | CUDA / CPU |
 | 2 | `durian_yolov8.onnx` | YOLOEngine (ultralytics) | CUDA / CPU |
 | 3 | TensorRT `.engine` | TRTEngine (ONNX Runtime CUDA) | CUDA only |
 
-### Classes nhan dien
+### Detection Classes
 
 ```
-defective  → hu, sau ray
-immature   → chua chin
-mature     → chin
+defective  → rotten, damaged
+immature   → unripe
+mature     → ripe
 ```
 
 ### Quality Gate (WebSocket)
 
-Khi nhan frame qua WebSocket, he thong di qua **Quality Gate** de dam bao chi frame chat luong moi duoc dem ra phan loai:
+When a frame is received via WebSocket, the system runs through a **Quality Gate** to ensure only high-quality frames proceed to classification:
 
 1. **Blur check** — cv2.Laplacian variance >= 40
-2. **ROI check** — tam trai cay nam trong vung 18%-82% (x) va 16%-84% (y)
-3. **Edge margin** — trai cay cach bien frame >= 3.5%
-4. **Area ratio** — kich thuoc trai cay 2%-75% dien tich frame
-5. **Stability** — trai cay o nhu cung vi tri trong 2+ frame lien tiep
+2. **ROI check** — fruit center is within 18%–82% (x) and 16%–84% (y)
+3. **Edge margin** — fruit is at least 3.5% away from frame edges
+4. **Area ratio** — fruit size is 2%–75% of frame area
+5. **Stability** — fruit remains at the same position for 2+ consecutive frames
 
-Neu tat ca check deu pass → gui ket qua ve client qua WebSocket.
+If all checks pass → the result is sent back to the client via WebSocket.
 
 ### SORT Tracker
 
-Dung **SORT (Simple Online and Realtime Tracking)** de danh ID cho tung trai cay va dem so luong khong trung lap:
+Uses **SORT (Simple Online and Realtime Tracking)** to assign IDs to each fruit and count unique items:
 
-- **Kalman Filter** — du doan vi tri frame tiep theo
-- **Hungarian Algorithm** — gan detection vao track hien co
-- **IOU Matching** — chi ghep neu IOU >= 0.3
+- **Kalman Filter** — predicts position in the next frame
+- **Hungarian Algorithm** — matches detections to existing tracks
+- **IOU Matching** — only matches if IOU >= 0.3
 
 ---
 
 ## SFDS Frontend — Dashboard & SCADA UI
 
-### Cau truc
+### Structure
 
 ```
 SFDS/frontend/
 ├── app/
 │   ├── page.tsx               # Root → redirect /dashboard
-│   ├── dashboard/             # Trang tong quan
-│   ├── scada/                 # Camera realtime + detection
-│   └── dataset/               # Thu thap anh + gan nhan
+│   ├── dashboard/             # Overview page
+│   ├── scada/                 # Realtime camera + detection
+│   └── dataset/               # Image collection + labeling
 ├── components/
 │   ├── scada/                 # Camera, detection overlay
 │   ├── dashboard/
@@ -283,19 +283,19 @@ SFDS/frontend/
     └── types.ts
 ```
 
-### Cac trang chinh
+### Main Pages
 
-| Route | Mo ta |
-|-------|-------|
-| `/dashboard` | Tong quan KPI, bieu do, thong ke |
-| `/scada` | Camera realtime, detection sau rieng |
-| `/dataset` | Thu thap anh + gan nhan YOLO |
+| Route | Description |
+|-------|-------------|
+| `/dashboard` | Overview of KPIs, charts, statistics |
+| `/scada` | Realtime camera, durian detection |
+| `/dataset` | Image collection + YOLO labeling |
 
 ---
 
 ## Agent Backend — Multi-Agent AI
 
-### Kien truc Multi-Agent (LangGraph)
+### Multi-Agent Architecture (LangGraph)
 
 ```
 User message
@@ -320,23 +320,23 @@ report_agent tools:  generate_report (PDF / DOCX / HTML)
 
 ### ReAct Loop
 
-Moi agent su dung **ReAct** (Reason + Act) — LLM tuan tra vong lap:
+Each agent uses **ReAct** (Reason + Act) — the LLM iterates through the following loop:
 
 ```
-LLM phan tich message
+LLM analyzes message
     │
-    ├── Ko can tool → Tra loi text
+    ├── No tool needed → Reply with text
     │
-    └── Can tool → Goi tool function → Lay ket qua
+    └── Tool needed → Call tool function → Get result
          │
          ▼
-    LLM suy luan tiep voi ket qua tool
+    LLM reasons further with tool result
          │
-         ├── Tool tiep theo? → Lap lai
-         └── Tra loi cuoi cung
+         ├── Another tool? → Repeat
+         └── Final answer
 ```
 
-### Cau truc
+### Structure
 
 ```
 agent/backend/app/
@@ -362,7 +362,7 @@ agent/backend/app/
 │       ├── vision.py        # Vision tools (analyze, diagnose)
 │       └── report.py        # Report tool (PDF/DOCX/HTML)
 ├── services/
-│   ├── llm_service.py       # Direct LLM calls (khong qua agent)
+│   ├── llm_service.py       # Direct LLM calls (bypassing agent)
 │   ├── sfds_service.py      # Proxy SFDS backend
 │   ├── report_service.py    # Generate PDF/DOCX/HTML
 │   └── sfds_event_store.py  # In-memory event log
@@ -371,28 +371,28 @@ agent/backend/app/
 
 ### Available Tools
 
-| Tool | Agent | Mo ta |
-|------|-------|-------|
-| `get_sfds_health` | chat, vision | Lay trang thai SFDS backend |
-| `get_sfds_cameras` | chat, vision | Lay cau hinh camera |
-| `get_sfds_stats` | chat, vision | Lay thong ke dataset |
-| `get_chat_history` | chat | Tra cuu lich su cuoc tro chuyen |
-| `get_current_sfds_status` | chat | Tra cuu trang thai SFDS hien tai |
-| `analyze_image` | vision | Phan tich anh bang vision LLM |
-| `extract_dashboard_metrics` | vision | Trich xuat chi so tu anh dashboard |
-| `diagnose_error` | vision | Chan doan loi tu anh |
-| `generate_report` | report | Tao bao cao PDF / DOCX / HTML |
+| Tool | Agent | Description |
+|------|-------|-------------|
+| `get_sfds_health` | chat, vision | Get SFDS backend status |
+| `get_sfds_cameras` | chat, vision | Get camera configuration |
+| `get_sfds_stats` | chat, vision | Get dataset statistics |
+| `get_chat_history` | chat | Retrieve conversation history |
+| `get_current_sfds_status` | chat | Retrieve current SFDS status |
+| `analyze_image` | vision | Analyze image with vision LLM |
+| `extract_dashboard_metrics` | vision | Extract metrics from dashboard image |
+| `diagnose_error` | vision | Diagnose errors from image |
+| `generate_report` | report | Generate PDF / DOCX / HTML report |
 
 ---
 
 ## Agent Frontend — AI Assistant UI
 
-### Cau truc
+### Structure
 
 ```
 agent/frontend/src/
 ├── app/
-│   ├── page.tsx             # Trang chu - overview + quick actions
+│   ├── page.tsx             # Home - overview + quick actions
 │   ├── layout.tsx           # Root layout
 │   ├── globals.css          # Global styles
 │   ├── chat/page.tsx        # Chat assistant
@@ -411,16 +411,16 @@ agent/frontend/src/
     └── api.ts               # Backend API calls
 ```
 
-### Cac trang
+### Pages
 
-| Route | Mo ta |
-|-------|-------|
+| Route | Description |
+|-------|-------------|
 | `/` | Dashboard overview, system status pills, quick actions |
-| `/chat` | Chat Assistant - hoi đap voi multi-agent |
-| `/analyze` | Phan tich anh - upload/capture + chon loai phan tich |
-| `/analyze?tab=dashboard` | Dashboard reader - trich xuat metrics |
-| `/analyze?tab=error` | Error diagnosis - chan doan loi |
-| `/reports` | Danh sach bao cao + download PDF/DOCX/HTML |
+| `/chat` | Chat Assistant — Q&A with multi-agent |
+| `/analyze` | Image analysis — upload/capture + select analysis type |
+| `/analyze?tab=dashboard` | Dashboard reader — extract metrics |
+| `/analyze?tab=error` | Error diagnosis |
+| `/reports` | Report list + download PDF/DOCX/HTML |
 
 ---
 
@@ -428,16 +428,16 @@ agent/frontend/src/
 
 ### SFDS Backend Database
 
-SQLite tai `SFDS/backend/durian.db`:
+SQLite at `SFDS/backend/durian.db`:
 
-| Bang | Mo ta |
-|------|-------|
-| `employees` | Tai khoan nguoi dung (admin/inspector) |
-| `inspection_logs` | Lich su kiem tra |
-| `kpi_targets` | Muc tieu KPI |
-| `shifts` | Ca san xuat |
-| `alarm_logs` | Nhat ky canh bao |
-| `trace_logs` | Traceability trai cay |
+| Table | Description |
+|-------|-------------|
+| `employees` | User accounts (admin/inspector) |
+| `inspection_logs` | Inspection history |
+| `kpi_targets` | KPI targets |
+| `shifts` | Production shifts |
+| `alarm_logs` | Alarm log |
+| `trace_logs` | Fruit traceability |
 
 Default admin: `admin` / `admin123`
 
@@ -449,7 +449,7 @@ Default admin: `admin` / `admin123`
 dataset/
 ├── images/
 │   ├── export_criteria/      A/ B/ C/ D (ABCD grading)
-│   └── condition/           Xanh/ Suong/ Chin/ Sau ray/ Hu
+│   └── condition/           Green/ Frosted/ Ripe/ Damaged/ Rotten
 └── labels/                  (YOLO format .txt)
 ```
 
@@ -471,80 +471,80 @@ storage/
 
 #### Detection
 
-| Method | Endpoint | Mo ta |
-|--------|----------|-------|
-| POST | `/detect/` | Upload anh → YOLO detection |
-| POST | `/api/scada/detect/{slot}/` | Detection frame tu IP camera slot |
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| POST | `/detect/` | Upload image → YOLO detection |
+| POST | `/api/scada/detect/{slot}/` | Detect frame from IP camera slot |
 | POST | `/api/detect/batch/` | Batch detection |
 
 #### SCADA — RTSP Camera
 
-| Method | Endpoint | Mo ta |
-|--------|----------|-------|
-| GET | `/api/scada/cameras/` | Lay cau hinh 4 slots RTSP |
-| POST | `/api/scada/cameras/` | Luu cau hinh RTSP URLs |
-| GET | `/api/scada/frame/{slot}/` | Doc 1 frame JPEG tu IP camera |
-| POST | `/api/scada/cameras/{slot}/start/` | Bat camera IP |
-| POST | `/api/scada/cameras/{slot}/stop/` | Tat camera IP |
-| WS | `/ws/scada/detect/{slot}/` | Realtime detection qua WebSocket |
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/scada/cameras/` | Get configuration of 4 RTSP slots |
+| POST | `/api/scada/cameras/` | Save RTSP URL configuration |
+| GET | `/api/scada/frame/{slot}/` | Read one JPEG frame from IP camera |
+| POST | `/api/scada/cameras/{slot}/start/` | Start IP camera |
+| POST | `/api/scada/cameras/{slot}/stop/` | Stop IP camera |
+| WS | `/ws/scada/detect/{slot}/` | Realtime detection via WebSocket |
 
 #### Dataset
 
-| Method | Endpoint | Mo ta |
-|--------|----------|-------|
-| POST | `/api/dataset/save-face/` | Luu anh + labels YOLO |
-| GET | `/api/dataset/items/` | Danh sach items |
-| GET | `/api/dataset/stats/` | Thong ke so anh theo nhan |
-| DELETE | `/api/dataset/items/{cat}/{label}/{file}/` | Xoa item |
-| GET | `/api/dataset/export/` | Export ZIP dataset |
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| POST | `/api/dataset/save-face/` | Save image + YOLO labels |
+| GET | `/api/dataset/items/` | List items |
+| GET | `/api/dataset/stats/` | Statistics by label |
+| DELETE | `/api/dataset/items/{cat}/{label}/{file}/` | Delete item |
+| GET | `/api/dataset/export/` | Export dataset as ZIP |
 | GET | `/api/dataset/data-yaml/` | Generate `data.yaml` |
 
 ### Agent Backend (port 8001)
 
 #### Vision
 
-| Method | Endpoint | Mo ta |
-|--------|----------|-------|
-| POST | `/api/vision/analyze` | Phan tich anh |
-| POST | `/api/vision/dashboard` | Trich xuat dashboard metrics |
-| POST | `/api/vision/error` | Chan doan loi |
-| POST | `/api/vision/camera` | Phan tich camera frame |
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| POST | `/api/vision/analyze` | Analyze image |
+| POST | `/api/vision/dashboard` | Extract dashboard metrics |
+| POST | `/api/vision/error` | Diagnose error |
+| POST | `/api/vision/camera` | Analyze camera frame |
 
-#### Chat (offline mode — khong qua agent)
+#### Chat (offline mode — bypassing agent)
 
-| Method | Endpoint | Mo ta |
-|--------|----------|-------|
-| POST | `/api/chat/message` | Gui message (sync) |
-| POST | `/api/chat/stream` | Gui message (streaming SSE) |
-| GET | `/api/chat/history/{session_id}` | Lay lich su |
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| POST | `/api/chat/message` | Send message (sync) |
+| POST | `/api/chat/stream` | Send message (streaming SSE) |
+| GET | `/api/chat/history/{session_id}` | Get history |
 
 #### Agent (multi-agent mode)
 
-| Method | Endpoint | Mo ta |
-|--------|----------|-------|
+| Method | Endpoint | Description |
+|--------|----------|-------------|
 | POST | `/api/agent/stream` | Stream multi-agent response (SSE) |
-| GET | `/api/agent/models` | Danh sach model |
-| GET | `/api/agent/session/{session_id}` | Lay thong tin session |
-| GET | `/api/agent/sessions` | Danh sach sessions |
-| DELETE | `/api/agent/session/{session_id}` | Xoa session |
+| GET | `/api/agent/models` | List models |
+| GET | `/api/agent/session/{session_id}` | Get session info |
+| GET | `/api/agent/sessions` | List sessions |
+| DELETE | `/api/agent/session/{session_id}` | Delete session |
 
 #### Report
 
-| Method | Endpoint | Mo ta |
-|--------|----------|-------|
-| POST | `/api/report/generate` | Tao bao cao |
-| GET | `/api/report/list` | Danh sach bao cao |
-| GET | `/api/report/download/{report_id}` | Tai bao cao |
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| POST | `/api/report/generate` | Generate report |
+| GET | `/api/report/list` | List reports |
+| GET | `/api/report/download/{report_id}` | Download report |
 
 #### SFDS Proxy
 
-| Method | Endpoint | Mo ta |
-|--------|----------|-------|
-| GET | `/api/sfds/health` | Kiem tra SFDS online/offline |
-| GET | `/api/sfds/cameras` | Proxy lay cameras |
-| GET | `/api/sfds/stats` | Proxy lay stats |
-| POST | `/api/sfds/events` | Gui event |
-| GET | `/api/sfds/events` | Lay event log |
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/sfds/health` | Check SFDS online/offline |
+| GET | `/api/sfds/cameras` | Proxy get cameras |
+| GET | `/api/sfds/stats` | Proxy get stats |
+| POST | `/api/sfds/events` | Send event |
+| GET | `/api/sfds/events` | Get event log |
 
 ---
 
@@ -565,7 +565,7 @@ ws://localhost:9000/ws/scada/detect/{slot}/
 **Server → Client:**
 
 ```json
-// Quality status (chua dat)
+// Quality status (not yet met)
 {
   "type": "quality_status",
   "slot": 0,
@@ -576,7 +576,7 @@ ws://localhost:9000/ws/scada/detect/{slot}/
   "checks": { "area_ok": true, "roi_ok": true, ... }
 }
 
-// Ket qua detection (dat)
+// Detection result (met)
 {
   "type": "result",
   "slot": 0,
@@ -597,9 +597,9 @@ ws://localhost:9000/ws/scada/detect/{slot}/
 
 ## Model & Training
 
-### Cau truc YOLO label
+### YOLO Label Format
 
-Moi dong: `class_id x_center y_center width height` (normalized 0 → 1)
+Each line: `class_id x_center y_center width height` (normalized 0 → 1)
 
 ```
 0 0.5123 0.4876 0.2341 0.3187
@@ -620,29 +620,29 @@ Moi dong: `class_id x_center y_center width height` (normalized 0 → 1)
 
 | ID | Label |
 |----|-------|
-| 0 | Xanh |
-| 1 | Suong |
-| 2 | Chin |
-| 3 | Sau ray |
-| 4 | Hu |
+| 0 | Green |
+| 1 | Frosted |
+| 2 | Ripe |
+| 3 | Damaged |
+| 4 | Rotten |
 
-### Huan luyen
+### Training
 
 ```bash
 cd F:/system/SFDS/backend
 python scripts/train.py
 ```
 
-Model luu tai `backend/model/durian_yolov8.pt`.
+The model is saved to `backend/model/durian_yolov8.pt`.
 
-### Export sang ONNX
+### Export to ONNX
 
 ```bash
 cd F:/system/SFDS/backend
 python scripts/export_model.py
 ```
 
-### Export sang TensorRT (can GPU CUDA)
+### Export to TensorRT (requires CUDA GPU)
 
 ```bash
 cd F:/system/SFDS/backend
@@ -655,9 +655,9 @@ model.export(format='engine')
 
 ---
 
-## Ghi chu
+## Notes
 
-- `bun run lint` tren SFDS frontend co the fail vi `next lint` da deprecated (Next.js 15).
-- `bun run build` co the treo tren Windows. Uu tien `dev`.
-- Ca SFDS Backend va Agent Backend deu can LM Studio dang chay de hoat dong binh thuong.
-- Dataset export format la YOLO standard, tuong thich voi `yolo detect train`.
+- `bun run lint` on the SFDS frontend may fail because `next lint` has been deprecated (Next.js 15).
+- `bun run build` may hang on Windows. Prefer `dev`.
+- Both SFDS Backend and Agent Backend require LM Studio to be running in order to function properly.
+- The dataset export format is YOLO standard and is compatible with `yolo detect train`.
