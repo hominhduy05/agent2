@@ -5,6 +5,7 @@ import AppHeader from "@/components/layout/Header";
 import AppSidebar from "@/components/layout/Sidebar";
 import Backdrop from "@/components/layout/Backdrop";
 import { usePathname } from "next/navigation";
+import ProtectedRoute from "@/components/layout/ProtectedRoute";
 
 export default function AdminLayout({
   children,
@@ -22,22 +23,24 @@ export default function AdminLayout({
     : "lg:ml-[80px]";
 
   return (
-    <div style={{ minHeight: "100vh", background: "var(--bg)" }}>
-      <AppSidebar />
-      <Backdrop />
-      <div
-        className={`flex-1 transition-all duration-300 ease-in-out ${mainContentMargin}`}
-        style={{ background: "var(--bg)" }}
-      >
-        <AppHeader />
-        <div style={{
-          padding: isRealtimeView ? "8px 12px" : "20px 24px",
-          maxWidth: isRealtimeView ? "none" : "1440px",
-          margin: "0 auto",
-        }}>
-          {children}
+    <ProtectedRoute>
+      <div style={{ minHeight: "100vh", background: "var(--bg)" }}>
+        <AppSidebar />
+        <Backdrop />
+        <div
+          className={`flex-1 transition-all duration-300 ease-in-out ${mainContentMargin}`}
+          style={{ background: "var(--bg)" }}
+        >
+          <AppHeader />
+          <div style={{
+            padding: isRealtimeView ? "8px 12px" : "20px 24px",
+            maxWidth: isRealtimeView ? "none" : "1440px",
+            margin: "0 auto",
+          }}>
+            {children}
+          </div>
         </div>
       </div>
-    </div>
+    </ProtectedRoute>
   );
 }

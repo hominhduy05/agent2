@@ -259,6 +259,7 @@ export default function DetectionPanel({
       height: "100%",
       gap: "16px",
       overflow: "hidden",
+      padding: "0 10px",
     }}>
       {/* Header */}
       <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>

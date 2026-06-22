@@ -1,12 +1,16 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { useSidebar } from "@/components/context/SidebarContext";
 import { ThemeToggleButton } from "@/components/common/ThemeToggle";
+import { useAuth } from "@/components/dashboard/AuthProvider";
 import styles from "./Header.module.css";
 
 export default function AppHeader() {
   const { isMobileOpen, toggleSidebar, toggleMobileSidebar } = useSidebar();
+  const { user, logout } = useAuth();
+  const [dropdownOpen, setDropdownOpen] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
 
   const handleToggle = () => {
     if (typeof window !== "undefined" && window.innerWidth >= 1024) {
@@ -14,6 +18,37 @@ export default function AppHeader() {
     } else {
       toggleMobileSidebar();
     }
+  };
+
+  // Close dropdown on clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setDropdownOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  const getRoleLabel = (role: string) => {
+    switch (role) {
+      case "admin":
+        return "Quản trị viên";
+      case "inspector":
+        return "Giám sát viên";
+      case "operator":
+        return "Nhân viên vận hành";
+      default:
+        return "Người dùng";
+    }
+  };
+
+  // Get first letter of full name or username for avatar
+  const getAvatarChar = () => {
+    if (user?.full_name) return user.full_name.charAt(0).toUpperCase();
+    if (user?.username) return user.username.charAt(0).toUpperCase();
+    return "U";
   };
 
   return (
@@ -45,7 +80,7 @@ export default function AppHeader() {
               </span>
               <input
                 type="text"
-                placeholder="Tim kiem..."
+                placeholder="Tìm kiếm..."
                 className={styles.searchInput}
               />
             </div>
@@ -57,10 +92,53 @@ export default function AppHeader() {
             <ThemeToggleButton />
           </div>
 
-          <div className={styles.userWrap}>
-            <span className={styles.userAvatar}>A</span>
-            <span className={styles.userName}>Admin</span>
-          </div>
+          {user && (
+            <div className={styles.userWrap} ref={dropdownRef}>
+              <button
+                className={styles.userBtn}
+                onClick={() => setDropdownOpen(!dropdownOpen)}
+                aria-haspopup="true"
+                aria-expanded={dropdownOpen}
+              >
+                <span className={styles.userAvatar}>{getAvatarChar()}</span>
+                <span className={styles.userName}>{user.full_name}</span>
+                <svg
+                  className={`${styles.chevron} ${dropdownOpen ? styles.chevronOpen : ""}`}
+                  width="14"
+                  height="14"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2.5"
+                >
+                  <polyline points="6 9 12 15 18 9"/>
+                </svg>
+              </button>
+
+              {dropdownOpen && (
+                <div className={styles.dropdownCard}>
+                  <div className={styles.userInfo}>
+                    <span className={styles.userInfoName}>{user.full_name}</span>
+                    <span className={styles.userInfoRole}>{getRoleLabel(user.role)}</span>
+                  </div>
+                  <div className={styles.dropdownDivider} />
+                  <button onClick={logout} className={styles.logoutBtn}>
+                    <svg
+                      width="16"
+                      height="16"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                    >
+                      <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9"/>
+                    </svg>
+                    Đăng xuất
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
         </div>
       </div>
     </header>
