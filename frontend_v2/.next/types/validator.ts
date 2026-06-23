@@ -74,10 +74,19 @@ type RouteHandlerConfig<Route extends AppRouteHandlerRoutes = AppRouteHandlerRou
   type __Unused = __Check
 }
 
-// Validate ../../app/(admin)/scada/page.tsx
+// Validate ../../app/(admin)/scada/dashboard/page.tsx
 {
-  type __IsExpected<Specific extends AppPageConfig<"/scada">> = Specific
-  const handler = {} as typeof import("../../app/(admin)/scada/page.js")
+  type __IsExpected<Specific extends AppPageConfig<"/scada/dashboard">> = Specific
+  const handler = {} as typeof import("../../app/(admin)/scada/dashboard/page.js")
+  type __Check = __IsExpected<typeof handler>
+  // @ts-ignore
+  type __Unused = __Check
+}
+
+// Validate ../../app/(admin)/scada/monitor/page.tsx
+{
+  type __IsExpected<Specific extends AppPageConfig<"/scada/monitor">> = Specific
+  const handler = {} as typeof import("../../app/(admin)/scada/monitor/page.js")
   type __Check = __IsExpected<typeof handler>
   // @ts-ignore
   type __Unused = __Check
