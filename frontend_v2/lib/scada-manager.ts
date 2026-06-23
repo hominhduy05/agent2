@@ -1,15 +1,29 @@
-import { ScadaCameraManager, CameraChannel } from './scada-camera';
+import {
+  ScadaCameraManager,
+  CameraChannel,
+} from './scada-camera';
 
 let manager: ScadaCameraManager | null = null;
 
-export function getScadaManager(onUpdate?: (camera: CameraChannel) => void) {
+export function getScadaManager(
+  onUpdate?: (camera: CameraChannel) => void
+) {
   if (!manager) {
-    manager = new ScadaCameraManager(5, onUpdate || (() => {}));
+    manager = new ScadaCameraManager(
+      5,
+      onUpdate
+    );
   } else if (onUpdate) {
-    // If a manager already exists, allow callers to attach/update their update callback
-    // so pages that mount later (detail page) receive camera updates.
-    manager.setOnUpdate?.(onUpdate);
+    manager.setOnUpdate(onUpdate);
   }
 
   return manager;
+}
+
+// DEV ONLY
+if (
+  process.env.NODE_ENV === 'development' &&
+  typeof window !== 'undefined'
+) {
+  (window as any).__SCADA_MANAGER__ = manager;
 }
