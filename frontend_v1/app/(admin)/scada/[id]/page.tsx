@@ -160,7 +160,7 @@ export default function ScadaDetailPage() {
         <div className={styles.headerLeft}>
           <button
             className={styles.backButton}
-            onClick={() => router.push('/scada')}
+            onClick={() => router.push('/scada/monitor')}
           >
             <ChevronLeft size={18} />
           </button>

@@ -238,6 +238,23 @@ const FolderIcon: React.FC<{ className?: string }> = ({ className }) => (
   </svg>
 );
 
+const AnalyserIcon: React.FC<{ className?: string }> = ({ className }) => (
+  <svg
+    className={className}
+    width="24"
+    height="24"
+    viewBox="0 0 24 24"
+    fill="none"
+  >
+    <path
+      d="M4 19h16M7 16V8M12 16V4M17 16v-6"
+      stroke="currentColor"
+      strokeWidth="1.5"
+      strokeLinecap="round"
+    />
+  </svg>
+);
+
 export {
   GridIcon,
   ChevronDownIcon,
@@ -252,4 +269,5 @@ export {
   CalenderIcon,
   BellIcon,
   FolderIcon,
+  AnalyserIcon
 };
