@@ -1,0 +1,128 @@
+/*!**************************************************************************************************************************************************************************************************************************************************************************************!*\
+  !*** css ./node_modules/next/dist/build/webpack/loaders/css-loader/src/index.js??ruleSet[1].rules[14].oneOf[5].use[2]!./node_modules/next/dist/build/webpack/loaders/postcss-loader/src/index.js??ruleSet[1].rules[14].oneOf[5].use[3]!./app/(admin)/analytics/analytics.module.css ***!
+  \**************************************************************************************************************************************************************************************************************************************************************************************/
+.analytics_analytics__5lW_m {
+  padding: 24px;
+  background: #0b0f14;
+  min-height: 100vh;
+  color: #e5e7eb;
+  font-family: system-ui;
+}
+
+/* HEADER */
+.analytics_header__tZMGn {
+  margin-bottom: 20px;
+}
+
+.analytics_header__tZMGn h1 {
+  font-size: 24px;
+  margin: 0;
+}
+
+.analytics_header__tZMGn p {
+  color: #9ca3af;
+  font-size: 13px;
+}
+
+/* KPI */
+.analytics_kpiGrid__sgblz {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+.analytics_kpiCard__go0R2 {
+  background: #111827;
+  padding: 14px;
+  border-radius: 10px;
+  border: 1px solid #1f2937;
+}
+
+.analytics_kpiCard__go0R2 span {
+  font-size: 12px;
+  color: #9ca3af;
+}
+
+.analytics_kpiCard__go0R2 strong {
+  display: block;
+  font-size: 20px;
+  margin-top: 6px;
+}
+
+.analytics_danger__F0J0l {
+  color: #ff4d4f;
+}
+
+/* INSIGHT */
+.analytics_insightGrid__stATL {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+.analytics_card__DnBHa {
+  background: #111827;
+  border: 1px solid #1f2937;
+  border-radius: 10px;
+  padding: 16px;
+}
+
+.analytics_bigValue__qrrwz {
+  font-size: 22px;
+  margin-top: 8px;
+}
+
+.analytics_ok__r4mRc {
+  color: #00ff99;
+  font-weight: 600;
+}
+
+.analytics_warn___JS7S {
+  color: #f59e0b;
+  font-weight: 600;
+}
+
+/* TABLE */
+.analytics_tableSection___wRk1 h2 {
+  margin-bottom: 10px;
+}
+
+.analytics_table__xZEKF {
+  width: 100%;
+  border-collapse: collapse;
+  background: #111827;
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.analytics_table__xZEKF th,
+.analytics_table__xZEKF td {
+  padding: 12px;
+  border-bottom: 1px solid #1f2937;
+  text-align: left;
+  font-size: 13px;
+}
+
+.analytics_active__r2LlH {
+  color: #00ff99;
+  font-weight: 600;
+}
+
+.analytics_offline__SU4B4 {
+  color: #9ca3af;
+}
+
+.analytics_bar__nciIX {
+  width: 120px;
+  height: 6px;
+  background: #1f2937;
+  border-radius: 4px;
+}
+
+.analytics_fill__hcrcD {
+  height: 100%;
+  background: linear-gradient(90deg, #00ff99, #22d3ee);
+  border-radius: 4px;
+}

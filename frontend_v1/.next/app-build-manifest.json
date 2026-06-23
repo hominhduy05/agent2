@@ -1,99 +1,66 @@
 {
   "pages": {
-    "/_not-found/page": [
-      "static/chunks/webpack-5617da0785f04c07.js",
-      "static/chunks/4bd1b696-c023c6e3521b1417.js",
-      "static/chunks/255-4f84124391a7dac4.js",
-      "static/chunks/main-app-592a416ed9bbc34f.js",
-      "static/chunks/app/_not-found/page-0fd3cd7c685c5915.js"
-    ],
-    "/api/login/route": [
-      "static/chunks/webpack-5617da0785f04c07.js",
-      "static/chunks/4bd1b696-c023c6e3521b1417.js",
-      "static/chunks/255-4f84124391a7dac4.js",
-      "static/chunks/main-app-592a416ed9bbc34f.js",
-      "static/chunks/app/api/login/route-65818d947779eaa2.js"
-    ],
-    "/api/logout/route": [
-      "static/chunks/webpack-5617da0785f04c07.js",
-      "static/chunks/4bd1b696-c023c6e3521b1417.js",
-      "static/chunks/255-4f84124391a7dac4.js",
-      "static/chunks/main-app-592a416ed9bbc34f.js",
-      "static/chunks/app/api/logout/route-65818d947779eaa2.js"
-    ],
     "/layout": [
-      "static/chunks/webpack-5617da0785f04c07.js",
-      "static/chunks/4bd1b696-c023c6e3521b1417.js",
-      "static/chunks/255-4f84124391a7dac4.js",
-      "static/chunks/main-app-592a416ed9bbc34f.js",
-      "static/css/84163cf7604704bb.css",
-      "static/chunks/app/layout-56d23f9a9e3ee756.js"
-    ],
-    "/login/page": [
-      "static/chunks/webpack-5617da0785f04c07.js",
-      "static/chunks/4bd1b696-c023c6e3521b1417.js",
-      "static/chunks/255-4f84124391a7dac4.js",
-      "static/chunks/main-app-592a416ed9bbc34f.js",
-      "static/chunks/app/login/page-2803ceb1816d8a85.js"
-    ],
-    "/page": [
-      "static/chunks/webpack-5617da0785f04c07.js",
-      "static/chunks/4bd1b696-c023c6e3521b1417.js",
-      "static/chunks/255-4f84124391a7dac4.js",
-      "static/chunks/main-app-592a416ed9bbc34f.js",
-      "static/chunks/app/page-65818d947779eaa2.js"
+      "static/chunks/webpack.js",
+      "static/chunks/main-app.js",
+      "static/css/app/layout.css",
+      "static/chunks/app/layout.js"
     ],
     "/(admin)/layout": [
-      "static/chunks/webpack-5617da0785f04c07.js",
-      "static/chunks/4bd1b696-c023c6e3521b1417.js",
-      "static/chunks/255-4f84124391a7dac4.js",
-      "static/chunks/main-app-592a416ed9bbc34f.js",
-      "static/css/8f2b6d62fe25c26a.css",
-      "static/chunks/406-43492a79146f71da.js",
-      "static/chunks/app/(admin)/layout-df2c7d5544c3c928.js"
-    ],
-    "/(admin)/dataset/page": [
-      "static/chunks/webpack-5617da0785f04c07.js",
-      "static/chunks/4bd1b696-c023c6e3521b1417.js",
-      "static/chunks/255-4f84124391a7dac4.js",
-      "static/chunks/main-app-592a416ed9bbc34f.js",
-      "static/css/4789f8c12d7da84b.css",
-      "static/chunks/app/(admin)/dataset/page-a484a90aca743051.js"
-    ],
-    "/(admin)/scada/[id]/page": [
-      "static/chunks/webpack-5617da0785f04c07.js",
-      "static/chunks/4bd1b696-c023c6e3521b1417.js",
-      "static/chunks/255-4f84124391a7dac4.js",
-      "static/chunks/main-app-592a416ed9bbc34f.js",
-      "static/css/d1f10ef1a91cc70b.css",
-      "static/chunks/977-b5591566ecb1c971.js",
-      "static/chunks/app/(admin)/scada/[id]/page-e38b592d7afee637.js"
-    ],
-    "/(admin)/detect/page": [
-      "static/chunks/webpack-5617da0785f04c07.js",
-      "static/chunks/4bd1b696-c023c6e3521b1417.js",
-      "static/chunks/255-4f84124391a7dac4.js",
-      "static/chunks/main-app-592a416ed9bbc34f.js",
-      "static/css/a4a0aea58ce4e914.css",
-      "static/chunks/app/(admin)/detect/page-9e7e3bd95f57ac4f.js"
-    ],
-    "/(admin)/scada/monitor/page": [
-      "static/chunks/webpack-5617da0785f04c07.js",
-      "static/chunks/4bd1b696-c023c6e3521b1417.js",
-      "static/chunks/255-4f84124391a7dac4.js",
-      "static/chunks/main-app-592a416ed9bbc34f.js",
-      "static/css/a4a0aea58ce4e914.css",
-      "static/chunks/977-b5591566ecb1c971.js",
-      "static/chunks/app/(admin)/scada/monitor/page-ca88b64c5139d943.js"
+      "static/chunks/webpack.js",
+      "static/chunks/main-app.js",
+      "static/css/app/(admin)/layout.css",
+      "static/chunks/app/(admin)/layout.js"
     ],
     "/(admin)/scada/dashboard/page": [
-      "static/chunks/webpack-5617da0785f04c07.js",
-      "static/chunks/4bd1b696-c023c6e3521b1417.js",
-      "static/chunks/255-4f84124391a7dac4.js",
-      "static/chunks/main-app-592a416ed9bbc34f.js",
-      "static/css/5b5641a445515484.css",
-      "static/chunks/977-b5591566ecb1c971.js",
-      "static/chunks/app/(admin)/scada/dashboard/page-6aef5929e52bc0e5.js"
+      "static/chunks/webpack.js",
+      "static/chunks/main-app.js",
+      "static/css/app/(admin)/scada/dashboard/page.css",
+      "static/chunks/app/(admin)/scada/dashboard/page.js"
+    ],
+    "/(admin)/scada/monitor/page": [
+      "static/chunks/webpack.js",
+      "static/chunks/main-app.js",
+      "static/css/app/(admin)/scada/monitor/page.css",
+      "static/chunks/app/(admin)/scada/monitor/page.js"
+    ],
+    "/(admin)/scada/[id]/page": [
+      "static/chunks/webpack.js",
+      "static/chunks/main-app.js",
+      "static/css/app/(admin)/scada/[id]/page.css",
+      "static/chunks/app/(admin)/scada/[id]/page.js"
+    ],
+    "/(admin)/dataset/page": [
+      "static/chunks/webpack.js",
+      "static/chunks/main-app.js",
+      "static/css/app/(admin)/dataset/page.css",
+      "static/chunks/app/(admin)/dataset/page.js"
+    ],
+    "/api/logout/route": [
+      "static/chunks/webpack.js",
+      "static/chunks/main-app.js",
+      "static/chunks/app/api/logout/route.js"
+    ],
+    "/login/page": [
+      "static/chunks/webpack.js",
+      "static/chunks/main-app.js",
+      "static/chunks/app/login/page.js"
+    ],
+    "/api/login/route": [
+      "static/chunks/webpack.js",
+      "static/chunks/main-app.js",
+      "static/chunks/app/api/login/route.js"
+    ],
+    "/(admin)/detect/page": [
+      "static/chunks/webpack.js",
+      "static/chunks/main-app.js",
+      "static/css/app/(admin)/detect/page.css",
+      "static/chunks/app/(admin)/detect/page.js"
+    ],
+    "/_not-found/page": [
+      "static/chunks/webpack.js",
+      "static/chunks/main-app.js",
+      "static/chunks/app/_not-found/page.js"
     ]
   }
 }

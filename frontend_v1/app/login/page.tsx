@@ -54,7 +54,7 @@ export default function LoginPage() {
           localStorage.removeItem('remember_password');
         }
 
-        router.push('/scada');
+        router.push('/scada/monitor');
       } else {
         setError('Sai tài khoản hoặc mật khẩu');
       }
