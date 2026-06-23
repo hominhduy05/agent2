@@ -373,7 +373,7 @@ export default function DetectionPanel({
   const result = camera.result;
 
   const [activeTab, setActiveTab] = useState<'detection' | 'history' | 'info'>(
-    'detection'
+    'info'
   );
 
   const activeScale = demoMode

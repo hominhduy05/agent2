@@ -82,24 +82,30 @@ export default function ScadaDetailPage() {
    * SET VIDEO/CANVAS REF
    */
   useEffect(() => {
-    const manager = managerRef.current;
+  const manager = managerRef.current;
 
+  manager.setRefs(
+    id,
+    videoRef as React.RefObject<HTMLVideoElement>,
+    canvasRef as React.RefObject<HTMLCanvasElement>
+  );
+
+  const cam = manager.cameras[id];
+
+  if (cam?.stream && videoRef.current) {
+    videoRef.current.srcObject = cam.stream;
+    videoRef.current.play().catch(() => {});
+  }
+
+  return () => {
+    // clear ref khi rời trang detail
     manager.setRefs(
       id,
-
-      videoRef as React.RefObject<HTMLVideoElement>,
-
-      canvasRef as React.RefObject<HTMLCanvasElement>
+      { current: null } as React.RefObject<HTMLVideoElement>,
+      { current: null } as React.RefObject<HTMLCanvasElement>
     );
-
-    const cam = manager.cameras[id];
-
-    if (cam?.stream && videoRef.current) {
-      videoRef.current.srcObject = cam.stream;
-
-      videoRef.current.play().catch(() => {});
-    }
-  }, [id]);
+  };
+}, [id]);
 
   /**
    * force update UI

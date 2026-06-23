@@ -50,8 +50,8 @@ export interface CameraChannel {
   label: string;
   mode: CameraMode;
   stream: MediaStream | null;
-  videoRef: React.RefObject<HTMLVideoElement>;
-  canvasRef: React.RefObject<HTMLCanvasElement>;
+  videoRef?: React.RefObject<HTMLVideoElement | null>;
+  canvasRef?: React.RefObject<HTMLCanvasElement | null>;
   result: ScadaResult | null;
   resultHistory: ScadaResult[];
   isActive: boolean;
@@ -416,13 +416,31 @@ function scaleCanvasToElement(
 export class ScadaCameraManager {
   cameras: CameraChannel[] = [];
   private threshold = 0.25;
-  private onUpdate: (camera: CameraChannel) => void;
+  // private onUpdate: (camera: CameraChannel) => void;
+  private onUpdate: (camera: CameraChannel) => void = () => {};
+
   private displayIdsByTrack: Map<string, number>[] = [];
   private gradeCounters: Record<string, number>[] = [];
 
-  constructor(count: number, onUpdate: (c: CameraChannel) => void) {
-    this.onUpdate = onUpdate;
+  // constructor(count: number, onUpdate: (c: CameraChannel) => void) {
+  //   this.onUpdate = onUpdate;
+  //   clearStaleStoredSessions(count);
+  //   for (let i = 0; i < count; i++) {
+  //     this.cameras[i] = this.makeDefault(i);
+  //     this.displayIdsByTrack[i] = new Map<string, number>();
+  //     this.gradeCounters[i] = this.countGrades(
+  //       this.cameras[i].inspectionHistory || []
+  //     );
+  //   }
+  // }
+
+  constructor(count: number, onUpdate?: (c: CameraChannel) => void) {
+    if (onUpdate) {
+      this.onUpdate = onUpdate;
+    }
+
     clearStaleStoredSessions(count);
+
     for (let i = 0; i < count; i++) {
       this.cameras[i] = this.makeDefault(i);
       this.displayIdsByTrack[i] = new Map<string, number>();
@@ -432,10 +450,14 @@ export class ScadaCameraManager {
     }
   }
 
-  // Allow pages/components to attach or replace the update callback
-  public setOnUpdate(cb: (c: CameraChannel) => void) {
-    this.onUpdate = cb;
+  public setOnUpdate(callback?: (camera: CameraChannel) => void) {
+    this.onUpdate = callback || (() => {});
   }
+
+  // Allow pages/components to attach or replace the update callback
+  // public setOnUpdate(cb: (c: CameraChannel) => void) {
+  //   this.onUpdate = cb;
+  // }
 
   private makeDefault(id: number): CameraChannel {
     const storedCrops = loadStoredCropHistory(id);
@@ -650,38 +672,79 @@ export class ScadaCameraManager {
 
   setRefs(
     id: number,
-    videoRef: React.RefObject<HTMLVideoElement>,
-    canvasRef: React.RefObject<HTMLCanvasElement>
+    videoRef: React.RefObject<HTMLVideoElement | null>,
+    canvasRef: React.RefObject<HTMLCanvasElement | null>
   ) {
     const cam = this.cameras[id];
 
     cam.videoRef = videoRef;
     cam.canvasRef = canvasRef;
 
-    // restore webcam stream khi quay lại page
-    if (
-      cam.isActive &&
-      cam.mode === 'webcam' &&
-      cam.stream &&
-      videoRef.current
-    ) {
-      videoRef.current.srcObject = cam.stream;
+    const video = videoRef.current;
 
-      videoRef.current.play().catch(() => {});
+    if (!video || !cam.isActive || cam.mode !== 'webcam' || !cam.stream) {
+      return;
+    }
 
-      // vẽ lại detection
+    // tránh gán lại liên tục
+    if (video.srcObject !== cam.stream) {
+      video.srcObject = cam.stream;
+    }
+
+    const restore = async () => {
+      try {
+        await video.play();
+      } catch {}
+
       if (cam.result) {
         this.drawResult(id, cam.result);
       } else {
         this.drawGuide(id);
       }
-    }
+    };
 
-    // restore IP camera
-    if (cam.isActive && cam.mode === 'ip' && cam.result) {
-      this.drawResult(id, cam.result);
+    if (video.readyState >= 2) {
+      restore();
+    } else {
+      video.addEventListener('loadedmetadata', restore, { once: true });
     }
   }
+
+  // setRefs(
+  //   id: number,
+  //   videoRef: React.RefObject<HTMLVideoElement>,
+  //   canvasRef: React.RefObject<HTMLCanvasElement>
+  // )
+  //  {
+  //   const cam = this.cameras[id];
+
+  //   cam.videoRef = videoRef;
+  //   cam.canvasRef = canvasRef;
+
+  //   // restore webcam stream khi quay lại page
+  //   if (
+  //     cam.isActive &&
+  //     cam.mode === 'webcam' &&
+  //     cam.stream &&
+  //     videoRef.current
+  //   ) {
+  //     videoRef.current.srcObject = cam.stream;
+
+  //     videoRef.current.play().catch(() => {});
+
+  //     // vẽ lại detection
+  //     if (cam.result) {
+  //       this.drawResult(id, cam.result);
+  //     } else {
+  //       this.drawGuide(id);
+  //     }
+  //   }
+
+  //   // restore IP camera
+  //   if (cam.isActive && cam.mode === 'ip' && cam.result) {
+  //     this.drawResult(id, cam.result);
+  //   }
+  // }
 
   resetSession(index: number) {
     const cam = this.cameras[index];
@@ -709,7 +772,7 @@ export class ScadaCameraManager {
     cam.lastRawDetectionCount = 0;
     cam.error = null;
 
-    if (cam.canvasRef.current) {
+    if (cam.canvasRef?.current) {
       const ctx = cam.canvasRef.current.getContext('2d');
       ctx?.clearRect(
         0,
@@ -747,10 +810,10 @@ export class ScadaCameraManager {
       cam.deviceLabel = deviceLabel;
       cam.isActive = true;
 
-      if (cam.videoRef.current) {
+      if (cam.videoRef?.current) {
         cam.videoRef.current.srcObject = stream;
         cam.videoRef.current.onloadedmetadata = () => {
-          cam.videoRef.current?.play().catch(() => {});
+          cam.videoRef?.current?.play().catch(() => {});
           this.drawGuide(index);
           if (cam.autoEnabled) this.startWebSocketDetect(index);
         };
@@ -809,7 +872,7 @@ export class ScadaCameraManager {
         const blob = await fetchScadaFrame(index);
         const url = URL.createObjectURL(blob);
 
-        if (cam.videoRef.current) {
+        if (cam.videoRef?.current) {
           cam.videoRef.current.src = url;
           cam.videoRef.current.play().catch(() => {});
         }
@@ -829,7 +892,7 @@ export class ScadaCameraManager {
       clearInterval(cam.frameTimer);
       cam.frameTimer = null;
     }
-    if (cam.videoRef.current) {
+    if (cam.videoRef?.current) {
       cam.videoRef.current.src = '';
     }
   }
@@ -853,8 +916,8 @@ export class ScadaCameraManager {
       cam.ws.close();
       cam.ws = undefined;
     }
-    if (cam.videoRef.current) cam.videoRef.current.srcObject = null;
-    if (cam.canvasRef.current) {
+    if (cam.videoRef?.current) cam.videoRef.current.srcObject = null;
+    if (cam.canvasRef?.current) {
       const ctx = cam.canvasRef.current.getContext('2d');
       ctx?.clearRect(
         0,
@@ -1092,7 +1155,7 @@ export class ScadaCameraManager {
       return;
     }
 
-    const video = this.cameras[index].videoRef.current;
+    const video = this.cameras[index].videoRef?.current;
     if (
       !video ||
       video.readyState < 2 ||
@@ -1149,7 +1212,7 @@ export class ScadaCameraManager {
     const cam = this.cameras[index];
     if (!cam.isActive || cam.isDetecting) return;
 
-    const video = cam.videoRef.current;
+    const video = cam.videoRef?.current;
     if (!video) return;
 
     // For IP camera: video.src is already set by frame loop
@@ -1288,8 +1351,8 @@ export class ScadaCameraManager {
 
   private drawResult(index: number, result: ScadaResult) {
     const cam = this.cameras[index];
-    const canvas = cam.canvasRef.current;
-    const video = cam.videoRef.current;
+    const canvas = cam.canvasRef?.current;
+    const video = cam.videoRef?.current;
     if (!canvas || !video) return;
 
     if (cam.mode === 'ip') {
@@ -1306,8 +1369,8 @@ export class ScadaCameraManager {
 
   private drawGuide(index: number, imageWidth?: number, imageHeight?: number) {
     const cam = this.cameras[index];
-    const canvas = cam.canvasRef.current;
-    const video = cam.videoRef.current;
+    const canvas = cam.canvasRef?.current;
+    const video = cam.videoRef?.current;
     if (!canvas || !video || !cam.isActive) return;
 
     scaleCanvasToElement(canvas, video);
@@ -1322,7 +1385,7 @@ export class ScadaCameraManager {
 
   private captureCrop(index: number, result: ScadaResult) {
     if (result.detections.length === 0) return null;
-    const video = this.cameras[index].videoRef.current;
+    const video = this.cameras[index].videoRef?.current;
     if (!video || !video.videoWidth || !video.videoHeight) return null;
 
     const best = [...result.detections].sort(
