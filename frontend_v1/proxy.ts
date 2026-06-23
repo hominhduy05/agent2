@@ -7,12 +7,12 @@ export function middleware(request: NextRequest) {
 
   const isLoggedIn = auth === 'true';
 
-  if (pathname.startsWith('/scada') && !isLoggedIn) {
+  if (pathname.startsWith('/scada/monitor') && !isLoggedIn) {
     return NextResponse.redirect(new URL('/login', request.url));
   }
 
   if (pathname === '/login' && isLoggedIn) {
-    return NextResponse.redirect(new URL('/scada', request.url));
+    return NextResponse.redirect(new URL('/scada/monitor', request.url));
   }
 
   return NextResponse.next();
