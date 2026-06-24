@@ -7,10 +7,11 @@ const Backdrop: React.FC = () => {
   return (
     <div
       style={{
-        position: "fixed", inset: 0, zIndex: 40,
+        position: "fixed",
+        inset: 0,
+        zIndex: 40,
         background: "rgba(7, 9, 10, 0.7)",
         backdropFilter: "blur(4px)",
-        display: "none",
       }}
       className="lg:hidden"
       onClick={toggleMobileSidebar}

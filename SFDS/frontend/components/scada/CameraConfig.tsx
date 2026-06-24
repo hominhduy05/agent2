@@ -20,6 +20,7 @@ export default function CameraConfig({ onClose, onSaved }: CameraConfigProps) {
     { slot: 1, url: "", label: "Camera 2" },
     { slot: 2, url: "", label: "Camera 3" },
     { slot: 3, url: "", label: "Camera 4" },
+    { slot: 4, url: "", label: "Camera 5" },
   ]);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -37,6 +38,8 @@ export default function CameraConfig({ onClose, onSaved }: CameraConfigProps) {
         });
         setSlots(updated);
       })
+
+      
       .catch(() => {});
   }, []);
 

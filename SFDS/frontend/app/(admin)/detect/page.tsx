@@ -23,7 +23,7 @@ type FeedHistoryFrame = {
 };
 
 function makeSlots(feeds: ScadaPiFeed[], capacity: number): DetectSlot[] {
-  const normalizedCapacity = Math.max(4, capacity || 4);
+  const normalizedCapacity = Math.max(5, capacity || 5);
   const slots: DetectSlot[] = Array.from({ length: normalizedCapacity }, (_, index) => ({
     slotIndex: index,
     feed: null,
@@ -350,7 +350,7 @@ function DetailPanel({
 
 export default function DetectPage() {
   const [feeds, setFeeds] = useState<ScadaPiFeed[]>([]);
-  const [capacity, setCapacity] = useState(4);
+  const [capacity, setCapacity] = useState(5);
   const [selectedSlot, setSelectedSlot] = useState(0);
   const [lastError, setLastError] = useState("");
   const [feedHistory, setFeedHistory] = useState<Record<number, FeedHistoryFrame[]>>({});
@@ -363,7 +363,7 @@ export default function DetectPage() {
         const payload = await getScadaPiFeeds();
         if (!stopped) {
           setFeeds(payload.feeds || []);
-          setCapacity(payload.capacity || 4);
+          setCapacity(payload.capacity || 5);
           setLastError("");
           setFeedHistory((prev) => {
             const next = { ...prev };
@@ -416,7 +416,7 @@ export default function DetectPage() {
           <div>
             <h1 className={styles.panelTitle}>Detect - Raspberry Pi feeds</h1>
             <p className={styles.panelSubtitle}>
-              {onlineCount}/{slots.length} feed dang online | Ho tro 2 Pi va 4 camera
+              {onlineCount}/{slots.length} feed dang online | Ho tro 2 Pi va 5 camera
               {lastError ? ` | ${lastError}` : ""}
             </p>
           </div>
@@ -444,7 +444,7 @@ export default function DetectPage() {
           </div>
           <div className={styles.statusItem}>Backend: /api/scada/pi-feeds/</div>
           <div className={styles.statusItem} style={{ marginLeft: "auto" }}>
-            Layout linh hoat cho 2 Pi / 4 camera
+            Layout linh hoat cho 2 Pi / 5 camera
           </div>
         </div>
       </div>

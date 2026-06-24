@@ -8,7 +8,6 @@ import {
   FolderIcon,
 } from "@/icons/index";
 import SidebarWidget from "./SidebarWidget";
-import logoImg from "@/assets/images/logo.png";
 
 type NavItem = {
   name: string;
@@ -50,7 +49,7 @@ const AppSidebar: React.FC = () => {
 
   return (
     <aside
-      className={`fixed mt-16 flex flex-col lg:mt-0 top-0 px-5 left-0
+      className={`fixed sm:mt-16 flex flex-col lg:mt-0 top-0 px-5 left-0
         transition-all duration-300 ease-in-out z-50 h-full pb-3
         ${showExpanded ? "w-[280px]" : isHovered ? "w-[280px]" : "w-[80px]"}
         ${isMobileOpen ? "translate-x-0" : "-translate-x-full"}
@@ -74,8 +73,8 @@ const AppSidebar: React.FC = () => {
         <Link href="/scada">
           {showExpanded ? (
             <div className="flex items-center gap-2.5">
-              <div style={{ width: 48, height: 48, overflow: "hidden", borderRadius: 10, display: "flex", alignItems: "center", justifyContent: "center" }}>
-                <Image src={logoImg} alt="Logo" width={80} height={80} style={{ minWidth: "165%", minHeight: "165%", objectFit: "cover" }} />
+              <div style={{ position: "relative", width: 48, height: 48, overflow: "hidden", borderRadius: 10 }}>
+                <Image src="/logo-square.png" alt="Logo" fill sizes="48px" style={{ objectFit: "cover", objectPosition: "center" }} />
               </div>
               <div>
                 <span style={{ fontWeight: 700, fontSize: 17, color: "var(--text)", letterSpacing: "-0.01em", fontFamily: "Outfit, sans-serif" }}>DurianPro</span>
@@ -83,8 +82,8 @@ const AppSidebar: React.FC = () => {
               </div>
             </div>
           ) : (
-            <div style={{ width: 48, height: 48, overflow: "hidden", borderRadius: 10, display: "flex", alignItems: "center", justifyContent: "center" }}>
-              <Image src={logoImg} alt="Logo" width={80} height={80} style={{ minWidth: "165%", minHeight: "165%", objectFit: "cover" }} />
+            <div style={{ position: "relative", width: 48, height: 48, overflow: "hidden", borderRadius: 10 }}>
+              <Image src="/logo-square.png" alt="Logo" fill sizes="48px" style={{ objectFit: "cover", objectPosition: "center" }} />
             </div>
           )}
         </Link>

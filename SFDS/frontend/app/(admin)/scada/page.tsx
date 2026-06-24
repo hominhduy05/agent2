@@ -13,6 +13,8 @@ interface MediaDevice {
   label: string;
 }
 
+const CAMERA_COUNT = 5;
+
 export default function ScadaPage() {
   const [cameras, setCameras] = useState<CameraChannel[]>([]);
   const [selectedId, setSelectedId] = useState<number | null>(null);
@@ -31,19 +33,19 @@ export default function ScadaPage() {
   const canvasRefs = useRef<(React.RefObject<HTMLCanvasElement | null>)[]>([]);
 
   useEffect(() => {
-    for (let i = 0; i < 4; i++) {
+    for (let i = 0; i < CAMERA_COUNT; i++) {
       videoRefs.current[i] = { current: null };
       canvasRefs.current[i] = { current: null };
     }
 
-    managerRef.current = new ScadaCameraManager(4, (cam) => {
+    managerRef.current = new ScadaCameraManager(CAMERA_COUNT, (cam) => {
       setCameras((prev) => {
         const next = [...prev];
         next[cam.id] = cam;
         return next;
       });
     });
-    for (let i = 0; i < 4; i++) {
+    for (let i = 0; i < CAMERA_COUNT; i++) {
       managerRef.current.setRefs(
         i,
         videoRefs.current[i] as React.RefObject<HTMLVideoElement>,
@@ -102,7 +104,7 @@ export default function ScadaPage() {
 
   useEffect(() => {
     if (!managerRef.current) return;
-    for (let i = 0; i < 4; i++) {
+    for (let i = 0; i < CAMERA_COUNT; i++) {
       managerRef.current.setRefs(
         i,
         videoRefs.current[i] as React.RefObject<HTMLVideoElement>,
@@ -115,7 +117,7 @@ export default function ScadaPage() {
     if (managerRef.current) {
       managerRef.current.setThreshold(threshold);
       // Gui threshold moi qua WebSocket cho tat ca camera dang chay
-      for (let i = 0; i < 4; i++) {
+      for (let i = 0; i < CAMERA_COUNT; i++) {
         if (managerRef.current.cameras[i].isActive) {
           managerRef.current.sendThreshold(i);
         }
@@ -415,7 +417,7 @@ export default function ScadaPage() {
         <div className={styles.statusBar}>
           <div className={styles.statusItem}>
             <div className={styles.statusBarDot} style={{ background: activeCount > 0 ? "#12b76a" : "var(--text-faint)" }} />
-            {activeCount}/4 cameras
+            {activeCount}/{CAMERA_COUNT} cameras
           </div>
           <div className={styles.statusItem}>
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">

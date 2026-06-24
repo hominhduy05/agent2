@@ -5,7 +5,6 @@ import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { useAuth } from "@/components/dashboard/AuthProvider";
 import styles from "./page.module.css";
-import logoImg from "@/assets/images/logo.png";
 
 export default function LoginPage() {
   const [username, setUsername] = useState("");
@@ -54,8 +53,8 @@ export default function LoginPage() {
       {/* Brand panel (Left) */}
       <div className={styles.left}>
         <div className={styles.brand}>
-          <div style={{ width: 56, height: 56, overflow: "hidden", borderRadius: 12, display: "flex", alignItems: "center", justifyContent: "center" }}>
-            <Image src={logoImg} alt="Logo" width={92} height={92} style={{ minWidth: "165%", minHeight: "165%", objectFit: "cover" }} />
+          <div style={{ position: "relative", width: 56, height: 56, overflow: "hidden", borderRadius: 12, flexShrink: 0 }}>
+            <Image src="/logo-square.png" alt="Logo" fill sizes="56px" style={{ objectFit: "cover", objectPosition: "center" }} />
           </div>
           <span className={styles.brandName} style={{ marginLeft: "10px" }}>DurianPro</span>
         </div>
@@ -92,8 +91,8 @@ export default function LoginPage() {
       <div className={styles.right}>
         <div className={styles.formWrap}>
           <div className={styles.mobileBrand}>
-            <div style={{ width: 44, height: 44, overflow: "hidden", borderRadius: 10, display: "flex", alignItems: "center", justifyContent: "center" }}>
-              <Image src={logoImg} alt="Logo" width={72} height={72} style={{ minWidth: "165%", minHeight: "165%", objectFit: "cover" }} />
+            <div style={{ position: "relative", width: 44, height: 44, overflow: "hidden", borderRadius: 10, flexShrink: 0 }}>
+              <Image src="/logo-square.png" alt="Logo" fill sizes="44px" style={{ objectFit: "cover", objectPosition: "center" }} />
             </div>
             <span className={styles.brandName} style={{ marginLeft: "10px" }}>DurianPro</span>
           </div>

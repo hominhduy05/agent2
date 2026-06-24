@@ -9,7 +9,7 @@ _lock = threading.Lock()
 _feeds: dict[str, dict[str, Any]] = {}
 _updated_at: dict[str, float] = {}
 FEED_ONLINE_TTL_SECONDS = 5.0
-DEFAULT_CAPACITY = 4
+DEFAULT_CAPACITY = 5
 
 
 def update_pi_feed(
