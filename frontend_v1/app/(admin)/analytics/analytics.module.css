@@ -1,0 +1,183 @@
+.page {
+  min-height: 100vh;
+  padding: 28px;
+  background: var(--bg);
+  color: var(--text);
+}
+
+/* =========================
+   HEADER (clean hierarchy)
+========================= */
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 24px;
+}
+
+.title {
+  font-size: 20px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+}
+
+.subtitle {
+  font-size: 12px;
+  color: var(--text-muted);
+  margin-top: 4px;
+}
+
+/* BUTTON (soft industrial) */
+.btnPrimary {
+  background: linear-gradient(
+    135deg,
+    var(--accent),
+    rgba(99, 102, 241, 0.75)
+  );
+  border: 1px solid var(--border);
+  color: #fff;
+  padding: 10px 16px;
+  font-size: 12px;
+  letter-spacing: 0.05em;
+  border-radius: 10px;
+  transition: all 0.15s ease;
+  box-shadow: 0 6px 18px rgba(99, 102, 241, 0.15);
+}
+
+.btnPrimary:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 10px 24px rgba(99, 102, 241, 0.22);
+}
+
+/* =========================
+   KPI GRID (modern cards)
+========================= */
+.grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 14px;
+  margin-bottom: 20px;
+}
+
+.kpi {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  padding: 16px;
+  border-radius: 14px;
+
+  transition: all 0.2s ease;
+  position: relative;
+  overflow: hidden;
+}
+
+.kpi::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(
+    circle at top left,
+    rgba(99, 102, 241, 0.08),
+    transparent 60%
+  );
+  pointer-events: none;
+}
+
+.kpi:hover {
+  transform: translateY(-2px);
+  border-color: rgba(99, 102, 241, 0.25);
+}
+
+.kpiLabel {
+  font-size: 11px;
+  color: var(--text-muted);
+  letter-spacing: 0.1em;
+}
+
+.kpiValue {
+  font-size: 22px;
+  font-weight: 700;
+  margin-top: 8px;
+}
+
+/* =========================
+   PANEL (distribution)
+========================= */
+.panel {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 16px;
+
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.04);
+}
+
+.panelTitle {
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  color: var(--text-muted);
+  margin-bottom: 14px;
+}
+
+/* =========================
+   ROWS (clean telemetry style)
+========================= */
+.row {
+  display: grid;
+  grid-template-columns: 100px 1fr 50px;
+  align-items: center;
+  gap: 12px;
+  margin: 12px 0;
+}
+
+.label {
+  font-size: 11px;
+  color: var(--text-muted);
+  letter-spacing: 0.1em;
+}
+
+/* BAR (slightly rounded, modern) */
+.bar {
+  height: 8px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  overflow: hidden;
+  position: relative;
+}
+
+/* smooth fill animation */
+.bar > div {
+  height: 100%;
+  transition: width 0.6s ease;
+}
+
+/* semantic colors (muted but clean) */
+.green {
+  background: linear-gradient(90deg, #16a34a, #22c55e);
+}
+
+.blue {
+  background: linear-gradient(90deg, #2563eb, #3b82f6);
+}
+
+.orange {
+  background: linear-gradient(90deg, #f59e0b, #fbbf24);
+}
+
+.red {
+  background: linear-gradient(90deg, #dc2626, #ef4444);
+}
+
+.value {
+  font-size: 11px;
+  color: var(--text-muted);
+  text-align: right;
+}
+
+/* =========================
+   DARK MODE POLISH (optional refinement)
+========================= */
+:global(.dark) .panel,
+:global(.dark) .kpi {
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.35);
+}

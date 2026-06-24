@@ -47,6 +47,91 @@ export default function ScadaPage() {
   const videoRefs = useRef<React.RefObject<HTMLVideoElement | null>[]>([]);
   const canvasRefs = useRef<React.RefObject<HTMLCanvasElement | null>[]>([]);
 
+  const autoConnectCameras = async (
+  webcams: MediaDevice[]
+) => {
+  const m = managerRef.current;
+
+  if (!m) return;
+
+  const max = Math.min(
+    webcams.length,
+    5
+  );
+
+  for (let i = 0; i < max; i++) {
+    const dev = webcams[i];
+
+    try {
+      const cam = m.cameras[i];
+
+      if (
+        cam?.isActive &&
+        cam.deviceId === dev.deviceId
+      ) {
+        continue;
+      }
+
+      await m.startWebcam(
+        i,
+        dev.deviceId,
+        dev.label
+      );
+
+      m.startAuto(i);
+
+      console.log(
+        `Camera ${i + 1} connected`
+      );
+    } catch (err) {
+      console.error(
+        `Camera ${i + 1} failed`,
+        err
+      );
+    }
+  }
+
+  setCameras([...m.cameras]);
+
+  setSelectedId(prev =>
+    prev === null ? 0 : prev
+  );
+};
+
+const syncDisconnectedCameras =
+  async (
+    webcams: MediaDevice[]
+  ) => {
+    const m = managerRef.current;
+
+    if (!m) return;
+
+    const deviceIds =
+      webcams.map(
+        x => x.deviceId
+      );
+
+    for (let i = 0; i < 5; i++) {
+      const cam = m.cameras[i];
+
+      if (
+        cam?.isActive &&
+        cam.deviceId &&
+        !deviceIds.includes(
+          cam.deviceId
+        )
+      ) {
+        m.stopCamera(i);
+
+        console.log(
+          `Camera ${i + 1} disconnected`
+        );
+      }
+    }
+
+    setCameras([...m.cameras]);
+  };
+
   useEffect(() => {
     for (let i = 0; i < 5; i++) {
       videoRefs.current[i] = { current: null };
@@ -92,22 +177,40 @@ for (let i = 0; i < 5; i++) {
 setCameras([...managerRef.current.cameras]);
 
     async function loadDevices() {
-      try {
-        await navigator.mediaDevices.getUserMedia({ video: true });
-        const devs = await navigator.mediaDevices.enumerateDevices();
-        setDevices(
-          devs
-            .filter((d) => d.kind === 'videoinput')
-            .map((d) => ({
-              deviceId: d.deviceId,
-              label: d.label || `Camera ${d.deviceId.slice(0, 8)}`,
-            }))
-        );
-      } catch {
-        setDevices([]);
-      }
-    }
+  try {
+    await navigator.mediaDevices.getUserMedia({
+      video: true,
+    });
+
+    const devs =
+      await navigator.mediaDevices.enumerateDevices();
+
+    const webcams = devs
+      .filter(
+        (d) => d.kind === 'videoinput'
+      )
+      .map((d) => ({
+        deviceId: d.deviceId,
+        label:
+          d.label ||
+          `Camera ${d.deviceId.slice(
+            0,
+            8
+          )}`,
+      }));
+
+    setDevices(webcams);
+
+    await autoConnectCameras(
+      webcams
+    );
+  } catch (err) {
+    console.error(err);
+    setDevices([]);
+  }
+}
     loadDevices();
+
 
     // return () => {
     //   console.log('GRID UNMOUNT -> CLEANUP');
@@ -328,6 +431,56 @@ useEffect(() => {
   });
 }, [cameras, demoMode, scaleStatus]);
 
+useEffect(() => {
+  const onDeviceChange =
+    async () => {
+      try {
+        const devs =
+          await navigator.mediaDevices.enumerateDevices();
+
+        const webcams = devs
+          .filter(
+            (d) =>
+              d.kind ===
+              'videoinput'
+          )
+          .map((d) => ({
+            deviceId: d.deviceId,
+            label:
+              d.label ||
+              `Camera ${d.deviceId.slice(
+                0,
+                8
+              )}`,
+          }));
+
+        setDevices(webcams);
+
+        await syncDisconnectedCameras(
+          webcams
+        );
+
+        await autoConnectCameras(
+          webcams
+        );
+      } catch (err) {
+        console.error(err);
+      }
+    };
+
+  navigator.mediaDevices.addEventListener(
+    'devicechange',
+    onDeviceChange
+  );
+
+  return () => {
+    navigator.mediaDevices.removeEventListener(
+      'devicechange',
+      onDeviceChange
+    );
+  };
+}, []);
+
   return (
     <div className={styles.wrapper}>
       {/* ── Left: Camera Grid ─────────────────────────────────────── */}
@@ -462,7 +615,7 @@ useEffect(() => {
             const badgeLabel = cam.error
               ? 'Lỗi'
               : hasResult
-                ? 'Đã nhận diện'
+                ? 'Đang phân tích'
                 : cam.isActive
                   ? cam.autoEnabled
                     ? 'Auto'
@@ -543,11 +696,24 @@ useEffect(() => {
                       Chua ket noi
                     </span>
                     <button
+                      // onClick={(e) => {
+                      //   e.stopPropagation();
+                      //   setPendingId(cam.id);
+                      //   setShowDeviceModal(true);
+                      // }}
                       onClick={(e) => {
-                        e.stopPropagation();
-                        setPendingId(cam.id);
-                        setShowDeviceModal(true);
-                      }}
+    e.stopPropagation();
+
+    const dev =
+      devices[cam.id];
+
+    if (!dev) return;
+
+    handleStartWebcam(
+      dev.deviceId,
+      dev.label
+    );
+  }}
                       style={{
                         marginTop: '6px',
                         padding: '6px 16px',
