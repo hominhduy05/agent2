@@ -6,17 +6,26 @@
       "static/css/app/layout.css",
       "static/chunks/app/layout.js"
     ],
+    "/page": [
+      "static/chunks/webpack.js",
+      "static/chunks/main-app.js",
+      "static/chunks/app/page.js"
+    ],
+    "/login/page": [
+      "static/chunks/webpack.js",
+      "static/chunks/main-app.js",
+      "static/chunks/app/login/page.js"
+    ],
+    "/api/login/route": [
+      "static/chunks/webpack.js",
+      "static/chunks/main-app.js",
+      "static/chunks/app/api/login/route.js"
+    ],
     "/(admin)/layout": [
       "static/chunks/webpack.js",
       "static/chunks/main-app.js",
       "static/css/app/(admin)/layout.css",
       "static/chunks/app/(admin)/layout.js"
-    ],
-    "/(admin)/scada/dashboard/page": [
-      "static/chunks/webpack.js",
-      "static/chunks/main-app.js",
-      "static/css/app/(admin)/scada/dashboard/page.css",
-      "static/chunks/app/(admin)/scada/dashboard/page.js"
     ],
     "/(admin)/scada/monitor/page": [
       "static/chunks/webpack.js",
@@ -30,26 +39,11 @@
       "static/css/app/(admin)/scada/[id]/page.css",
       "static/chunks/app/(admin)/scada/[id]/page.js"
     ],
-    "/(admin)/dataset/page": [
+    "/(admin)/analytics/page": [
       "static/chunks/webpack.js",
       "static/chunks/main-app.js",
-      "static/css/app/(admin)/dataset/page.css",
-      "static/chunks/app/(admin)/dataset/page.js"
-    ],
-    "/api/logout/route": [
-      "static/chunks/webpack.js",
-      "static/chunks/main-app.js",
-      "static/chunks/app/api/logout/route.js"
-    ],
-    "/login/page": [
-      "static/chunks/webpack.js",
-      "static/chunks/main-app.js",
-      "static/chunks/app/login/page.js"
-    ],
-    "/api/login/route": [
-      "static/chunks/webpack.js",
-      "static/chunks/main-app.js",
-      "static/chunks/app/api/login/route.js"
+      "static/css/app/(admin)/analytics/page.css",
+      "static/chunks/app/(admin)/analytics/page.js"
     ],
     "/(admin)/detect/page": [
       "static/chunks/webpack.js",
@@ -57,10 +51,33 @@
       "static/css/app/(admin)/detect/page.css",
       "static/chunks/app/(admin)/detect/page.js"
     ],
-    "/_not-found/page": [
+    "/(admin)/dataset/page": [
       "static/chunks/webpack.js",
       "static/chunks/main-app.js",
-      "static/chunks/app/_not-found/page.js"
+      "static/css/app/(admin)/dataset/page.css",
+      "static/chunks/app/(admin)/dataset/page.js"
+    ],
+    "/(admin)/scada/dashboard/page": [
+      "static/chunks/webpack.js",
+      "static/chunks/main-app.js",
+      "static/css/app/(admin)/scada/dashboard/page.css",
+      "static/chunks/app/(admin)/scada/dashboard/page.js"
+    ],
+    "/api/logout/route": [
+      "static/chunks/webpack.js",
+      "static/chunks/main-app.js",
+      "static/chunks/app/api/logout/route.js"
+    ],
+    "/api/me/route": [
+      "static/chunks/webpack.js",
+      "static/chunks/main-app.js",
+      "static/chunks/app/api/me/route.js"
+    ],
+    "/(admin)/camera-manager/page": [
+      "static/chunks/webpack.js",
+      "static/chunks/main-app.js",
+      "static/css/app/(admin)/camera-manager/page.css",
+      "static/chunks/app/(admin)/camera-manager/page.js"
     ]
   }
 }

@@ -4,37 +4,17 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useSidebar } from '@/components/context/SidebarContext';
-import { UserCircleIcon, FolderIcon } from '@/icons/index';
+import { UserCircleIcon, FolderIcon, AnalyserIcon, AlertIcon, DetectIcon, CameraManagerIcon } from '@/icons/index';
 import SidebarWidget from './SidebarWidget';
+import { SIDEBAR_BY_ROLE, SidebarItem } from '@/lib/sidebar-config';
 
-type NavItem = {
-  name: string;
-  icon: React.ReactNode;
-  path?: string;
-  subItems?: { name: string; path: string }[];
-};
+// type NavItem = {
+//   name: string;
+//   icon: React.ReactNode;
+//   path?: string;
+//   subItems?: { name: string; path: string }[];
+// };
 
-const navItems: NavItem[] = [
-  {
-    icon: <UserCircleIcon />,
-    name: 'Detect',
-    path: '/detect',
-  },
-  {
-    icon: <UserCircleIcon />,
-    name: 'SCADA',
-    path: '/scada',
-    subItems: [
-      { name: 'Dashboard', path: '/scada/dashboard' },
-      { name: 'Monitoring', path: '/scada/monitor' },
-    ],
-  },
-  {
-    icon: <FolderIcon />,
-    name: 'Dataset',
-    path: '/dataset',
-  },
-];
 
 const AppSidebar: React.FC = () => {
   const {
@@ -45,6 +25,51 @@ const AppSidebar: React.FC = () => {
   setIsMobileOpen,
 } = useSidebar();
 const sidebarRef = useRef<HTMLElement>(null);
+
+const [navItems, setNavItems] =
+  useState<SidebarItem[]>([]);
+
+  const [user, setUser] =
+  useState<any>(null);
+
+useEffect(() => {
+  fetch('/api/me')
+    .then(r => r.json())
+    .then(user => {
+      setUser(user);
+
+      switch (user.role) {
+        case 'ADMIN':
+          setNavItems(
+            SIDEBAR_BY_ROLE.ADMIN
+          );
+          break;
+        case 'OWNER':
+          setNavItems(
+            SIDEBAR_BY_ROLE.OWNER
+          );
+          break;
+
+        case 'MANAGER':
+          setNavItems(
+            SIDEBAR_BY_ROLE.MANAGER
+          );
+          break;
+
+        case 'ACCOUNTANT':
+          setNavItems(
+            SIDEBAR_BY_ROLE.ACCOUNTANT
+          );
+          break;
+
+        default:
+          setNavItems(
+            SIDEBAR_BY_ROLE.EMPLOYEE
+          );
+      }
+    });
+}, []);
+
 
 const [openDropdown, setOpenDropdown] = useState<string | null>(null);
 const toggleDropdown = (name: string) => {

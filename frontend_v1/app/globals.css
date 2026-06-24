@@ -208,6 +208,18 @@
   --success: #16a34a;
   --error: #dc2626;
   --accent: #3b82f6;
+
+  --scada-bg-base: #f8fafc;
+  --scada-panel-base: #ffffff;
+  --scada-panel-alt: #f1f5f9;
+
+  --scada-text-base: #0f172a;
+  --scada-text-muted: #475569;
+
+  --scada-border-base: #e2e8f0;
+
+  --scada-surface: rgba(15, 23, 42, 0.03);
+  --scada-surface-2: rgba(15, 23, 42, 0.06);
 }
 
 .dark {
@@ -314,6 +326,31 @@
   --success: #22c55e;
   --error: #ef4444;
   --accent: #38bdf8;
+
+  /* status */
+  --scada-success: #22c55e;
+  --scada-danger: #ef4444;
+  --scada-warning: #f59e0b;
+  --scada-info: #38bdf8;
+
+  /* UI surfaces */
+  --scada-surface: rgba(255, 255, 255, 0.03);
+  --scada-surface-2: rgba(255, 255, 255, 0.06);
+
+  /* shadows */
+  --scada-shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.35);
+  --scada-shadow-md: 0 6px 20px rgba(0, 0, 0, 0.45);
+  --scada-bg-base: #05070d;
+  --scada-panel-base: #0f172a;
+  --scada-panel-alt: #111827;
+
+  --scada-text-base: #e5e7eb;
+  --scada-text-muted: #94a3b8;
+
+  --scada-border-base: rgba(148, 163, 184, 0.15);
+
+  --scada-surface: rgba(255, 255, 255, 0.02);
+  --scada-surface-2: rgba(255, 255, 255, 0.04);
 }
 
 /* ============================================================

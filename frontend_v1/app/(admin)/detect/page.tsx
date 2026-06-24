@@ -523,7 +523,7 @@ export default function DetectPage() {
   const selectedHistory = feedHistory[selectedSlot] || [];
 
   return (
-    <div className={styles.wrapper}>
+    <div className={styles.wrapperDetect}>
       <div className={styles.cameraPanel}>
         <div className={styles.panelHeader}>
           <div>
