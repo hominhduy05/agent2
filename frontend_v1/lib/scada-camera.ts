@@ -11,6 +11,8 @@ import {
   startScadaCamera,
   stopScadaCamera,
 } from '@/lib/api';
+import { CameraHealth } from './scada-health-monitor';
+import { AnalyticsEvent } from './scada-analytics';
 
 export type CameraMode = 'webcam' | 'ip';
 
@@ -77,6 +79,11 @@ export interface CameraChannel {
   inspectionHistory?: InspectionHistoryItem[];
   croppedTrackIds?: Set<number>;
   cropLockedUntilEmpty?: boolean;
+
+  health?: CameraHealth;
+  analytics?: {
+    events: AnalyticsEvent[];
+  };
 }
 
 const CAPTURE_INTERVAL_MS = 2000;
@@ -803,7 +810,9 @@ export class ScadaCameraManager {
       //   video: { deviceId: { exact: deviceId } },
       // });
       const stream = await navigator.mediaDevices.getUserMedia({
-        video: deviceId ? { deviceId: { ideal: deviceId } } : true,
+        video: {
+          deviceId: { exact: deviceId },
+        },
       });
       cam.stream = stream;
       cam.deviceId = deviceId;
@@ -928,8 +937,8 @@ export class ScadaCameraManager {
     }
 
     cam.isActive = false;
-    cam.deviceId = null;
-    cam.deviceLabel = null;
+    // cam.deviceId = null;
+    // cam.deviceLabel = null;
     cam.rtspUrl = '';
     cam.result = null;
     cam.resultHistory = [];
@@ -944,6 +953,8 @@ export class ScadaCameraManager {
     cam.lastRawDetectionCount = 0;
     cam.error = null;
     this.onUpdate(cam);
+
+    
   }
 
   // ── Auto capture ───────────────────────────────────────────────
@@ -983,6 +994,13 @@ export class ScadaCameraManager {
 
   startWebSocketDetect(index: number) {
     const cam = this.cameras[index];
+    console.log(
+  '[START WS]',
+  index,
+  'active=', cam.isActive,
+  'hasWs=', !!cam.ws
+);
+
     if (!cam.isActive || cam.ws) return;
 
     const url = `${WS_PROTOCOL}://${new URL(API_BASE).host}/ws/scada/detect/${index}/`;
@@ -992,6 +1010,7 @@ export class ScadaCameraManager {
       cam.isDetecting = true;
       this.onUpdate(cam);
       this._sendWebSocketFrame(index, ws);
+      console.log('[WS OPEN]', index);
     };
 
     ws.onmessage = async (event) => {
@@ -1118,6 +1137,12 @@ export class ScadaCameraManager {
           WS_FRAME_INTERVAL_MS
         );
       }
+
+      console.log(
+  "[RESULT]",
+  index,
+  data
+);
     };
 
     ws.onerror = () => {
@@ -1185,6 +1210,13 @@ export class ScadaCameraManager {
           const reader = new FileReader();
           reader.onload = () => {
             const base64 = (reader.result as string).split(',')[1];
+            console.log(
+  '[SEND]',
+  index,
+  video?.videoWidth,
+  video?.videoHeight,
+  ws.readyState
+);
             ws.send(
               JSON.stringify({
                 type: 'frame',

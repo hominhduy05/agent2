@@ -1,0 +1,21 @@
+/*
+ * ATTENTION: An "eval-source-map" devtool has been used.
+ * This devtool is neither made for production nor for readable output files.
+ * It uses "eval()" calls to create a separate source file with attached SourceMaps in the browser devtools.
+ * If you are trying to read the output file, select a different devtool (https://webpack.js.org/configuration/devtool/)
+ * or disable the default devtool with "devtool: false".
+ * If you are looking for production-ready output files, see mode: "production" (https://webpack.js.org/configuration/mode/).
+ */
+self["webpackHotUpdate_N_E"]("app/(admin)/scada/dashboard/page",{
+
+/***/ "(app-pages-browser)/./app/(admin)/scada/dashboard/dashboard.module.css":
+/*!**********************************************************!*\
+  !*** ./app/(admin)/scada/dashboard/dashboard.module.css ***!
+  \**********************************************************/
+/***/ ((module, __unused_webpack_exports, __webpack_require__) => {
+
+eval(__webpack_require__.ts("// extracted by mini-css-extract-plugin\nmodule.exports = {\"dashboardCard\":\"dashboard_dashboardCard__PvX1u\",\"kpiValue\":\"dashboard_kpiValue__Wh5EL\",\"kpiLabel\":\"dashboard_kpiLabel__ggepr\",\"chartCard\":\"dashboard_chartCard___6XLK\",\"videoCard\":\"dashboard_videoCard__pvSgm\",\"videoFooter\":\"dashboard_videoFooter__uslp0\",\"live\":\"dashboard_live__w__Ly\",\"offline\":\"dashboard_offline__X8mG8\",\"alertItem\":\"dashboard_alertItem__VEHn7\",\"donutWrap\":\"dashboard_donutWrap__Ruzqd\",\"donutCenter\":\"dashboard_donutCenter__3lR6R\",\"donutNumber\":\"dashboard_donutNumber__WuEUE\",\"donutLabel\":\"dashboard_donutLabel__16AL4\"};\n    if(true) {\n      // 1782277605065\n      var cssReload = __webpack_require__(/*! ./node_modules/next/dist/compiled/mini-css-extract-plugin/hmr/hotModuleReplacement.js */ \"(app-pages-browser)/./node_modules/next/dist/compiled/mini-css-extract-plugin/hmr/hotModuleReplacement.js\")(module.id, {\"publicPath\":\"/_next/\",\"esModule\":false,\"locals\":true});\n      module.hot.dispose(cssReload);\n      \n    }\n  \nmodule.exports.__checksum = \"ce0f659d3a50\"\n//# sourceURL=[module]\n//# sourceMappingURL=data:application/json;charset=utf-8;base64,eyJ2ZXJzaW9uIjozLCJmaWxlIjoiKGFwcC1wYWdlcy1icm93c2VyKS8uL2FwcC8oYWRtaW4pL3NjYWRhL2Rhc2hib2FyZC9kYXNoYm9hcmQubW9kdWxlLmNzcyIsIm1hcHBpbmdzIjoiQUFBQTtBQUNBLGtCQUFrQjtBQUNsQixPQUFPLElBQVU7QUFDakI7QUFDQSxzQkFBc0IsbUJBQU8sQ0FBQyx3TUFBc0ksY0FBYyxzREFBc0Q7QUFDeE8sTUFBTSxVQUFVO0FBQ2hCO0FBQ0E7QUFDQTtBQUNBLHlCQUF5QiIsInNvdXJjZXMiOlsiRDpcXFBJT05FX0VOVklST01FTlRcXGFnZW50Mi1tYWluXFxTRkRTXFxmcm9udGVuZF92MVxcYXBwXFwoYWRtaW4pXFxzY2FkYVxcZGFzaGJvYXJkXFxkYXNoYm9hcmQubW9kdWxlLmNzcyJdLCJzb3VyY2VzQ29udGVudCI6WyIvLyBleHRyYWN0ZWQgYnkgbWluaS1jc3MtZXh0cmFjdC1wbHVnaW5cbm1vZHVsZS5leHBvcnRzID0ge1wiZGFzaGJvYXJkQ2FyZFwiOlwiZGFzaGJvYXJkX2Rhc2hib2FyZENhcmRfX1B2WDF1XCIsXCJrcGlWYWx1ZVwiOlwiZGFzaGJvYXJkX2twaVZhbHVlX19XaDVFTFwiLFwia3BpTGFiZWxcIjpcImRhc2hib2FyZF9rcGlMYWJlbF9fZ2dlcHJcIixcImNoYXJ0Q2FyZFwiOlwiZGFzaGJvYXJkX2NoYXJ0Q2FyZF9fXzZYTEtcIixcInZpZGVvQ2FyZFwiOlwiZGFzaGJvYXJkX3ZpZGVvQ2FyZF9fcHZTZ21cIixcInZpZGVvRm9vdGVyXCI6XCJkYXNoYm9hcmRfdmlkZW9Gb290ZXJfX3VzbHAwXCIsXCJsaXZlXCI6XCJkYXNoYm9hcmRfbGl2ZV9fd19fTHlcIixcIm9mZmxpbmVcIjpcImRhc2hib2FyZF9vZmZsaW5lX19YOG1HOFwiLFwiYWxlcnRJdGVtXCI6XCJkYXNoYm9hcmRfYWxlcnRJdGVtX19WRUhuN1wiLFwiZG9udXRXcmFwXCI6XCJkYXNoYm9hcmRfZG9udXRXcmFwX19SdXpxZFwiLFwiZG9udXRDZW50ZXJcIjpcImRhc2hib2FyZF9kb251dENlbnRlcl9fM2xSNlJcIixcImRvbnV0TnVtYmVyXCI6XCJkYXNoYm9hcmRfZG9udXROdW1iZXJfX1d1RVVFXCIsXCJkb251dExhYmVsXCI6XCJkYXNoYm9hcmRfZG9udXRMYWJlbF9fMTZBTDRcIn07XG4gICAgaWYobW9kdWxlLmhvdCkge1xuICAgICAgLy8gMTc4MjI3NzYwNTA2NVxuICAgICAgdmFyIGNzc1JlbG9hZCA9IHJlcXVpcmUoXCJEOi9QSU9ORV9FTlZJUk9NRU5UL2FnZW50Mi1tYWluL1NGRFMvZnJvbnRlbmRfdjEvbm9kZV9tb2R1bGVzL25leHQvZGlzdC9jb21waWxlZC9taW5pLWNzcy1leHRyYWN0LXBsdWdpbi9obXIvaG90TW9kdWxlUmVwbGFjZW1lbnQuanNcIikobW9kdWxlLmlkLCB7XCJwdWJsaWNQYXRoXCI6XCIvX25leHQvXCIsXCJlc01vZHVsZVwiOmZhbHNlLFwibG9jYWxzXCI6dHJ1ZX0pO1xuICAgICAgbW9kdWxlLmhvdC5kaXNwb3NlKGNzc1JlbG9hZCk7XG4gICAgICBcbiAgICB9XG4gIFxubW9kdWxlLmV4cG9ydHMuX19jaGVja3N1bSA9IFwiY2UwZjY1OWQzYTUwXCJcbiJdLCJuYW1lcyI6W10sImlnbm9yZUxpc3QiOltdLCJzb3VyY2VSb290IjoiIn0=\n//# sourceURL=webpack-internal:///(app-pages-browser)/./app/(admin)/scada/dashboard/dashboard.module.css\n"));
+
+/***/ })
+
+});

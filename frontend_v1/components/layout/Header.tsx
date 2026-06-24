@@ -1,51 +1,93 @@
 'use client';
 
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+} from 'react';
+import { useRouter, usePathname } from 'next/navigation';
+
 import { useSidebar } from '@/components/context/SidebarContext';
 import { ThemeToggleButton } from '@/components/common/ThemeToggle';
+
 import styles from './Header.module.css';
-import { usePathname } from 'next/navigation';
 
 export default function AppHeader() {
-  const [open, setOpen] = useState(false);
-  const [query, setQuery] = useState('');
-  const [debouncedQuery, setDebouncedQuery] = useState('');
+  const router = useRouter();
+  const [user, setUser] = useState<{
+  name: string;
+  email: string;
+  role: string;
+} | null>(null);
 
-  const ref = useRef<HTMLDivElement | null>(null);
+  const [open, setOpen] = useState(false);
+
+  const [query, setQuery] = useState('');
+  const [debouncedQuery, setDebouncedQuery] =
+    useState('');
+
+  const ref = useRef<HTMLDivElement>(null);
+
   const pathname = usePathname();
 
-  const { isMobileOpen, toggleSidebar, toggleMobileSidebar } = useSidebar();
+  const {
+    isMobileOpen,
+    toggleSidebar,
+    toggleMobileSidebar,
+  } = useSidebar();
+
+  useEffect(() => {
+  fetch('/api/me')
+    .then((res) => {
+      if (!res.ok) {
+        throw new Error();
+      }
+
+      return res.json();
+    })
+    .then((data) => {
+      setUser(data);
+    })
+    .catch(() => {
+      setUser(null);
+    });
+}, []);
+
+const avatar =
+  user?.name?.charAt(0)?.toUpperCase() ||
+  'U';
 
   useEffect(() => {
     setOpen(false);
   }, [pathname]);
 
   useEffect(() => {
-    const handleClickOutside = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) {
+    const handleClickOutside = (
+      e: MouseEvent
+    ) => {
+      if (
+        ref.current &&
+        !ref.current.contains(
+          e.target as Node
+        )
+      ) {
         setOpen(false);
       }
     };
 
-    document.addEventListener('mousedown', handleClickOutside);
+    document.addEventListener(
+      'mousedown',
+      handleClickOutside
+    );
 
-    return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
-    };
+    return () =>
+      document.removeEventListener(
+        'mousedown',
+        handleClickOutside
+      );
   }, []);
 
-  useEffect(() => {
-    const handler = (e: MouseEvent) => {
-      if (!ref.current?.contains(e.target as Node)) {
-        setOpen(false);
-      }
-    };
-
-    document.addEventListener('mousedown', handler);
-    return () => document.removeEventListener('mousedown', handler);
-  }, []);
-
-  // Debounce search
   useEffect(() => {
     const t = setTimeout(() => {
       setDebouncedQuery(query);
@@ -56,11 +98,16 @@ export default function AppHeader() {
 
   useEffect(() => {
     if (!debouncedQuery) return;
-    console.log('Search:', debouncedQuery);
-    // TODO: call API here
+
+    console.log(
+      'Search:',
+      debouncedQuery
+    );
   }, [debouncedQuery]);
 
-  const isDesktop = typeof window !== 'undefined' && window.innerWidth >= 1024;
+  const isDesktop =
+    typeof window !== 'undefined' &&
+    window.innerWidth >= 1024;
 
   const handleToggle = useCallback(() => {
     if (isDesktop) {
@@ -68,14 +115,36 @@ export default function AppHeader() {
     } else {
       toggleMobileSidebar();
     }
-  }, [isDesktop, toggleSidebar, toggleMobileSidebar]);
+  }, [
+    isDesktop,
+    toggleSidebar,
+    toggleMobileSidebar,
+  ]);
 
-  const handleSignOut = async () => {
+  const handleSignOut = async (
+    e: React.MouseEvent<HTMLButtonElement>
+  ) => {
+    e.preventDefault();
+
+    setOpen(false);
+
     try {
-      await fetch('/api/logout', { method: 'POST' });
-      window.location.href = '/login';
+      await fetch('/api/logout', {
+        method: 'POST',
+        credentials: 'include',
+      });
+
+      router.replace('/login');
+
+      router.refresh();
     } catch (err) {
-      console.error('Sign out failed:', err);
+      console.error(
+        'Logout failed:',
+        err
+      );
+
+      window.location.href =
+        '/api/logout';
     }
   };
 
@@ -89,7 +158,12 @@ export default function AppHeader() {
             aria-label="Toggle Sidebar"
           >
             {isMobileOpen ? (
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+              <svg
+                width="20"
+                height="20"
+                viewBox="0 0 24 24"
+                fill="none"
+              >
                 <path
                   fillRule="evenodd"
                   clipRule="evenodd"
@@ -98,7 +172,12 @@ export default function AppHeader() {
                 />
               </svg>
             ) : (
-              <svg width="16" height="12" viewBox="0 0 16 12" fill="none">
+              <svg
+                width="16"
+                height="12"
+                viewBox="0 0 16 12"
+                fill="none"
+              >
                 <path
                   fillRule="evenodd"
                   clipRule="evenodd"
@@ -111,22 +190,18 @@ export default function AppHeader() {
 
           <div className={styles.searchWrap}>
             <div className={styles.searchBox}>
-              <span className={styles.searchIcon}>
-                <svg width="18" height="18" viewBox="0 0 20 20" fill="none">
-                  <path
-                    fillRule="evenodd"
-                    clipRule="evenodd"
-                    d="M3.04175 9.37363C3.04175 5.87693 5.87711 3.04199 9.37508 3.04199C12.8731 3.04199 15.7084 5.87693 15.7084 9.37363C15.7084 12.8703 12.8731 15.7053 9.37508 15.7053C5.87711 15.7053 3.04175 12.8703 3.04175 9.37363ZM9.37508 1.54199C5.04902 1.54199 1.54175 5.04817 1.54175 9.37363C1.54175 13.6991 5.04902 17.2053 9.37508 17.2053C11.2674 17.2053 13.003 16.5344 14.357 15.4176L17.177 18.238C17.4699 18.5309 17.9448 18.5309 18.2377 18.238C18.5306 17.9451 18.5306 17.4703 18.2377 17.1774L15.418 14.3573C16.5365 13.0033 17.2084 11.2669 17.2084 9.37363C17.2084 5.04817 13.7011 1.54199 9.37508 1.54199Z"
-                    fill="currentColor"
-                  />
-                </svg>
-              </span>
               <input
                 type="text"
-                placeholder="Tim kiem..."
-                className={styles.searchInput}
+                placeholder="Tìm kiếm..."
+                className={
+                  styles.searchInput
+                }
                 value={query}
-                onChange={(e) => setQuery(e.target.value)}
+                onChange={(e) =>
+                  setQuery(
+                    e.target.value
+                  )
+                }
               />
             </div>
           </div>
@@ -135,38 +210,104 @@ export default function AppHeader() {
         <div className={styles.right}>
           <ThemeToggleButton />
 
-          <div className={styles.profile} ref={ref}>
+          <div
+            className={styles.profile}
+            ref={ref}
+          >
             <button
               className={styles.trigger}
-              onClick={() => setOpen(!open)}
-              aria-haspopup="menu"
-              aria-expanded={open}
+              onClick={() =>
+                setOpen(!open)
+              }
             >
-              <span className={styles.avatar}>A</span>
+              <span className={styles.avatar}>
+  {avatar}
+</span>
 
-              <div className={styles.info}>
-                <span className={styles.name}>Admin</span>
-                <span className={styles.sub}>admin@system</span>
-              </div>
+<div className={styles.info}>
+  <span className={styles.name}>
+    {user?.name || 'Guest'}
+  </span>
 
-              <span className={styles.arrow}>▾</span>
+  <span className={styles.sub}>
+    {user?.email || ''}
+  </span>
+</div>
+
+              <span
+                className={
+                  styles.arrow
+                }
+              >
+                ▾
+              </span>
             </button>
 
             {open && (
-              <div className={styles.menu}>
-                <div className={styles.section}>
-                  <button className={styles.item}>Profile</button>
-                  <button className={styles.item}>Settings</button>
+              <div
+                className={
+                  styles.menu
+                }
+              >
+                <div
+                  className={
+                    styles.section
+                  }
+                >
+                  <button
+                    className={
+                      styles.item
+                    }
+                  >
+                    Profile
+                  </button>
+
+                  <button
+                    className={
+                      styles.item
+                    }
+                  >
+                    Settings
+                  </button>
                 </div>
 
-                <div className={styles.divider} />
+                <div
+                  className={
+                    styles.divider
+                  }
+                />
 
+                {/* JS */}
                 <button
+                  type="button"
+                  onClick={
+                    handleSignOut
+                  }
                   className={`${styles.item} ${styles.danger}`}
-                  onClick={handleSignOut}
                 >
                   Log out
                 </button>
+
+                {/* No JS */}
+                <noscript>
+                  <form
+                    action="/api/logout"
+                    method="POST"
+                  >
+                    <button
+                      type="submit"
+                      className={`${styles.item} ${styles.danger}`}
+                      style={{
+                        width:
+                          '100%',
+                        textAlign:
+                          'left',
+                      }}
+                    >
+                      Log out
+                    </button>
+                  </form>
+                </noscript>
               </div>
             )}
           </div>
