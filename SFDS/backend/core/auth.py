@@ -68,6 +68,6 @@ def get_current_user(
 
 
 def require_admin(current_user: Employee = Depends(get_current_user)) -> Employee:
-    if current_user.role != "admin":
+    if current_user.role not in ["admin", "owner"]:
         raise HTTPException(status_code=403, detail="Yêu cầu quyền quản trị")
     return current_user

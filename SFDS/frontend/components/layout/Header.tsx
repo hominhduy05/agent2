@@ -33,10 +33,16 @@ export default function AppHeader() {
 
   const getRoleLabel = (role: string) => {
     switch (role) {
+      case "owner":
+        return "Owner (bên mình)";
       case "admin":
-        return "Quản trị viên";
+        return "Admin (bên họ)";
+      case "manager":
+        return "Quản lý";
+      case "accountant":
+        return "Kế toán";
       case "inspector":
-        return "Giám sát viên";
+        return "Nhân viên";
       case "operator":
         return "Nhân viên vận hành";
       default:

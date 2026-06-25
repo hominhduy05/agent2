@@ -34,8 +34,18 @@ export default function EmployeeTable({ employees, currentUserId, onEdit, onDele
                 <td className={styles.username}>{emp.username}</td>
                 <td>{emp.full_name}</td>
                 <td>
-                  <span className={`${styles.badge} ${emp.role === "admin" ? styles.admin : styles.inspector}`}>
-                    {emp.role === "admin" ? "Quản trị" : "Kiểm tra"}
+                  <span className={`${styles.badge} ${
+                    emp.role === "owner" ? styles.owner :
+                    emp.role === "admin" ? styles.admin :
+                    emp.role === "manager" ? styles.manager :
+                    emp.role === "accountant" ? styles.accountant :
+                    styles.inspector
+                  }`}>
+                    {emp.role === "owner" ? "Owner (bên mình)" :
+                     emp.role === "admin" ? "Admin (bên họ)" :
+                     emp.role === "manager" ? "Quản lý" :
+                     emp.role === "accountant" ? "Kế toán" :
+                     "Nhân viên"}
                   </span>
                 </td>
                 <td>

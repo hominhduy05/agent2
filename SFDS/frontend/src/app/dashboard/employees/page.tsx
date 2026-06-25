@@ -11,7 +11,7 @@ interface FormState {
   username: string;
   password: string;
   full_name: string;
-  role: "inspector" | "admin";
+  role: "owner" | "admin" | "manager" | "accountant" | "inspector";
 }
 
 export default function EmployeesPage() {
@@ -24,7 +24,7 @@ export default function EmployeesPage() {
   const [form, setForm] = useState<FormState>({ username: "", password: "", full_name: "", role: "inspector" });
   const [saving, setSaving] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<Employee | null>(null);
-  const isAdmin = user?.role === "admin";
+  const isAdmin = user?.role === "admin" || user?.role === "owner";
 
   async function load() {
     setLoading(true);
@@ -119,8 +119,18 @@ export default function EmployeesPage() {
                     <td className={styles.username}>{emp.username}</td>
                     <td>{emp.full_name}</td>
                     <td>
-                      <span className={`${styles.badge} ${emp.role === "admin" ? styles.admin : styles.inspector}`}>
-                        {emp.role === "admin" ? "Quản trị" : "Kiểm tra"}
+                      <span className={`${styles.badge} ${
+                        emp.role === "owner" ? styles.owner :
+                        emp.role === "admin" ? styles.admin :
+                        emp.role === "manager" ? styles.manager :
+                        emp.role === "accountant" ? styles.accountant :
+                        styles.inspector
+                      }`}>
+                        {emp.role === "owner" ? "Owner (bên mình)" :
+                         emp.role === "admin" ? "Admin (bên họ)" :
+                         emp.role === "manager" ? "Quản lý" :
+                         emp.role === "accountant" ? "Kế toán" :
+                         "Nhân viên"}
                       </span>
                     </td>
                     <td>
@@ -178,9 +188,12 @@ export default function EmployeesPage() {
                 </div>
                 <div className={styles.field}>
                   <label>Vai trò</label>
-                  <select className={styles.input} value={form.role} onChange={(e) => setForm({ ...form, role: e.target.value as "admin" | "inspector" })}>
-                    <option value="inspector">Kiểm tra</option>
-                    <option value="admin">Quản trị</option>
+                  <select className={styles.input} value={form.role} onChange={(e) => setForm({ ...form, role: e.target.value as "owner" | "admin" | "manager" | "accountant" | "inspector" })}>
+                    <option value="owner">Owner (bên mình)</option>
+                    <option value="admin">Admin (bên họ)</option>
+                    <option value="manager">Quản lý</option>
+                    <option value="accountant">Kế toán</option>
+                    <option value="inspector">Nhân viên</option>
                   </select>
                 </div>
               </div>

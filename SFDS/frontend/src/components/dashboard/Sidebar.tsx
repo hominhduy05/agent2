@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useNavigate, useLocation, Link } from "react-router-dom";
 import {
   LayoutDashboard, Users, History, BarChart3,
-  Settings, LogOut, ChevronLeft, Menu, AlertTriangle,
+  Settings, LogOut, ChevronLeft, Menu, AlertTriangle, Receipt,
 } from "lucide-react";
 import { useAuth } from "@/components/dashboard/AuthProvider";
 import styles from "./Sidebar.module.css";
@@ -12,6 +12,7 @@ const NAV = [
   { href: "/dashboard/history",   label: "Lịch sử kiểm tra", icon: History },
   { href: "/dashboard/employees", label: "Nhân viên",          icon: Users },
   { href: "/dashboard/reports",   label: "Báo cáo",           icon: BarChart3 },
+  { href: "/dashboard/accounting",label: "Kế toán",            icon: Receipt },
   { href: "/dashboard/settings",   label: "Cài đặt KPI",       icon: Settings },
 ];
 
@@ -66,7 +67,19 @@ export default function Sidebar() {
 
       {/* Nav */}
       <nav className={styles.nav}>
-        {NAV.map(({ href, label, icon: Icon }) => {
+        {NAV.filter(({ href }) => {
+          if (!user) return false;
+          const role = user.role;
+          if (role === "owner" || role === "admin") return true;
+          if (role === "manager") return true;
+          if (role === "accountant") {
+            return href !== "/dashboard/employees" && href !== "/dashboard/settings";
+          }
+          if (role === "inspector") {
+            return href !== "/dashboard/employees" && href !== "/dashboard/reports" && href !== "/dashboard/settings" && href !== "/dashboard/accounting";
+          }
+          return true;
+        }).map(({ href, label, icon: Icon }) => {
           const active = pathname === href || (href !== "/dashboard" && pathname.startsWith(href));
           return (
             <Link
@@ -82,8 +95,20 @@ export default function Sidebar() {
         })}
 
         {/* SCADA section */}
-        {!collapsed && <div className={styles.sectionLabel}>SCADA — Level 2</div>}
-        {SCADA_NAV.map(({ href, label, icon: Icon }) => {
+        {(!collapsed && SCADA_NAV.some(({ href }) => {
+          if (!user) return false;
+          const role = user.role;
+          if (role === "owner" || role === "admin" || role === "manager" || role === "inspector") return true;
+          if (role === "accountant") return false;
+          return true;
+        })) && <div className={styles.sectionLabel}>SCADA — Level 2</div>}
+        {SCADA_NAV.filter(({ href }) => {
+          if (!user) return false;
+          const role = user.role;
+          if (role === "owner" || role === "admin" || role === "manager" || role === "inspector") return true;
+          if (role === "accountant") return false;
+          return true;
+        }).map(({ href, label, icon: Icon }) => {
           const active = pathname === href || (href !== "/scada" && pathname.startsWith(href));
           return (
             <Link
@@ -99,8 +124,20 @@ export default function Sidebar() {
         })}
 
         {/* MES section */}
-        {!collapsed && <div className={styles.sectionLabel}>MES — Level 3</div>}
-        {MES_NAV.map(({ href, label, icon: Icon }) => {
+        {(!collapsed && MES_NAV.some(({ href }) => {
+          if (!user) return false;
+          const role = user.role;
+          if (role === "owner" || role === "admin" || role === "manager" || role === "accountant") return true;
+          if (role === "inspector") return false;
+          return true;
+        })) && <div className={styles.sectionLabel}>MES — Level 3</div>}
+        {MES_NAV.filter(({ href }) => {
+          if (!user) return false;
+          const role = user.role;
+          if (role === "owner" || role === "admin" || role === "manager" || role === "accountant") return true;
+          if (role === "inspector") return false;
+          return true;
+        }).map(({ href, label, icon: Icon }) => {
           const active = pathname === href || (href !== "/mes" && pathname.startsWith(href));
           return (
             <Link
@@ -125,7 +162,11 @@ export default function Sidebar() {
               <div className={styles.userMeta}>
                 <span className={styles.userName}>{user.full_name}</span>
                 <span className={styles.userRole}>
-                  {user.role === "admin" ? "Quản trị" : "Nhân viên"}
+                  {user.role === "owner" ? "Owner (bên mình)" :
+                   user.role === "admin" ? "Admin (bên họ)" :
+                   user.role === "manager" ? "Quản lý" :
+                   user.role === "accountant" ? "Kế toán" :
+                   "Nhân viên"}
                 </span>
               </div>
             </div>

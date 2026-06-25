@@ -9,6 +9,7 @@ import DashboardHistoryPage from "./app/dashboard/history/page";
 import DashboardEmployeesPage from "./app/dashboard/employees/page";
 import DashboardReportsPage from "./app/dashboard/reports/page";
 import DashboardSettingsPage from "./app/dashboard/settings/page";
+import DashboardAccountingPage from "./app/dashboard/accounting/page";
 
 // Other section pages
 import DatasetPage from "./app/dataset/page";
@@ -26,6 +27,7 @@ function DashboardLayout() {
           <Route path="employees" element={<DashboardEmployeesPage />} />
           <Route path="reports" element={<DashboardReportsPage />} />
           <Route path="settings" element={<DashboardSettingsPage />} />
+          <Route path="accounting" element={<DashboardAccountingPage />} />
         </Routes>
       </AdminLayout>
     </ProtectedRoute>

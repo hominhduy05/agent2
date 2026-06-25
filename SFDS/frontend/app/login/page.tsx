@@ -25,9 +25,11 @@ export default function LoginPage() {
 
     // Mock credentials
     const accounts = [
-      { username: "admin", password: "admin123", role: "admin", full_name: "Quản trị viên" },
-      { username: "inspector", password: "inspector123", role: "inspector", full_name: "Giám sát viên" },
-      { username: "operator", password: "operator123", role: "operator", full_name: "Nhân viên vận hành" },
+      { username: "owner", password: "owner123", role: "owner", full_name: "Chủ sở hữu (Owner)" },
+      { username: "admin", password: "admin123", role: "admin", full_name: "Quản trị viên (Admin)" },
+      { username: "manager", password: "manager123", role: "manager", full_name: "Quản lý (Manager)" },
+      { username: "accountant", password: "accountant123", role: "accountant", full_name: "Kế toán (Accountant)" },
+      { username: "inspector", password: "inspector123", role: "inspector", full_name: "Nhân viên (Inspector)" },
     ];
 
     const match = accounts.find(
@@ -36,7 +38,7 @@ export default function LoginPage() {
 
     if (match) {
       login("mock-jwt-token-123456", {
-        id: match.username === "admin" ? 1 : match.username === "inspector" ? 2 : 3,
+        id: match.username === "owner" ? 1 : match.username === "admin" ? 2 : match.username === "manager" ? 3 : match.username === "accountant" ? 4 : 5,
         username: match.username,
         full_name: match.full_name,
         role: match.role,

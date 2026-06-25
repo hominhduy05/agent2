@@ -39,7 +39,7 @@ class Employee(Base):
     username     = Column(String(50), unique=True, nullable=False, index=True)
     password_hash = Column(String(255), nullable=False)
     full_name    = Column(String(100), nullable=False)
-    role         = Column(String(20), nullable=False, default="inspector")  # admin | inspector
+    role         = Column(String(20), nullable=False, default="inspector")  # owner | admin | manager | accountant | inspector
     is_active    = Column(Boolean, default=True)
     created_at   = Column(DateTime, default=datetime.utcnow)
 
@@ -162,18 +162,26 @@ def init_db() -> None:
             db.commit()
             print("[DB] Seeded default KPI targets.")
 
-        if db.query(Employee).count() == 0:
-            import bcrypt
-            pw = bcrypt.hashpw("admin123".encode(), bcrypt.gensalt()).decode()
-            db.add(Employee(
-                username="admin",
-                password_hash=pw,
-                full_name="Quản trị viên",
-                role="admin",
-                is_active=True,
-            ))
-            db.commit()
-            print("[DB] Created default admin user: admin / admin123")
+        seeded_users = [
+            ("owner", "owner123", "Chủ sở hữu", "owner"),
+            ("admin", "admin123", "Quản trị viên", "admin"),
+            ("manager", "manager123", "Quản lý", "manager"),
+            ("accountant", "accountant123", "Kế toán", "accountant"),
+            ("inspector", "inspector123", "Nhân viên kiểm tra", "inspector"),
+        ]
+        import bcrypt
+        for username, password, full_name, role in seeded_users:
+            if not db.query(Employee).filter(Employee.username == username).first():
+                pw = bcrypt.hashpw(password.encode(), bcrypt.gensalt()).decode()
+                db.add(Employee(
+                    username=username,
+                    password_hash=pw,
+                    full_name=full_name,
+                    role=role,
+                    is_active=True,
+                ))
+                db.commit()
+                print(f"[DB] Created default user: {username} / {password}")
     finally:
         db.close()
 

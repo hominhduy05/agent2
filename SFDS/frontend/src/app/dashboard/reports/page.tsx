@@ -216,7 +216,11 @@ export default function ReportsPage() {
                   <div>
                     <h4 className={styles.empName}>{emp.full_name}</h4>
                     <span className={styles.empRole}>
-                      {emp.role === "admin" ? "Quản trị" : "Nhân viên"}
+                      {emp.role === "owner" ? "Owner" :
+                       emp.role === "admin" ? "Admin" :
+                       emp.role === "manager" ? "Quản lý" :
+                       emp.role === "accountant" ? "Kế toán" :
+                       "Nhân viên"}
                     </span>
                   </div>
                 </div>

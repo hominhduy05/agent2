@@ -22,7 +22,7 @@ export default function SettingsPage() {
   const [saving, setSaving] = useState<string | null>(null);
   const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
   const [edited, setEdited] = useState<Record<string, number>>({});
-  const isAdmin = user?.role === "admin";
+  const isAdmin = user?.role === "admin" || user?.role === "owner";
 
   async function load() {
     setLoading(true);

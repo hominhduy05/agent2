@@ -3,6 +3,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import Image from "next/image";
 import { useSidebar } from "@/components/context/SidebarContext";
+import { useAuth } from "@/components/dashboard/AuthProvider";
 import {
   UserCircleIcon,
   FolderIcon,
@@ -36,7 +37,30 @@ const navItems: NavItem[] = [
 
 const AppSidebar: React.FC = () => {
   const { isExpanded, isMobileOpen, isHovered, setIsHovered } = useSidebar();
+  const { user } = useAuth();
   const pathname = usePathname();
+
+  const filteredNavItems = navItems.filter((nav) => {
+    if (!user) return false;
+    const role = user.role;
+    
+    // SCADA: owner, admin, manager, inspector
+    if (nav.path === "/scada") {
+      return role === "owner" || role === "admin" || role === "manager" || role === "inspector";
+    }
+    
+    // Detect: owner, admin, manager, inspector
+    if (nav.path === "/detect") {
+      return role === "owner" || role === "admin" || role === "manager" || role === "inspector";
+    }
+    
+    // Dataset: owner, admin, manager
+    if (nav.path === "/dataset") {
+      return role === "owner" || role === "admin" || role === "manager";
+    }
+    
+    return true;
+  });
 
   const isActive = useCallback(
     (path: string) => {
@@ -94,7 +118,7 @@ const AppSidebar: React.FC = () => {
         <nav className="mb-6">
           <div className="flex flex-col gap-4">
             <ul className="flex flex-col gap-1">
-              {navItems.map((nav) => (
+              {filteredNavItems.map((nav) => (
                 <li key={nav.name}>
                   <Link
                     href={nav.path!}

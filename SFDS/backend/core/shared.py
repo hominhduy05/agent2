@@ -220,12 +220,12 @@ class EmployeeCreate(BaseModel):
     username: str = Field(..., min_length=3, max_length=50)
     password: str = Field(..., min_length=6)
     full_name: str = Field(..., min_length=2, max_length=100)
-    role: str = Field(default="inspector", pattern="^(admin|inspector)$")
+    role: str = Field(default="inspector", pattern="^(owner|admin|manager|accountant|inspector)$")
 
 
 class EmployeeUpdate(BaseModel):
     full_name: Optional[str] = None
-    role: Optional[str] = Field(None, pattern="^(admin|inspector)$")
+    role: Optional[str] = Field(None, pattern="^(owner|admin|manager|accountant|inspector)$")
     is_active: Optional[bool] = None
     password: Optional[str] = None
 
