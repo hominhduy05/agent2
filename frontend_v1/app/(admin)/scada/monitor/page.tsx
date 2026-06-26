@@ -47,85 +47,52 @@ export default function ScadaPage() {
   const videoRefs = useRef<React.RefObject<HTMLVideoElement | null>[]>([]);
   const canvasRefs = useRef<React.RefObject<HTMLCanvasElement | null>[]>([]);
 
-  const autoConnectCameras = async (
-  webcams: MediaDevice[]
-) => {
-  const m = managerRef.current;
-
-  if (!m) return;
-
-  const max = Math.min(
-    webcams.length,
-    5
-  );
-
-  for (let i = 0; i < max; i++) {
-    const dev = webcams[i];
-
-    try {
-      const cam = m.cameras[i];
-
-      if (
-        cam?.isActive &&
-        cam.deviceId === dev.deviceId
-      ) {
-        continue;
-      }
-
-      await m.startWebcam(
-        i,
-        dev.deviceId,
-        dev.label
-      );
-
-      m.startAuto(i);
-
-      console.log(
-        `Camera ${i + 1} connected`
-      );
-    } catch (err) {
-      console.error(
-        `Camera ${i + 1} failed`,
-        err
-      );
-    }
-  }
-
-  setCameras([...m.cameras]);
-
-  setSelectedId(prev =>
-    prev === null ? 0 : prev
-  );
-};
-
-const syncDisconnectedCameras =
-  async (
-    webcams: MediaDevice[]
-  ) => {
+  const autoConnectCameras = async (webcams: MediaDevice[]) => {
     const m = managerRef.current;
 
     if (!m) return;
 
-    const deviceIds =
-      webcams.map(
-        x => x.deviceId
-      );
+    const max = Math.min(webcams.length, 5);
 
-    for (let i = 0; i < 5; i++) {
+    for (let i = 0; i < max; i++) {
+      const dev = webcams[i];
+
+      try {
+        const cam = m.cameras[i];
+
+        if (cam?.isActive && cam.deviceId === dev.deviceId) {
+          continue;
+        }
+
+        await m.startWebcam(i, dev.deviceId, dev.label);
+
+        m.startAuto(i);
+
+        console.log(`Camera ${i + 1} connected`);
+      } catch (err) {
+        console.error(`Camera ${i + 1} failed`, err);
+      }
+    }
+
+    setCameras([...m.cameras]);
+
+    setSelectedId((prev) => (prev === null ? 0 : prev));
+  };
+
+  const syncDisconnectedCameras = async (webcams: MediaDevice[]) => {
+    const m = managerRef.current;
+
+    if (!m) return;
+
+    const deviceIds = webcams.map((x) => x.deviceId);
+
+    for (let i = 0; i < 4; i++) {
       const cam = m.cameras[i];
 
-      if (
-        cam?.isActive &&
-        cam.deviceId &&
-        !deviceIds.includes(
-          cam.deviceId
-        )
-      ) {
+      if (cam?.isActive && cam.deviceId && !deviceIds.includes(cam.deviceId)) {
         m.stopCamera(i);
 
-        console.log(
-          `Camera ${i + 1} disconnected`
-        );
+        console.log(`Camera ${i + 1} disconnected`);
       }
     }
 
@@ -133,7 +100,7 @@ const syncDisconnectedCameras =
   };
 
   useEffect(() => {
-    for (let i = 0; i < 5; i++) {
+    for (let i = 0; i < 4; i++) {
       videoRefs.current[i] = { current: null };
       canvasRefs.current[i] = { current: null };
     }
@@ -148,69 +115,53 @@ const syncDisconnectedCameras =
 
     managerRef.current = manager;
 
-   for (let i = 0; i < 5; i++) {
-  managerRef.current.setRefs(
-    i,
-    videoRefs.current[i] as React.RefObject<HTMLVideoElement>,
-    canvasRefs.current[i] as React.RefObject<HTMLCanvasElement>
-  );
-}
+    for (let i = 0; i < 4; i++) {
+      managerRef.current.setRefs(
+        i,
+        videoRefs.current[i] as React.RefObject<HTMLVideoElement>,
+        canvasRefs.current[i] as React.RefObject<HTMLCanvasElement>
+      );
+    }
 
-/**
- * Re-attach stream cho video sau khi quay từ detail về
- */
-for (let i = 0; i < 5; i++) {
-  const cam = managerRef.current.cameras[i];
+    /**
+     * Re-attach stream cho video sau khi quay từ detail về
+     */
+    for (let i = 0; i < 4; i++) {
+      const cam = managerRef.current.cameras[i];
 
-  if (
-    cam?.stream &&
-    videoRefs.current[i]?.current
-  ) {
-    videoRefs.current[i].current!.srcObject = cam.stream;
+      if (cam?.stream && videoRefs.current[i]?.current) {
+        videoRefs.current[i].current!.srcObject = cam.stream;
 
-    videoRefs.current[i]
-      .current!.play()
-      .catch(() => {});
-  }
-}
+        videoRefs.current[i].current!.play().catch(() => {});
+      }
+    }
 
-setCameras([...managerRef.current.cameras]);
+    setCameras([...managerRef.current.cameras]);
 
     async function loadDevices() {
-  try {
-    await navigator.mediaDevices.getUserMedia({
-      video: true,
-    });
+      try {
+        await navigator.mediaDevices.getUserMedia({
+          video: true,
+        });
 
-    const devs =
-      await navigator.mediaDevices.enumerateDevices();
+        const devs = await navigator.mediaDevices.enumerateDevices();
 
-    const webcams = devs
-      .filter(
-        (d) => d.kind === 'videoinput'
-      )
-      .map((d) => ({
-        deviceId: d.deviceId,
-        label:
-          d.label ||
-          `Camera ${d.deviceId.slice(
-            0,
-            8
-          )}`,
-      }));
+        const webcams = devs
+          .filter((d) => d.kind === 'videoinput')
+          .map((d) => ({
+            deviceId: d.deviceId,
+            label: d.label || `Camera ${d.deviceId.slice(0, 8)}`,
+          }));
 
-    setDevices(webcams);
+        setDevices(webcams);
 
-    await autoConnectCameras(
-      webcams
-    );
-  } catch (err) {
-    console.error(err);
-    setDevices([]);
-  }
-}
+        await autoConnectCameras(webcams);
+      } catch (err) {
+        console.error(err);
+        setDevices([]);
+      }
+    }
     loadDevices();
-
 
     // return () => {
     //   console.log('GRID UNMOUNT -> CLEANUP');
@@ -268,7 +219,7 @@ setCameras([...managerRef.current.cameras]);
     if (managerRef.current) {
       managerRef.current.setThreshold(threshold);
       // Gui threshold moi qua WebSocket cho tat ca camera dang chay
-      for (let i = 0; i < 5; i++) {
+      for (let i = 0; i < 4; i++) {
         if (managerRef.current.cameras[i].isActive) {
           managerRef.current.sendThreshold(i);
         }
@@ -277,45 +228,41 @@ setCameras([...managerRef.current.cameras]);
   }, [threshold]);
 
   useEffect(() => {
-  const m = managerRef.current;
-  if (!m) return;
+    const m = managerRef.current;
+    if (!m) return;
 
-  for (let i = 0; i < 5; i++) {
-    const cam = m.cameras[i];
-    const video = videoRefs.current[i]?.current;
-
-    if (cam?.stream && video) {
-      if (video.srcObject !== cam.stream) {
-        video.srcObject = cam.stream;
-      }
-
-      video.play().catch(() => {});
-    }
-  }
-}, [cameras]);
-
-useEffect(() => {
-  const m = managerRef.current;
-  if (!m) return;
-
-  requestAnimationFrame(() => {
-    for (let i = 0; i < 5; i++) {
-      m.setRefs(
-        i,
-        videoRefs.current[i] as any,
-        canvasRefs.current[i] as any
-      );
-
+    for (let i = 0; i < 4; i++) {
       const cam = m.cameras[i];
       const video = videoRefs.current[i]?.current;
 
       if (cam?.stream && video) {
-        video.srcObject = cam.stream;
+        if (video.srcObject !== cam.stream) {
+          video.srcObject = cam.stream;
+        }
+
         video.play().catch(() => {});
       }
     }
-  });
-}, []);
+  }, [cameras]);
+
+  useEffect(() => {
+    const m = managerRef.current;
+    if (!m) return;
+
+    requestAnimationFrame(() => {
+      for (let i = 0; i < 4; i++) {
+        m.setRefs(i, videoRefs.current[i] as any, canvasRefs.current[i] as any);
+
+        const cam = m.cameras[i];
+        const video = videoRefs.current[i]?.current;
+
+        if (cam?.stream && video) {
+          video.srcObject = cam.stream;
+          video.play().catch(() => {});
+        }
+      }
+    });
+  }, []);
 
   const router = useRouter();
 
@@ -392,94 +339,75 @@ useEffect(() => {
     styles.cam2,
     styles.cam3,
     styles.cam4,
-    styles.cam5,
+    // styles.cam5,
   ];
 
   useEffect(() => {
-  if (!managerRef.current) return;
+    if (!managerRef.current) return;
 
-  for (let i = 0; i < 5; i++) {
-    managerRef.current.setRefs(
-      i,
-      videoRefs.current[i] as React.RefObject<HTMLVideoElement>,
-      canvasRefs.current[i] as React.RefObject<HTMLCanvasElement>
-    );
-  }
+    for (let i = 0; i < 4; i++) {
+      managerRef.current.setRefs(
+        i,
+        videoRefs.current[i] as React.RefObject<HTMLVideoElement>,
+        canvasRefs.current[i] as React.RefObject<HTMLCanvasElement>
+      );
+    }
 
-  setCameras([...managerRef.current.cameras]);
-}, []);
+    setCameras([...managerRef.current.cameras]);
+  }, []);
 
-const detectionsCount = cameras.reduce(
-  (sum, cam) => sum + (cam.result?.detections?.length || 0),
-  0
-);
+  const detectionsCount = cameras.reduce(
+    (sum, cam) => sum + (cam.result?.detections?.length || 0),
+    0
+  );
 
-const activeCams = cameras.filter((c) => c.isActive).length;
+  const activeCams = cameras.filter((c) => c.isActive).length;
 
-const errorCams = cameras.filter((c) => c.error).length;
+  const errorCams = cameras.filter((c) => c.error).length;
 
+  const totalCams = 4;
+  const activeRate = (activeCams / totalCams) * 100;
+  const inactiveCams = totalCams - activeCams;
 
-const totalCams = 5;
-const activeRate = (activeCams / totalCams) * 100;
-const inactiveCams = totalCams - activeCams;
+  useEffect(() => {
+    scadaStore.setState({
+      cameras,
+      demoMode,
+      scaleStatus,
+    });
+  }, [cameras, demoMode, scaleStatus]);
 
-useEffect(() => {
-  scadaStore.setState({
-    cameras,
-    demoMode,
-    scaleStatus,
-  });
-}, [cameras, demoMode, scaleStatus]);
-
-useEffect(() => {
-  const onDeviceChange =
-    async () => {
+  useEffect(() => {
+    const onDeviceChange = async () => {
       try {
-        const devs =
-          await navigator.mediaDevices.enumerateDevices();
+        const devs = await navigator.mediaDevices.enumerateDevices();
 
         const webcams = devs
-          .filter(
-            (d) =>
-              d.kind ===
-              'videoinput'
-          )
+          .filter((d) => d.kind === 'videoinput')
           .map((d) => ({
             deviceId: d.deviceId,
-            label:
-              d.label ||
-              `Camera ${d.deviceId.slice(
-                0,
-                8
-              )}`,
+            label: d.label || `Camera ${d.deviceId.slice(0, 8)}`,
           }));
 
         setDevices(webcams);
 
-        await syncDisconnectedCameras(
-          webcams
-        );
+        await syncDisconnectedCameras(webcams);
 
-        await autoConnectCameras(
-          webcams
-        );
+        await autoConnectCameras(webcams);
       } catch (err) {
         console.error(err);
       }
     };
 
-  navigator.mediaDevices.addEventListener(
-    'devicechange',
-    onDeviceChange
-  );
+    navigator.mediaDevices.addEventListener('devicechange', onDeviceChange);
 
-  return () => {
-    navigator.mediaDevices.removeEventListener(
-      'devicechange',
-      onDeviceChange
-    );
-  };
-}, []);
+    return () => {
+      navigator.mediaDevices.removeEventListener(
+        'devicechange',
+        onDeviceChange
+      );
+    };
+  }, []);
 
   return (
     <div className={styles.wrapper}>
@@ -597,7 +525,6 @@ useEffect(() => {
           </div>
         </div>
 
-        
         <div className={styles.gridContainer}>
           {orderedCameras.map((cam, index) => {
             const isSelected = selectedId === cam.id;
@@ -702,18 +629,14 @@ useEffect(() => {
                       //   setShowDeviceModal(true);
                       // }}
                       onClick={(e) => {
-    e.stopPropagation();
+                        e.stopPropagation();
 
-    const dev =
-      devices[cam.id];
+                        const dev = devices[cam.id];
 
-    if (!dev) return;
+                        if (!dev) return;
 
-    handleStartWebcam(
-      dev.deviceId,
-      dev.label
-    );
-  }}
+                        handleStartWebcam(dev.deviceId, dev.label);
+                      }}
                       style={{
                         marginTop: '6px',
                         padding: '6px 16px',
@@ -903,45 +826,6 @@ useEffect(() => {
           </div>
         </div>
       </div>
-
-      
-
-      {/* ── Right: Detection Panel ────────────────────────────────── */}
-      {/* <div className={styles.detectPanel}>
-        {selectedCam ? (
-          <DetectionPanel
-            camera={selectedCam}
-            demoMode={demoMode}
-            scaleStatus={scaleStatus}
-            threshold={threshold}
-            onThresholdChange={setThreshold}
-            onToggleAuto={() => selectedId !== null && handleToggle(selectedId)}
-            onCapture={() => selectedId !== null && handleCapture(selectedId)}
-            onReset={() => selectedId !== null && handleReset(selectedId)}
-          />
-        ) : (
-          <div className={styles.emptyState}>
-            <div className={styles.emptyIcon}>
-              <svg
-                width="24"
-                height="24"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="1"
-              >
-                <path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z" />
-                <circle cx="12" cy="13" r="4" />
-              </svg>
-            </div>
-            <p className={styles.emptyTitle}>Chon mot camera</p>
-            <p className={styles.emptyDesc}>
-              Click vao mot o camera ben trai de xem ket qua nhan dien thoi gian
-              thuc
-            </p>
-          </div>
-        )}
-      </div> */}
 
       {/* ── Source Picker Modal (webcam vs IP) ───────────────────── */}
       {showDeviceModal && pendingId !== null && (

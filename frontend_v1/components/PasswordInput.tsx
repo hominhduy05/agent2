@@ -2,30 +2,20 @@
 
 import { useState } from 'react';
 
-import {
-  Eye,
-  EyeOff,
-} from 'lucide-react';
+import { Eye, EyeOff } from 'lucide-react';
 
 type Props = {
   defaultValue?: string;
 };
 
-export default function PasswordInput({
-  defaultValue = '',
-}: Props) {
-  const [show, setShow] =
-    useState(false);
+export default function PasswordInput({ defaultValue = '' }: Props) {
+  const [show, setShow] = useState(false);
 
   return (
     <div className="relative">
       <input
         name="password"
-        type={
-          show
-            ? 'text'
-            : 'password'
-        }
+        type={show ? 'text' : 'password'}
         autoComplete="current-password"
         defaultValue={defaultValue}
         placeholder="Nhập mật khẩu"
@@ -49,14 +39,8 @@ export default function PasswordInput({
 
       <button
         type="button"
-        aria-label={
-          show
-            ? 'Ẩn mật khẩu'
-            : 'Hiện mật khẩu'
-        }
-        onClick={() =>
-          setShow((v) => !v)
-        }
+        aria-label={show ? 'Ẩn mật khẩu' : 'Hiện mật khẩu'}
+        onClick={() => setShow((v) => !v)}
         className="
           absolute
           right-3
@@ -78,11 +62,7 @@ export default function PasswordInput({
           focus:ring-cyan-500/40
         "
       >
-        {show ? (
-          <EyeOff size={18} />
-        ) : (
-          <Eye size={18} />
-        )}
+        {show ? <EyeOff size={18} /> : <Eye size={18} />}
       </button>
     </div>
   );

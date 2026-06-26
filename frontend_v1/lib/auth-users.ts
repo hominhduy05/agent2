@@ -15,7 +15,7 @@ export interface AuthUser {
 }
 
 export const USERS: AuthUser[] = [
-    {
+  {
     email: 'admin@gmail.com',
     password: 'AICamera@2026',
     role: 'ADMIN',

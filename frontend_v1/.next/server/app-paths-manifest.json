@@ -1,9 +1,5 @@
 {
-  "/api/login/route": "app/api/login/route.js",
   "/api/me/route": "app/api/me/route.js",
-  "/login/page": "app/login/page.js",
-  "/(admin)/scada/dashboard/page": "app/(admin)/scada/dashboard/page.js",
-  "/(admin)/analytics/page": "app/(admin)/analytics/page.js",
-  "/(admin)/scada/[id]/page": "app/(admin)/scada/[id]/page.js",
-  "/(admin)/camera-manager/page": "app/(admin)/camera-manager/page.js"
+  "/(admin)/scada/monitor/page": "app/(admin)/scada/monitor/page.js",
+  "/(admin)/statistics/fruits/page": "app/(admin)/statistics/fruits/page.js"
 }

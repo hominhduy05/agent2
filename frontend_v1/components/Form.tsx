@@ -2,13 +2,8 @@
 
 import { useState } from 'react';
 
-export default function LoginForm({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
-  const [pending, setPending] =
-    useState(false);
+export default function LoginForm({ children }: { children: React.ReactNode }) {
+  const [pending, setPending] = useState(false);
 
   return (
     <form

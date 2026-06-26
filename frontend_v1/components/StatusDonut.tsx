@@ -1,17 +1,9 @@
 'use client';
 
-import {
-  PieChart,
-  Pie,
-  Cell,
-  ResponsiveContainer,
-} from 'recharts';
+import { PieChart, Pie, Cell, ResponsiveContainer } from 'recharts';
 import styles from '../app/(admin)/scada/dashboard/dashboard.module.css';
 
-export default function StatusDonut({
-  active,
-  inactive,
-}: any) {
+export default function StatusDonut({ active, inactive }: any) {
   const data = [
     {
       name: 'Online',

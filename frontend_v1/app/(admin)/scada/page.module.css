@@ -847,3 +847,28 @@
   font-size: 13px;
   line-height: 1.6;
 }
+
+.roomTabs {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.roomTab {
+  padding: 8px 12px;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.roomTabActive {
+  padding: 8px 12px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: 700;
+}
+
+.addRoomBtn {
+  padding: 8px 12px;
+  border-radius: 8px;
+  cursor: pointer;
+}

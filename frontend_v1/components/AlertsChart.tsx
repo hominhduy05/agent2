@@ -17,19 +17,18 @@ interface Props {
   range?: 'day' | 'hour' | 'month' | 'year';
 }
 
-export default function AlertsChart({
-  cameras = [],
-  range = 'day',
-}: Props) {
+export default function AlertsChart({ cameras = [], range = 'day' }: Props) {
   const chartData = useMemo(() => {
     if (!cameras.length) {
       return [];
     }
 
     const buckets = buildBuckets(range);
-    const rows: Array<Record<string, string | number>> = buckets.map((bucket) => ({
-      name: bucket.label,
-    }));
+    const rows: Array<Record<string, string | number>> = buckets.map(
+      (bucket) => ({
+        name: bucket.label,
+      })
+    );
 
     cameras.forEach((cam, index) => {
       const history = [cam.result, ...(cam.resultHistory || [])]
@@ -62,11 +61,11 @@ export default function AlertsChart({
         minHeight: 320,
       }}
     >
-      <ResponsiveContainer
-  width="100%"
-  height={320}
->
-        <LineChart data={chartData} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
+      <ResponsiveContainer width="100%" height={320}>
+        <LineChart
+          data={chartData}
+          margin={{ top: 8, right: 8, left: 0, bottom: 0 }}
+        >
           <CartesianGrid stroke="var(--border)" vertical={false} />
 
           <XAxis
@@ -162,7 +161,10 @@ function buildBuckets(range: 'day' | 'hour' | 'month' | 'year') {
   });
 }
 
-function getBucketKey(timestamp: number | undefined, range: 'day' | 'hour' | 'month' | 'year') {
+function getBucketKey(
+  timestamp: number | undefined,
+  range: 'day' | 'hour' | 'month' | 'year'
+) {
   if (!timestamp) {
     return '';
   }

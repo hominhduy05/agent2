@@ -34,8 +34,7 @@ export default function AnalyticsPage() {
   }, [events]);
 
   const exportCSV = () => {
-    const header =
-      'timestamp,ripeness,confidence,weight,cameraId';
+    const header = 'timestamp,ripeness,confidence,weight,cameraId';
 
     const rows = events.map((e: any) =>
       [
@@ -93,9 +92,7 @@ export default function AnalyticsPage() {
 
         <div className={styles.kpi}>
           <div className={styles.kpiLabel}>AVG WEIGHT</div>
-          <div className={styles.kpiValue}>
-            {stats.avgWeight.toFixed(2)} kg
-          </div>
+          <div className={styles.kpiValue}>{stats.avgWeight.toFixed(2)} kg</div>
         </div>
 
         <div className={styles.kpi}>

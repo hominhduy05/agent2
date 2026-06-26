@@ -10,9 +10,7 @@ type LoginPageProps = {
   }>;
 };
 
-export default async function LoginPage({
-  searchParams,
-}: LoginPageProps) {
+export default async function LoginPage({ searchParams }: LoginPageProps) {
   const params = await searchParams;
 
   const error = params?.error;
@@ -36,9 +34,7 @@ export default async function LoginPage({
               SYSTEM ONLINE
             </div>
 
-            <h1 className="mt-4 text-3xl font-bold">
-              Đăng nhập
-            </h1>
+            <h1 className="mt-4 text-3xl font-bold">Đăng nhập</h1>
 
             <p className="mt-2 text-sm text-slate-400">
               Hệ thống giám sát Camera AI & SCADA
@@ -74,12 +70,7 @@ export default async function LoginPage({
                   Mật khẩu
                 </label>
 
-                <PasswordInput
-                  defaultValue={
-                    password ??
-                    'AICamera@2026'
-                  }
-                />
+                <PasswordInput defaultValue={password ?? 'AICamera@2026'} />
               </div>
 
               <label className="flex items-center gap-3 text-sm text-slate-400">

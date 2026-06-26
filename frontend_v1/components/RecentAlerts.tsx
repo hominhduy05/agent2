@@ -2,9 +2,7 @@
 
 import styles from '../app/(admin)/scada/dashboard/dashboard.module.css';
 
-export default function RecentAlerts({
-  cameras,
-}: any) {
+export default function RecentAlerts({ cameras }: any) {
   const alerts = cameras
     .filter((c: any) => c.result?.detections?.length > 0)
     .sort(

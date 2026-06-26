@@ -4,7 +4,14 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useSidebar } from '@/components/context/SidebarContext';
-import { UserCircleIcon, FolderIcon, AnalyserIcon, AlertIcon, DetectIcon, CameraManagerIcon } from '@/icons/index';
+import {
+  UserCircleIcon,
+  FolderIcon,
+  AnalyserIcon,
+  AlertIcon,
+  DetectIcon,
+  CameraManagerIcon,
+} from '@/icons/index';
 import SidebarWidget from './SidebarWidget';
 import { SIDEBAR_BY_ROLE, SidebarItem } from '@/lib/sidebar-config';
 
@@ -15,89 +22,70 @@ import { SIDEBAR_BY_ROLE, SidebarItem } from '@/lib/sidebar-config';
 //   subItems?: { name: string; path: string }[];
 // };
 
-
 const AppSidebar: React.FC = () => {
-  const {
-  isExpanded,
-  isMobileOpen,
-  isHovered,
-  setIsHovered,
-  setIsMobileOpen,
-} = useSidebar();
-const sidebarRef = useRef<HTMLElement>(null);
+  const { isExpanded, isMobileOpen, isHovered, setIsHovered, setIsMobileOpen } =
+    useSidebar();
+  const sidebarRef = useRef<HTMLElement>(null);
 
-const [navItems, setNavItems] =
-  useState<SidebarItem[]>([]);
+  const [navItems, setNavItems] = useState<SidebarItem[]>([]);
 
-  const [user, setUser] =
-  useState<any>(null);
+  const [user, setUser] = useState<any>(null);
 
-useEffect(() => {
-  fetch('/api/me')
-    .then(r => r.json())
-    .then(user => {
-      setUser(user);
+  useEffect(() => {
+    fetch('/api/me')
+      .then((r) => r.json())
+      .then((user) => {
+        setUser(user);
 
-      switch (user.role) {
-        case 'ADMIN':
-          setNavItems(
-            SIDEBAR_BY_ROLE.ADMIN
-          );
-          break;
-        case 'OWNER':
-          setNavItems(
-            SIDEBAR_BY_ROLE.OWNER
-          );
-          break;
+        switch (user.role) {
+          case 'ADMIN':
+            setNavItems(SIDEBAR_BY_ROLE.ADMIN);
+            break;
+          case 'OWNER':
+            setNavItems(SIDEBAR_BY_ROLE.OWNER);
+            break;
 
-        case 'MANAGER':
-          setNavItems(
-            SIDEBAR_BY_ROLE.MANAGER
-          );
-          break;
+          case 'MANAGER':
+            setNavItems(SIDEBAR_BY_ROLE.MANAGER);
+            break;
 
-        case 'ACCOUNTANT':
-          setNavItems(
-            SIDEBAR_BY_ROLE.ACCOUNTANT
-          );
-          break;
+          case 'ACCOUNTANT':
+            setNavItems(SIDEBAR_BY_ROLE.ACCOUNTANT);
+            break;
 
-        default:
-          setNavItems(
-            SIDEBAR_BY_ROLE.EMPLOYEE
-          );
+          default:
+            setNavItems(SIDEBAR_BY_ROLE.EMPLOYEE);
+        }
+      });
+  }, []);
+
+  const [openDropdown, setOpenDropdown] = useState<string | null>(null);
+  const toggleDropdown = (name: string) => {
+    setOpenDropdown((prev) => (prev === name ? null : name));
+  };
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (
+        sidebarRef.current &&
+        !sidebarRef.current.contains(event.target as Node)
+      ) {
+        setIsHovered(false);
+        setIsMobileOpen(false);
       }
-    });
-}, []);
+    };
 
+    document.addEventListener('mousedown', handleClickOutside);
 
-const [openDropdown, setOpenDropdown] = useState<string | null>(null);
-const toggleDropdown = (name: string) => {
-  setOpenDropdown((prev) => (prev === name ? null : name));
-};
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [setIsHovered, setIsMobileOpen]);
 
-useEffect(() => {
-  const handleClickOutside = (event: MouseEvent) => {
-    if (
-      sidebarRef.current &&
-      !sidebarRef.current.contains(event.target as Node)
-    ) {
-      setIsHovered(false);
-      setIsMobileOpen(false);
-    }
+  const handleCloseSidebar = () => {
+    setIsHovered(false);
+    setIsMobileOpen(false);
   };
-
-  document.addEventListener('mousedown', handleClickOutside);
-
-  return () => {
-    document.removeEventListener('mousedown', handleClickOutside);
-  };
-}, [setIsHovered, setIsMobileOpen]);
-
-const handleCloseSidebar = () => {
-  setIsHovered(false);
-  setIsMobileOpen(false);
-};
   const pathname = usePathname();
 
   const isActive = useCallback(
@@ -111,7 +99,7 @@ const handleCloseSidebar = () => {
 
   return (
     <aside
-    ref={sidebarRef}
+      ref={sidebarRef}
       className={`fixed top-0 left-0 h-screen mt-16 flex flex-col lg:mt-0 px-5
         transition-all duration-300 ease-in-out z-50
         ${showExpanded ? 'w-[280px]' : isHovered ? 'w-[280px]' : 'w-[80px]'}
@@ -232,75 +220,81 @@ const handleCloseSidebar = () => {
           <div className="flex flex-col gap-4">
             <ul className="flex flex-col gap-1">
               {navItems.map((nav) => {
-  const hasSub = !!nav.subItems;
-  const isOpen = openDropdown === nav.name;
+                const hasSub = !!nav.subItems;
+                const isOpen = openDropdown === nav.name;
 
-  return (
-    <li key={nav.name}>
-      <div>
-        <Link
-          href={nav.path || '#'}
-          onClick={(e) => {
-  if (hasSub) {
-    e.preventDefault();
-    toggleDropdown(nav.name);
-    return;
-  }
+                return (
+                  <li key={nav.name}>
+                    <div>
+                      <Link
+                        href={nav.path || '#'}
+                        onClick={(e) => {
+                          if (hasSub) {
+                            e.preventDefault();
+                            toggleDropdown(nav.name);
+                            return;
+                          }
 
-  handleCloseSidebar();
-}}
-          className={`menu-item group ${
-            isActive(nav.path!) ? 'menu-item-active' : 'menu-item-inactive'
-          }`}
-        >
-          <span
-            className={
-              isActive(nav.path!)
-                ? 'menu-item-icon-active'
-                : 'menu-item-icon-inactive'
-            }
-          >
-            {nav.icon}
-          </span>
+                          handleCloseSidebar();
+                        }}
+                        className={`menu-item group ${
+                          isActive(nav.path!)
+                            ? 'menu-item-active'
+                            : 'menu-item-inactive'
+                        }`}
+                      >
+                        <span
+                          className={
+                            isActive(nav.path!)
+                              ? 'menu-item-icon-active'
+                              : 'menu-item-icon-inactive'
+                          }
+                        >
+                          {nav.icon}
+                        </span>
 
-          {(isExpanded || isHovered || isMobileOpen) && (
-            <>
-              <span className="menu-item-text">{nav.name}</span>
+                        {(isExpanded || isHovered || isMobileOpen) && (
+                          <>
+                            <span className="menu-item-text">{nav.name}</span>
 
-              {hasSub && (
-                <span style={{ marginLeft: 'auto', fontSize: 12 }}>
-                  {isOpen ? '▾' : '▸'}
-                </span>
-              )}
-            </>
-          )}
-        </Link>
+                            {hasSub && (
+                              <span
+                                style={{ marginLeft: 'auto', fontSize: 12 }}
+                              >
+                                {isOpen ? '▾' : '▸'}
+                              </span>
+                            )}
+                          </>
+                        )}
+                      </Link>
 
-        {/* Dropdown */}
-        {hasSub && isOpen && (isExpanded || isHovered || isMobileOpen) && (
-          <ul className="ml-8 mt-1 flex flex-col gap-1">
-            {nav.subItems!.map((sub) => (
-              <li key={sub.name}>
-                <Link
-                  href={sub.path}
-                  onClick={handleCloseSidebar}
-                  className={`text-sm px-3 py-2 rounded-md block transition
+                      {/* Dropdown */}
+                      {hasSub &&
+                        isOpen &&
+                        (isExpanded || isHovered || isMobileOpen) && (
+                          <ul className="ml-8 mt-1 flex flex-col gap-1">
+                            {nav.subItems!.map((sub) => (
+                              <li key={sub.name}>
+                                <Link
+                                  href={sub.path}
+                                  onClick={handleCloseSidebar}
+                                  className={`text-sm px-3 py-2 rounded-md block transition
                     ${
                       pathname.startsWith(sub.path)
-  ? 'text-blue-500 font-semibold'
-  : 'text-slate-500 hover:text-blue-400 transition-colors'
+                        ? 'text-blue-500 font-semibold'
+                        : 'text-slate-500 hover:text-blue-400 transition-colors'
                     }`}
-                >
-                  {sub.name}
-                </Link>
-              </li>
-            ))}
-          </ul>
-        )}
-      </div>
-    </li>
-  );
-})}
+                                >
+                                  {sub.name}
+                                </Link>
+                              </li>
+                            ))}
+                          </ul>
+                        )}
+                    </div>
+                  </li>
+                );
+              })}
             </ul>
           </div>
         </nav>

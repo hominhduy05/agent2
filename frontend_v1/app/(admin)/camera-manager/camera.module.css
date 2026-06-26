@@ -264,8 +264,6 @@
   border-color: #38bdf8;
 }
 
-
-
 .cameraPicker {
   width: 760px;
   max-width: calc(100vw - 40px);
@@ -350,13 +348,13 @@
   font-weight: 600;
 
   box-shadow:
-    0 1px 2px rgba(15,23,42,.04),
+    0 1px 2px rgba(15, 23, 42, 0.04),
     0 0 0 1px var(--border);
 }
 
 .deviceGrid {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0,1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 14px;
 }
 
@@ -372,13 +370,13 @@
   border: 1px solid var(--border);
   border-radius: 16px;
 
-  transition: all .18s ease;
+  transition: all 0.18s ease;
 }
 
 .deviceCard:hover {
   border-color: var(--accent);
   transform: translateY(-2px);
-  box-shadow: 0 8px 20px rgba(99,102,241,.08);
+  box-shadow: 0 8px 20px rgba(99, 102, 241, 0.08);
 }
 
 .deviceIcon {
@@ -420,7 +418,7 @@
 }
 
 .disabled {
-  opacity: .55;
+  opacity: 0.55;
 }
 
 .disabled .deviceIcon {
@@ -445,7 +443,7 @@
 }
 
 .connectBtn:hover {
-  opacity: .92;
+  opacity: 0.92;
 }
 
 .connectBtn:disabled {

@@ -1,4 +1,4 @@
-import { ScadaCameraManager } from "./scada-camera";
+import { ScadaCameraManager } from './scada-camera';
 
 let manager: ScadaCameraManager | null = null;
 

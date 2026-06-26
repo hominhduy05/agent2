@@ -292,13 +292,7 @@ const DetectIcon: React.FC<{ className?: string }> = ({ className }) => (
       stroke="currentColor"
       strokeWidth="1.5"
     />
-    <circle
-      cx="12"
-      cy="12"
-      r="4"
-      stroke="currentColor"
-      strokeWidth="1.5"
-    />
+    <circle cx="12" cy="12" r="4" stroke="currentColor" strokeWidth="1.5" />
     <circle cx="12" cy="12" r="1.5" fill="currentColor" />
   </svg>
 );
@@ -316,13 +310,7 @@ const CameraManagerIcon: React.FC<{ className?: string }> = ({ className }) => (
       stroke="currentColor"
       strokeWidth="1.5"
     />
-    <circle
-      cx="12"
-      cy="12"
-      r="3.5"
-      stroke="currentColor"
-      strokeWidth="1.5"
-    />
+    <circle cx="12" cy="12" r="3.5" stroke="currentColor" strokeWidth="1.5" />
   </svg>
 );
 

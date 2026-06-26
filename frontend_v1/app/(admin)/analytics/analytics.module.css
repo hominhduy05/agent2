@@ -29,11 +29,7 @@
 
 /* BUTTON (soft industrial) */
 .btnPrimary {
-  background: linear-gradient(
-    135deg,
-    var(--accent),
-    rgba(99, 102, 241, 0.75)
-  );
+  background: linear-gradient(135deg, var(--accent), rgba(99, 102, 241, 0.75));
   border: 1px solid var(--border);
   color: #fff;
   padding: 10px 16px;
@@ -71,7 +67,7 @@
 }
 
 .kpi::after {
-  content: "";
+  content: '';
   position: absolute;
   inset: 0;
   background: radial-gradient(

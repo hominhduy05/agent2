@@ -15,17 +15,13 @@ function clearAuth(res: NextResponse) {
 }
 
 export async function POST(req: Request) {
-  const res = NextResponse.redirect(
-    new URL('/login', req.url)
-  );
+  const res = NextResponse.redirect(new URL('/login', req.url));
 
   return clearAuth(res);
 }
 
 export async function GET(req: Request) {
-  const res = NextResponse.redirect(
-    new URL('/login', req.url)
-  );
+  const res = NextResponse.redirect(new URL('/login', req.url));
 
   return clearAuth(res);
 }

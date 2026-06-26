@@ -1,11 +1,6 @@
 'use client';
 
-import React, {
-  useCallback,
-  useEffect,
-  useRef,
-  useState,
-} from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 
 import { useSidebar } from '@/components/context/SidebarContext';
@@ -16,76 +11,55 @@ import styles from './Header.module.css';
 export default function AppHeader() {
   const router = useRouter();
   const [user, setUser] = useState<{
-  name: string;
-  email: string;
-  role: string;
-} | null>(null);
+    name: string;
+    email: string;
+    role: string;
+  } | null>(null);
 
   const [open, setOpen] = useState(false);
 
   const [query, setQuery] = useState('');
-  const [debouncedQuery, setDebouncedQuery] =
-    useState('');
+  const [debouncedQuery, setDebouncedQuery] = useState('');
 
   const ref = useRef<HTMLDivElement>(null);
 
   const pathname = usePathname();
 
-  const {
-    isMobileOpen,
-    toggleSidebar,
-    toggleMobileSidebar,
-  } = useSidebar();
+  const { isMobileOpen, toggleSidebar, toggleMobileSidebar } = useSidebar();
 
   useEffect(() => {
-  fetch('/api/me')
-    .then((res) => {
-      if (!res.ok) {
-        throw new Error();
-      }
+    fetch('/api/me')
+      .then((res) => {
+        if (!res.ok) {
+          throw new Error();
+        }
 
-      return res.json();
-    })
-    .then((data) => {
-      setUser(data);
-    })
-    .catch(() => {
-      setUser(null);
-    });
-}, []);
+        return res.json();
+      })
+      .then((data) => {
+        setUser(data);
+      })
+      .catch(() => {
+        setUser(null);
+      });
+  }, []);
 
-const avatar =
-  user?.name?.charAt(0)?.toUpperCase() ||
-  'U';
+  const avatar = user?.name?.charAt(0)?.toUpperCase() || 'U';
 
   useEffect(() => {
     setOpen(false);
   }, [pathname]);
 
   useEffect(() => {
-    const handleClickOutside = (
-      e: MouseEvent
-    ) => {
-      if (
-        ref.current &&
-        !ref.current.contains(
-          e.target as Node
-        )
-      ) {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) {
         setOpen(false);
       }
     };
 
-    document.addEventListener(
-      'mousedown',
-      handleClickOutside
-    );
+    document.addEventListener('mousedown', handleClickOutside);
 
-    return () =>
-      document.removeEventListener(
-        'mousedown',
-        handleClickOutside
-      );
+    return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
   useEffect(() => {
@@ -99,15 +73,10 @@ const avatar =
   useEffect(() => {
     if (!debouncedQuery) return;
 
-    console.log(
-      'Search:',
-      debouncedQuery
-    );
+    console.log('Search:', debouncedQuery);
   }, [debouncedQuery]);
 
-  const isDesktop =
-    typeof window !== 'undefined' &&
-    window.innerWidth >= 1024;
+  const isDesktop = typeof window !== 'undefined' && window.innerWidth >= 1024;
 
   const handleToggle = useCallback(() => {
     if (isDesktop) {
@@ -115,15 +84,9 @@ const avatar =
     } else {
       toggleMobileSidebar();
     }
-  }, [
-    isDesktop,
-    toggleSidebar,
-    toggleMobileSidebar,
-  ]);
+  }, [isDesktop, toggleSidebar, toggleMobileSidebar]);
 
-  const handleSignOut = async (
-    e: React.MouseEvent<HTMLButtonElement>
-  ) => {
+  const handleSignOut = async (e: React.MouseEvent<HTMLButtonElement>) => {
     e.preventDefault();
 
     setOpen(false);
@@ -138,13 +101,9 @@ const avatar =
 
       router.refresh();
     } catch (err) {
-      console.error(
-        'Logout failed:',
-        err
-      );
+      console.error('Logout failed:', err);
 
-      window.location.href =
-        '/api/logout';
+      window.location.href = '/api/logout';
     }
   };
 
@@ -158,12 +117,7 @@ const avatar =
             aria-label="Toggle Sidebar"
           >
             {isMobileOpen ? (
-              <svg
-                width="20"
-                height="20"
-                viewBox="0 0 24 24"
-                fill="none"
-              >
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
                 <path
                   fillRule="evenodd"
                   clipRule="evenodd"
@@ -172,12 +126,7 @@ const avatar =
                 />
               </svg>
             ) : (
-              <svg
-                width="16"
-                height="12"
-                viewBox="0 0 16 12"
-                fill="none"
-              >
+              <svg width="16" height="12" viewBox="0 0 16 12" fill="none">
                 <path
                   fillRule="evenodd"
                   clipRule="evenodd"
@@ -193,15 +142,9 @@ const avatar =
               <input
                 type="text"
                 placeholder="Tìm kiếm..."
-                className={
-                  styles.searchInput
-                }
+                className={styles.searchInput}
                 value={query}
-                onChange={(e) =>
-                  setQuery(
-                    e.target.value
-                  )
-                }
+                onChange={(e) => setQuery(e.target.value)}
               />
             </div>
           </div>
@@ -210,79 +153,33 @@ const avatar =
         <div className={styles.right}>
           <ThemeToggleButton />
 
-          <div
-            className={styles.profile}
-            ref={ref}
-          >
-            <button
-              className={styles.trigger}
-              onClick={() =>
-                setOpen(!open)
-              }
-            >
-              <span className={styles.avatar}>
-  {avatar}
-</span>
+          <div className={styles.profile} ref={ref}>
+            <button className={styles.trigger} onClick={() => setOpen(!open)}>
+              <span className={styles.avatar}>{avatar}</span>
 
-<div className={styles.info}>
-  <span className={styles.name}>
-    {user?.name || 'Guest'}
-  </span>
+              <div className={styles.info}>
+                <span className={styles.name}>{user?.name || 'Guest'}</span>
 
-  <span className={styles.sub}>
-    {user?.email || ''}
-  </span>
-</div>
+                <span className={styles.sub}>{user?.email || ''}</span>
+              </div>
 
-              <span
-                className={
-                  styles.arrow
-                }
-              >
-                ▾
-              </span>
+              <span className={styles.arrow}>▾</span>
             </button>
 
             {open && (
-              <div
-                className={
-                  styles.menu
-                }
-              >
-                <div
-                  className={
-                    styles.section
-                  }
-                >
-                  <button
-                    className={
-                      styles.item
-                    }
-                  >
-                    Profile
-                  </button>
+              <div className={styles.menu}>
+                <div className={styles.section}>
+                  <button className={styles.item}>Profile</button>
 
-                  <button
-                    className={
-                      styles.item
-                    }
-                  >
-                    Settings
-                  </button>
+                  <button className={styles.item}>Settings</button>
                 </div>
 
-                <div
-                  className={
-                    styles.divider
-                  }
-                />
+                <div className={styles.divider} />
 
                 {/* JS */}
                 <button
                   type="button"
-                  onClick={
-                    handleSignOut
-                  }
+                  onClick={handleSignOut}
                   className={`${styles.item} ${styles.danger}`}
                 >
                   Log out
@@ -290,18 +187,13 @@ const avatar =
 
                 {/* No JS */}
                 <noscript>
-                  <form
-                    action="/api/logout"
-                    method="POST"
-                  >
+                  <form action="/api/logout" method="POST">
                     <button
                       type="submit"
                       className={`${styles.item} ${styles.danger}`}
                       style={{
-                        width:
-                          '100%',
-                        textAlign:
-                          'left',
+                        width: '100%',
+                        textAlign: 'left',
                       }}
                     >
                       Log out

@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 
 import { useParams, useRouter } from 'next/navigation';
 
@@ -16,6 +16,50 @@ import { CameraChannel } from '@/lib/scada-camera';
 
 import styles from './page.module.css';
 
+export const GRADE_RULES = {
+  A: 4.5, // loại lớn
+  B: 3.5, // loại trung
+  C: 2.5, // loại nhỏ
+};
+export function getGrade(item: any): 'A' | 'B' | 'C' | 'D' {
+  const finalGrade = item?.final_grade?.toLowerCase?.();
+
+  if (finalGrade) {
+    if (finalGrade.includes('grade_a')) return 'A';
+    if (finalGrade.includes('grade_b')) return 'B';
+    if (finalGrade.includes('grade_c')) return 'C';
+    if (finalGrade.includes('grade_d')) return 'D';
+  }
+
+  const className = item?.class_name?.toLowerCase?.();
+
+  if (className) {
+    if (
+      className.includes('ripe') ||
+      className.includes('mature') ||
+      className.includes('demo_grade_a')
+    ) {
+      return 'A';
+    }
+
+    if (className.includes('semi') || className.includes('demo_grade_b')) {
+      return 'B';
+    }
+
+    if (className.includes('green') || className.includes('demo_grade_c')) {
+      return 'C';
+    }
+  }
+
+  const weight = Number(item?.weight_kg ?? 0);
+
+  if (weight >= GRADE_RULES.A) return 'A';
+  if (weight >= GRADE_RULES.B) return 'B';
+  if (weight >= GRADE_RULES.C) return 'C';
+
+  return 'D';
+}
+
 export default function ScadaDetailPage() {
   const params = useParams();
   const router = useRouter();
@@ -28,15 +72,33 @@ export default function ScadaDetailPage() {
 
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
+  const weightMapRef = useRef<Map<string, number>>(new Map());
+
   const [camera, setCamera] = useState<CameraChannel | null>(null);
 
-  const [threshold, setThreshold] = useState(0.25);
+  const [threshold, setThreshold] = useState(0.8);
 
   const [demoMode, setDemoMode] = useState(false);
 
   const [scaleStatus, setScaleStatus] = useState<ScadaScaleStatus | null>(null);
 
   const [, force] = useState(0);
+
+  const getRandomWeight = (id: string) => {
+    if (!id) return 0;
+
+    const cache = weightMapRef.current;
+
+    if (cache.has(id)) {
+      return cache.get(id)!;
+    }
+
+    const weight = Number((2 + Math.random() * 3).toFixed(2));
+
+    cache.set(id, weight);
+
+    return weight;
+  };
 
   /**
    * LOAD CAMERA + LISTENER
@@ -52,10 +114,12 @@ export default function ScadaDetailPage() {
       /**
        * attach stream khi camera update
        */
-      if (cam.stream && videoRef.current) {
-        videoRef.current.srcObject = cam.stream;
+      const video = videoRef.current;
 
-        videoRef.current.play().catch(() => {});
+      if (video && cam.stream && video.srcObject !== cam.stream) {
+        video.srcObject = cam.stream;
+
+        video.play().catch(() => {});
       }
     });
 
@@ -82,41 +146,46 @@ export default function ScadaDetailPage() {
    * SET VIDEO/CANVAS REF
    */
   useEffect(() => {
-  const manager = managerRef.current;
+    const manager = managerRef.current;
 
-  manager.setRefs(
-    id,
-    videoRef as React.RefObject<HTMLVideoElement>,
-    canvasRef as React.RefObject<HTMLCanvasElement>
-  );
-
-  const cam = manager.cameras[id];
-
-  if (cam?.stream && videoRef.current) {
-    videoRef.current.srcObject = cam.stream;
-    videoRef.current.play().catch(() => {});
-  }
-
-  return () => {
-    // clear ref khi rời trang detail
     manager.setRefs(
       id,
-      { current: null } as React.RefObject<HTMLVideoElement>,
-      { current: null } as React.RefObject<HTMLCanvasElement>
+      videoRef as React.RefObject<HTMLVideoElement>,
+      canvasRef as React.RefObject<HTMLCanvasElement>
     );
-  };
-}, [id]);
+
+    const cam = manager.cameras[id];
+
+    if (cam?.stream && videoRef.current) {
+      videoRef.current.srcObject = cam.stream;
+      videoRef.current.play().catch(() => {});
+    }
+
+    return () => {
+      // clear ref khi rời trang detail
+      manager.setRefs(
+        id,
+        { current: null } as React.RefObject<HTMLVideoElement>,
+        { current: null } as React.RefObject<HTMLCanvasElement>
+      );
+    };
+  }, [id]);
 
   /**
    * force update UI
    */
-  useEffect(() => {
-    const timer = setInterval(() => {
-      force((v) => v + 1);
-    }, 30000000);
+  // useEffect(() => {
+  //   let frame: number;
 
-    return () => clearInterval(timer);
-  }, []);
+  //   const loop = () => {
+  //     force((v) => v + 1);
+  //     frame = requestAnimationFrame(loop);
+  //   };
+
+  //   frame = requestAnimationFrame(loop);
+
+  //   return () => cancelAnimationFrame(frame);
+  // }, []);
 
   /**
    * DEMO MODE
@@ -131,26 +200,159 @@ export default function ScadaDetailPage() {
    * SCALE
    */
   useEffect(() => {
-  const load = async () => {
-    try {
-      const data = await getScadaScale();
-      setScaleStatus(data);
-    } catch {
-      setScaleStatus(null);
+    const load = async () => {
+      try {
+        const data = await getScadaScale();
+
+        setScaleStatus(data);
+
+        const manager = getScadaManager();
+
+        if (data?.latest?.fruit_id && data?.latest?.weight_kg) {
+          manager.setFruitWeight(data.latest.fruit_id, data.latest.weight_kg);
+        }
+      } catch {
+        setScaleStatus(null);
+      }
+    };
+
+    load();
+
+    const timer = setInterval(load, 1000);
+    return () => clearInterval(timer);
+  }, [demoMode]);
+
+  const manager = managerRef.current;
+
+  useEffect(() => {
+    const manager = managerRef.current;
+
+    manager.setRefs(id, videoRef, canvasRef);
+
+    const cam = manager.cameras[id];
+
+    if (
+      cam?.stream &&
+      videoRef.current &&
+      videoRef.current.srcObject !== cam.stream
+    ) {
+      videoRef.current.srcObject = cam.stream;
+      videoRef.current.play().catch(() => {});
     }
-  };
 
-  load();
+    return () => {
+      manager.setRefs(id, { current: null } as any, { current: null } as any);
+    };
+  }, [id]);
 
-  const timer = setInterval(load, 1000);
-  return () => clearInterval(timer);
-}, [demoMode]);
+  const uniqueHistory = React.useMemo(() => {
+    if (!camera) return [];
+
+    const map = new Map();
+
+    (camera.cropHistory || []).forEach((item) => {
+      const detection = item.detections?.[0];
+
+      const key =
+        detection?.fruit_id ||
+        detection?.display_id ||
+        detection?.track_id ||
+        item.timestamp;
+
+      map.set(key, item);
+    });
+
+    return Array.from(map.values()).sort((a, b) => b.timestamp - a.timestamp);
+  }, [camera?.cropHistory]);
+
+  useEffect(() => {
+    if (camera?.confidenceThreshold != null) {
+      setThreshold(camera.confidenceThreshold);
+    }
+  }, [camera?.confidenceThreshold]);
+
+  const historyData = React.useMemo(() => {
+    return uniqueHistory.map((item) => {
+      const detection = item.detections?.[0];
+
+      return {
+        ...item,
+        fruitId: detection?.fruit_id,
+        displayId: detection?.display_id,
+        trackId: detection?.track_id,
+        weight: detection?.weight_kg,
+        grade: detection?.final_grade || 'N/A',
+        confidence: detection?.confidence ?? 0,
+      };
+    });
+  }, [uniqueHistory]);
+
+  const historyItems = React.useMemo(() => {
+    if (!camera) return [];
+
+    const map = new Map();
+
+    const manager = getScadaManager();
+
+    (camera.inspectionHistory || []).forEach((item) => {
+      (item.detections || []).forEach((detection) => {
+        const key =
+          detection.fruit_id || detection.display_id || detection.track_id;
+
+        if (!key) return;
+
+        map.set(key, {
+          fruit_id: detection.fruit_id,
+          display_id: detection.display_id,
+          track_id: detection.track_id,
+
+          class_name: detection.class_name,
+          final_grade: detection.final_grade || detection.class_name,
+
+          weight_kg:
+            detection.weight_kg ??
+            manager.getFruitWeight(detection.fruit_id) ??
+            getRandomWeight(
+              String(
+                detection.fruit_id ?? detection.display_id ?? detection.track_id
+              )
+            ),
+
+          confidence: detection.confidence,
+
+          timestamp: item.timestamp,
+
+          image: item.dataUrl || camera.lastCropDataUrl || '',
+        });
+      });
+    });
+
+    return Array.from(map.values()).sort(
+      (a: any, b: any) => b.timestamp - a.timestamp
+    );
+  }, [camera?.inspectionHistory]);
+
+  const historyStats = React.useMemo(() => {
+    return historyItems.reduce(
+      (acc, item) => {
+        const grade = getGrade(item);
+
+        acc[grade] = (acc[grade] || 0) + 1;
+
+        return acc;
+      },
+      {
+        A: 0,
+        B: 0,
+        C: 0,
+        D: 0,
+      }
+    );
+  }, [historyItems]);
 
   if (!camera) {
     return <div className={styles.wrapper}>Camera không tồn tại</div>;
   }
-
-  const manager = managerRef.current;
 
   return (
     <div className={styles.wrapper}>
@@ -212,18 +414,112 @@ export default function ScadaDetailPage() {
           </div>
 
           <div className={styles.historyCard}>
-            <div className={styles.cardTitle}>Capture History</div>
+            <div className={styles.historyHeader}>
+              <div>
+                <div className={styles.cardTitle}>Capture History</div>
+
+                <div className={styles.historySubtitle}>
+                  Lịch sử phân loại trái cây
+                </div>
+              </div>
+
+              <div className={styles.totalBadge}>{historyItems.length}</div>
+            </div>
+
+            <div className={styles.historyStats}>
+              <div className={styles.statBox}>
+                <span>A</span>
+                <strong>{historyStats.A || 0}</strong>
+              </div>
+
+              <div className={styles.statBox}>
+                <span>B</span>
+                <strong>{historyStats.B || 0}</strong>
+              </div>
+
+              <div className={styles.statBox}>
+                <span>C</span>
+                <strong>{historyStats.C || 0}</strong>
+              </div>
+
+              <div className={styles.statBox}>
+                <span>D</span>
+                <strong>{historyStats.D || 0}</strong>
+              </div>
+            </div>
 
             <div className={styles.historyGrid}>
-              {(camera.cropHistory || []).map((item, i) => (
-                <div key={i} className={styles.historyItem}>
-                  <img src={item.dataUrl} alt="" />
+              {historyItems.map((item) => {
+                const grade = getGrade(item);
+                console.log (historyItems)
 
-                  <div className={styles.historyTime}>
-                    {new Date(item.timestamp).toLocaleTimeString()}
+                return (
+                  <div
+                    key={
+                      item.fruit_id ||
+                      item.display_id ||
+                      item.track_id ||
+                      item.timestamp
+                    }
+                    className={styles.historyItem}
+                    onClick={() => {
+                      const id =
+                        item.fruit_id || item.display_id || item.track_id;
+
+                      if (!id) return;
+
+                      router.push(`/scada/fruits/${id}`);
+                    }}
+                    style={{
+                      cursor: 'pointer',
+                    }}
+                  >
+                    <div
+                      className={styles.historyBadge}
+                      style={{
+                        background:
+                          grade === 'A'
+                            ? '#16a34a'
+                            : grade === 'B'
+                              ? '#2563eb'
+                              : grade === 'C'
+                                ? '#f59e0b'
+                                : '#ef4444',
+                      }}
+                    >
+                      {grade}
+                    </div>
+
+                    <img
+                      src={item.image}
+                      alt={item.fruit_id || ''}
+                      className={styles.historyImage}
+                    />
+
+                    <div className={styles.historyInfo}>
+                      <div className={styles.historyId}>
+                        #{item.display_id || item.track_id}
+                      </div>
+
+                      <div className={styles.historyFruitId}>
+                        {item.fruit_id || 'NO_ID'}
+                      </div>
+
+                      <div className={styles.historyClass}>
+                        {item.class_name}
+                      </div>
+
+                      <div className={styles.historyWeight}>
+                        ⚖ {item.weight_kg?.toFixed(2)} kg
+                      </div>
+
+                      <div className={styles.historyTime}>
+                        {new Date(item.timestamp).toLocaleTimeString('vi-VN')}
+                      </div>
+                    </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </div>
         </div>

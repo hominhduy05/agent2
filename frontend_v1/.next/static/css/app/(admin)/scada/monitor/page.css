@@ -851,3 +851,28 @@
   line-height: 1.6;
 }
 
+.page_roomTabs__fMF6V {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.page_roomTab__QqBsV {
+  padding: 8px 12px;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.page_roomTabActive__fTUAJ {
+  padding: 8px 12px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: 700;
+}
+
+.page_addRoomBtn__UPRVG {
+  padding: 8px 12px;
+  border-radius: 8px;
+  cursor: pointer;
+}
+

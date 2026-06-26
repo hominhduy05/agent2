@@ -29,16 +29,15 @@ export interface CameraAnalytics {
 // =========================
 // TRANSFORM ScadaResult → AnalyticsEvent
 // =========================
-export function toAnalyticsEvent(
-  camId: number,
-  res: any
-): AnalyticsEvent {
+export function toAnalyticsEvent(camId: number, res: any): AnalyticsEvent {
   const detections = res.detections?.length || 0;
 
   const avgConfidence =
     detections > 0
-      ? res.detections.reduce((a: number, d: any) => a + (d.confidence || 0), 0) /
-        detections
+      ? res.detections.reduce(
+          (a: number, d: any) => a + (d.confidence || 0),
+          0
+        ) / detections
       : 0;
 
   let ripeness: RipenessType = 'green';
@@ -88,3 +87,5 @@ export function computeStats(events: AnalyticsEvent[]) {
     ripenessCount,
   };
 }
+
+

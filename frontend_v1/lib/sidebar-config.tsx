@@ -23,102 +23,99 @@ export type SidebarItem = {
   }[];
 };
 
-export const SIDEBAR_BY_ROLE: Record<
-  UserRole,
-  SidebarItem[]
-> = {
+export const SIDEBAR_BY_ROLE: Record<UserRole, SidebarItem[]> = {
   ADMIN: [
-  {
-    name: 'SCADA',
-    icon: <PieChartIcon />,
-    subItems: [
-      {
-        name: 'Dashboard',
-        path: '/scada/dashboard',
-      },
-      {
-        name: 'Monitoring',
-        path: '/scada/monitor',
-      },
-    ],
-  },
+    {
+      name: 'SCADA',
+      icon: <PieChartIcon />,
+      subItems: [
+        {
+          name: 'Dashboard',
+          path: '/scada/dashboard',
+        },
+        {
+          name: 'Monitoring',
+          path: '/scada/monitor',
+        },
+      ],
+    },
 
-  {
-    name: 'Detect',
-    icon: <AlertIcon />,
-    path: '/detect',
-  },
+    {
+      name: 'Detect',
+      icon: <AlertIcon />,
+      path: '/detect',
+    },
 
-  {
-    name: 'Dataset',
-    icon: <AnalyserIcon />,
-    path: '/dataset',
-  },
+    {
+      name: 'Dataset',
+      icon: <AnalyserIcon />,
+      path: '/dataset',
+    },
 
-  {
-    name: 'Analytics',
-    icon: <AnalyserIcon />,
-    path: '/analytics',
-  },
+    {
+      name: 'Analytics',
+      icon: <AnalyserIcon />,
+      path: '/analytics',
+    },
 
-  {
-    name: 'Camera Manager',
-    icon: <CameraManagerIcon />,
-    path: '/camera-manager',
-  },
+    {
+      name: 'Camera Manager',
+      icon: <CameraManagerIcon />,
+      path: '/camera-manager',
+    },
 
-  {
-    name: 'Statistics',
-    icon: <PieChartIcon />,
-    subItems: [
-      {
-        name: 'System',
-        path: '/statistics/system',
-      },
-      {
-        name: 'Fruit',
-        path: '/statistics/fruits',
-      },
-    ],
-  },
+    {
+      name: 'Statistics',
+      icon: <PieChartIcon />,
+      subItems: [
+        {
+          name: 'System',
+          path: '/statistics/system',
+        },
+        {
+          name: 'Fruit',
+          path: '/statistics/fruits',
+        },
+      ],
+    },
 
-  {
-    name: 'Detection History',
-    icon: <AlertIcon />,
-    path: '/detection-history',
-  },
-],
+    {
+      name: 'Detection History',
+      icon: <AlertIcon />,
+      path: '/detection-history',
+    },
+  ],
   // ==========================================
   // OWNER = ADMIN HỆ THỐNG
   // ==========================================
   OWNER: [
-  {
-    name: 'Analytics',
-    icon: <AnalyserIcon />,
-    path: '/analytics',
-  },
+    {
+      name: 'Analytics',
+      icon: <AnalyserIcon />,
+      path: '/analytics',
+    },
 
-  {
-    name: 'Statistics',
-    icon: <PieChartIcon />,
-    subItems: [
-      {
-        name: 'System',
-        path: '/statistics/system',
-      },
-      {
-        name: 'Fruit',
-        path: '/statistics/fruits',
-      },
-    ],
-  },
+    {
+      name: 'Statistics',
+      icon: <PieChartIcon />,
+      subItems: [
+        {
+          name: 'System',
+          path: '/statistics/system',
+        },
+        {
+          name: 'Fruit',
+          path: '/statistics/fruits',
+        },
+      ],
+    },
 
-  {
-    name: 'Detection History',
-    icon: <AlertIcon />,
-    path: '/detection-history',
-  },
-],
+    {
+      name: 'Detection History',
+      icon: <AlertIcon />,
+      path: '/detection-history',
+    },
+  ],
 
   // ==========================================
   // MANAGER

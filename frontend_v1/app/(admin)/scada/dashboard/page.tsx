@@ -12,11 +12,10 @@ import styles from './dashboard.module.css';
 export default function DashboardPage() {
   const { cameras } = useScada();
 
-  const visibleCameras = useMemo(
-    () => cameras.filter(Boolean),
-    [cameras]
-  );
-  const [selectedRange, setSelectedRange] = useState<'day' | 'hour' | 'month' | 'year'>('day');
+  const visibleCameras = useMemo(() => cameras.filter(Boolean), [cameras]);
+  const [selectedRange, setSelectedRange] = useState<
+    'day' | 'hour' | 'month' | 'year'
+  >('day');
 
   const totalCams = visibleCameras.length;
   const activeCams = visibleCameras.filter((c) => c?.isActive).length;
@@ -50,7 +49,9 @@ export default function DashboardPage() {
   ] as const;
 
   console.log('visibleCameras', visibleCameras);
-  const selectedTrendLabel = rangeOptions.find((option) => option.key === selectedRange)?.label ?? 'Ngày';
+  const selectedTrendLabel =
+    rangeOptions.find((option) => option.key === selectedRange)?.label ??
+    'Ngày';
 
   return (
     <div className={styles.dashboard}>
@@ -60,7 +61,8 @@ export default function DashboardPage() {
             <p className={styles.eyebrow}>SCADA OPERATIONS</p>
             <h1>Live Production Dashboard</h1>
             <p className={styles.subtitle}>
-              Real-time camera health, detections, and operational alerts from the live SCADA pipeline.
+              Real-time camera health, detections, and operational alerts from
+              the live SCADA pipeline.
             </p>
           </div>
 
@@ -76,7 +78,9 @@ export default function DashboardPage() {
           <div className={styles.kpiTop}>
             <div>
               <div className={styles.kpiLabel}>Camera Status</div>
-              <div className={styles.kpiValue}>{activeCams}/{totalCams}</div>
+              <div className={styles.kpiValue}>
+                {activeCams}/{totalCams}
+              </div>
             </div>
             <span className={styles.kpiChipSuccess}>ONLINE</span>
           </div>
@@ -91,7 +95,9 @@ export default function DashboardPage() {
             </div>
             <span className={styles.kpiChipAccent}>LIVE</span>
           </div>
-          <div className={styles.kpiMeta}>Objects detected across all feeds</div>
+          <div className={styles.kpiMeta}>
+            Objects detected across all feeds
+          </div>
         </div>
 
         <div className={styles.dashboardCard}>
@@ -113,7 +119,9 @@ export default function DashboardPage() {
             </div>
             <span className={styles.kpiChipWarning}>ATTENTION</span>
           </div>
-          <div className={styles.kpiMeta}>{errorCams} camera(s) reporting issues</div>
+          <div className={styles.kpiMeta}>
+            {errorCams} camera(s) reporting issues
+          </div>
         </div>
       </section>
 
@@ -124,7 +132,9 @@ export default function DashboardPage() {
           <div className={styles.sectionHeader}>
             <div>
               <h3 className={styles.cardTitle}>Detection Activity</h3>
-              <p className={styles.sectionSubtitle}>Live detection counts by camera</p>
+              <p className={styles.sectionSubtitle}>
+                Live detection counts by camera
+              </p>
             </div>
           </div>
 
@@ -138,7 +148,9 @@ export default function DashboardPage() {
             <div className={styles.sectionHeader}>
               <div>
                 <h3 className={styles.cardTitle}>System Status</h3>
-                <p className={styles.sectionSubtitle}>Online vs offline availability</p>
+                <p className={styles.sectionSubtitle}>
+                  Online vs offline availability
+                </p>
               </div>
             </div>
 
@@ -146,30 +158,32 @@ export default function DashboardPage() {
               <StatusDonut active={activeCams} inactive={inactiveCams} />
             </div>
           </div>
-
-          
         </div>
       </section>
 
       <div className={styles.chartCardAlert}>
-            <div className={styles.sectionHeader}>
-              <div>
-                <h3 className={styles.cardHeader}>Recent Alerts</h3>
-                <p className={styles.sectionSubtitle}>Latest detections with activity</p>
-              </div>
-            </div>
-
-            <div className={styles.chartBody}>
-              <RecentAlerts cameras={visibleCameras} />
-            </div>
+        <div className={styles.sectionHeader}>
+          <div>
+            <h3 className={styles.cardHeader}>Recent Alerts</h3>
+            <p className={styles.sectionSubtitle}>
+              Latest detections with activity
+            </p>
           </div>
+        </div>
+
+        <div className={styles.chartBody}>
+          <RecentAlerts cameras={visibleCameras} />
+        </div>
+      </div>
 
       <section className={styles.bottomGrid}>
         <div className={styles.chartCard}>
           <div className={styles.sectionHeader}>
             <div>
               <h3 className={styles.cardTitle}>Alert Trend</h3>
-              <p className={styles.sectionSubtitle}>Detection intensity across the active network</p>
+              <p className={styles.sectionSubtitle}>
+                Detection intensity across the active network
+              </p>
             </div>
           </div>
 
@@ -190,7 +204,9 @@ export default function DashboardPage() {
             {priorityCameras.length > 0 ? (
               priorityCameras.map((cam) => {
                 const detections = cam?.result?.detections?.length || 0;
-                const badgeTone = cam?.isActive ? styles.priorityBadgeActive : styles.priorityBadgeOffline;
+                const badgeTone = cam?.isActive
+                  ? styles.priorityBadgeActive
+                  : styles.priorityBadgeOffline;
 
                 return (
                   <div key={cam.id} className={styles.priorityItem}>
@@ -219,7 +235,9 @@ export default function DashboardPage() {
           <div className={styles.trendCardHeader}>
             <div>
               <h3 className={styles.cardTitle}>Alert Generation Breakdown</h3>
-              <p className={styles.sectionSubtitle}>Phân tích alert theo khung thời gian</p>
+              <p className={styles.sectionSubtitle}>
+                Phân tích alert theo khung thời gian
+              </p>
             </div>
             <div className={styles.trendPill}>Live analytics</div>
           </div>

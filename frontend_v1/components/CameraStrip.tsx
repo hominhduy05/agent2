@@ -8,12 +8,8 @@ interface Props {
   cameras: CameraChannel[];
 }
 
-export default function CameraStrip({
-  cameras,
-}: Props) {
-  const videoMap = useRef<
-    Record<number, HTMLVideoElement | null>
-  >({});
+export default function CameraStrip({ cameras }: Props) {
+  const videoMap = useRef<Record<number, HTMLVideoElement | null>>({});
 
   useEffect(() => {
     cameras.forEach((cam) => {
@@ -33,10 +29,7 @@ export default function CameraStrip({
   return (
     <div className={styles.videoStrip}>
       {cameras.map((cam) => (
-        <div
-          key={cam.id}
-          className={styles.videoCard}
-        >
+        <div key={cam.id} className={styles.videoCard}>
           <video
             ref={(el) => {
               videoMap.current[cam.id] = el;
@@ -47,35 +40,19 @@ export default function CameraStrip({
             className={styles.video}
           />
 
-          {!cam.stream && (
-            <div className={styles.videoOffline}>
-              No Signal
-            </div>
-          )}
+          {!cam.stream && <div className={styles.videoOffline}>No Signal</div>}
 
           <div className={styles.videoFooter}>
             <div>
-              <div className={styles.camName}>
-                {cam.label}
-              </div>
+              <div className={styles.camName}>{cam.label}</div>
 
               <div className={styles.camSub}>
-                {cam.mode === 'ip'
-                  ? 'IP Camera'
-                  : 'Webcam'}
+                {cam.mode === 'ip' ? 'IP Camera' : 'Webcam'}
               </div>
             </div>
 
-            <span
-              className={
-                cam.isActive
-                  ? styles.live
-                  : styles.offline
-              }
-            >
-              {cam.isActive
-                ? 'LIVE'
-                : 'OFFLINE'}
+            <span className={cam.isActive ? styles.live : styles.offline}>
+              {cam.isActive ? 'LIVE' : 'OFFLINE'}
             </span>
           </div>
         </div>

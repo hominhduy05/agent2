@@ -11,33 +11,19 @@ import {
   Cell,
 } from 'recharts';
 
-export default function DetectionChart({
-  cameras,
-}: any) {
+export default function DetectionChart({ cameras }: any) {
   const data = cameras.map((cam: any) => ({
     name: cam.label,
     detections:
-      cam.lastRawDetectionCount ??
-      cam.result?.detections?.length ??
-      0,
+      cam.lastRawDetectionCount ?? cam.result?.detections?.length ?? 0,
   }));
 
-  
   return (
-    <ResponsiveContainer
-  width="100%"
-  height={350}
->
+    <ResponsiveContainer width="100%" height={350}>
       <BarChart data={data}>
-        <CartesianGrid
-          stroke="var(--border)"
-          vertical={false}
-        />
+        <CartesianGrid stroke="var(--border)" vertical={false} />
 
-        <XAxis
-          dataKey="name"
-          stroke="var(--text-muted)"
-        />
+        <XAxis dataKey="name" stroke="var(--text-muted)" />
 
         <YAxis stroke="var(--text-muted)" />
 
@@ -49,15 +35,9 @@ export default function DetectionChart({
           }}
         />
 
-        <Bar
-          radius={[8, 8, 0, 0]}
-          dataKey="detections"
-        >
+        <Bar radius={[8, 8, 0, 0]} dataKey="detections">
           {data.map((_: any, i: number) => (
-            <Cell
-              key={i}
-              fill="var(--accent)"
-            />
+            <Cell key={i} fill="var(--accent)" />
           ))}
         </Bar>
       </BarChart>

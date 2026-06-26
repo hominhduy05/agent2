@@ -136,7 +136,7 @@ function FeedTile({
   slot,
   selected,
   onSelect,
-  className
+  className,
 }: {
   slot: DetectSlot;
   selected: boolean;
@@ -155,7 +155,7 @@ function FeedTile({
 
   return (
     <div
-     className={`
+      className={`
     ${styles.cameraTile}
     ${className}
     ${selected ? styles.selected : ''}
@@ -504,12 +504,12 @@ export default function DetectPage() {
 
   const slots = useMemo(() => makeSlots(feeds, capacity), [feeds, capacity]);
   const tileClasses = [
-  styles.cam1,
-  styles.cam2,
-  styles.cam3,
-  styles.cam4,
-  styles.cam5,
-];
+    styles.cam1,
+    styles.cam2,
+    styles.cam3,
+    styles.cam4,
+    styles.cam5,
+  ];
   const orderedSlots = useMemo(() => {
     const current = slots[selectedSlot];
 

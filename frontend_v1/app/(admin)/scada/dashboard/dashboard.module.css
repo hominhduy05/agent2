@@ -340,8 +340,7 @@
 
   border: 1px solid var(--border);
 
-  box-shadow:
-    0 4px 12px rgba(0,0,0,.05);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
 }
 
 .video {
@@ -378,7 +377,7 @@
   align-items: center;
   justify-content: space-between;
 
-  background: rgba(0,0,0,.55);
+  background: rgba(0, 0, 0, 0.55);
   backdrop-filter: blur(12px);
 }
 
@@ -390,7 +389,7 @@
 
 .camSub {
   font-size: 10px;
-  color: rgba(255,255,255,.7);
+  color: rgba(255, 255, 255, 0.7);
 }
 
 .live,
@@ -540,7 +539,6 @@
     grid-template-columns: 1fr;
   }
 }
-
 
 @media (max-width: 1600px) {
   .videoStrip {

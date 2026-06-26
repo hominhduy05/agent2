@@ -85,7 +85,9 @@ function WeightPanel({
 
   const online = Boolean(hasData || isAlive);
 
-  const weight = scaleStatus?.latest?.weight_kg ?? 5;
+  const weight =
+    scaleStatus?.latest?.weight_kg ??
+    Number((2 + Math.random() * 4).toFixed(2));
 
   return (
     <div
@@ -249,9 +251,13 @@ function DetetionRow({
         >
           ID:{displayId} | x1:{box.x1.toFixed(0)} y1:{box.y1.toFixed(0)} x2:
           {box.x2.toFixed(0)} y2:{box.y2.toFixed(0)}
-          {showScale && box.weight_kg !== null && box.weight_kg !== undefined
-            ? ` | ${box.weight_kg.toFixed(2)} kg`
-            : ''}
+          {box.weight_kg !== null && box.weight_kg !== undefined ? (
+            <>
+              <br />⚖ {box.weight_kg.toFixed(2)} kg
+            </>
+          ) : (
+            ''
+          )}
           {showScale && box.fruit_id ? ` | ${box.fruit_id}` : ''}
         </div>
       </div>
@@ -372,6 +378,14 @@ export default function DetectionPanel({
 }: DetectionPanelProps) {
   const result = camera.result;
 
+  const [gradeFilter, setGradeFilter] = useState<'ALL' | 'A' | 'B' | 'C' | 'D'>(
+    'ALL'
+  );
+
+  const [historyFilter, setHistoryFilter] = useState<
+    'ALL' | 'A' | 'B' | 'C' | 'D'
+  >('ALL');
+
   const [activeTab, setActiveTab] = useState<'detection' | 'history' | 'info'>(
     'info'
   );
@@ -397,18 +411,58 @@ export default function DetectionPanel({
         ]
       : [];
   const inspectionHistory = camera.inspectionHistory || [];
-  const displayDetections = inspectionHistory.flatMap(
-    (item) => item.detections || []
-  );
+  // const displayDetections = inspectionHistory.flatMap(
+  //   (item) => item.detections || []
+  // );
+  const displayDetections = React.useMemo(() => {
+    const source =
+      inspectionHistory.length > 0
+        ? inspectionHistory.flatMap((i) => i.detections || [])
+        : camera.result?.detections || [];
 
-  const gradeCounts = displayDetections.reduce<Record<string, number>>(
-    (acc, d) => {
-      const grade = detectionGrade(d);
-      acc[grade] = (acc[grade] || 0) + 1;
-      return acc;
-    },
-    {}
-  );
+    const map = new Map();
+
+    source.forEach((d: any) => {
+      const key =
+        d.fruit_id ||
+        d.display_id ||
+        d.track_id ||
+        `${d.class_name}_${d.x1}_${d.y1}`;
+
+      map.set(key, d);
+    });
+
+    return Array.from(map.values());
+  }, [inspectionHistory, camera.result]);
+
+  const filteredDetections =
+    gradeFilter === 'ALL'
+      ? displayDetections
+      : displayDetections.filter((d) => detectionGrade(d) === gradeFilter);
+
+  const filteredHistory =
+    historyFilter === 'ALL'
+      ? camera.resultHistory
+      : camera.resultHistory.filter((item) =>
+          item.detections.some((d) => detectionGrade(d) === historyFilter)
+        );
+
+  const gradeStats = displayDetections.reduce((acc: any, d: any) => {
+    const grade = detectionGrade(d);
+
+    if (!acc[grade]) {
+      acc[grade] = {
+        count: 0,
+        weight: 0,
+      };
+    }
+
+    acc[grade].count++;
+
+    acc[grade].weight += Number(d.weight_kg || 0);
+
+    return acc;
+  }, {});
   const total = displayDetections.length;
   const avgConf = displayDetections.length
     ? (displayDetections.reduce((sum, d) => sum + d.confidence, 0) /
@@ -604,12 +658,12 @@ export default function DetectionPanel({
             <StatCard label="Tổng" value={total} color="var(--text)" />
             <StatCard
               label="Loai B"
-              value={gradeCounts.B || 0}
+              value={`${gradeStats?.B?.count ?? 0}`}
               color={classColor('demo_grade_b')}
             />
             <StatCard
               label="Loai A"
-              value={gradeCounts.A || 0}
+              value={`${gradeStats?.A?.count ?? 0}`}
               color={classColor('demo_grade_a')}
             />
           </div>
@@ -622,12 +676,12 @@ export default function DetectionPanel({
           >
             <StatCard
               label="Loai C"
-              value={gradeCounts.C || 0}
+              value={`${gradeStats?.C?.count ?? 0}`}
               color={classColor('demo_grade_c')}
             />
             <StatCard
               label="Loai D"
-              value={gradeCounts.D || 0}
+              value={`${gradeStats?.D?.count ?? 0}`}
               color={classColor('demo_grade_d')}
             />
           </div>
@@ -735,7 +789,7 @@ export default function DetectionPanel({
           )}
 
           {/* Last crop */}
-          <div
+          {/* <div
             style={{
               background: 'var(--bg-elevated)',
               borderRadius: '10px',
@@ -797,7 +851,7 @@ export default function DetectionPanel({
                 <span className={styles.emptyCrop}>Chưa có ảnh gần nhất</span>
               )}
             </div>
-          </div>
+          </div> */}
         </div>
       )}
 
@@ -831,6 +885,37 @@ export default function DetectionPanel({
               Chi tiết phát hiện ({total})
             </div>
 
+            <div
+              style={{
+                display: 'flex',
+                gap: '6px',
+                flexWrap: 'wrap',
+                marginBottom: '10px',
+              }}
+            >
+              {['ALL', 'A', 'B', 'C', 'D'].map((g) => (
+                <button
+                  key={g}
+                  onClick={() => setGradeFilter(g as any)}
+                  style={{
+                    padding: '4px 10px',
+                    borderRadius: '20px',
+                    border: 'none',
+                    cursor: 'pointer',
+                    fontSize: '11px',
+                    fontWeight: 600,
+                    background:
+                      gradeFilter === g
+                        ? 'var(--accent)'
+                        : 'var(--bg-elevated)',
+                    color: gradeFilter === g ? '#fff' : 'var(--text-muted)',
+                  }}
+                >
+                  {g}
+                </button>
+              ))}
+            </div>
+
             {!camera.isActive && (
               <div
                 style={{
@@ -860,7 +945,7 @@ export default function DetectionPanel({
             )}
 
             {camera.isActive &&
-              displayDetections.map((d, i) => (
+              filteredDetections.map((d, i) => (
                 <DetetionRow key={i} box={d} showScale={demoMode} />
               ))}
           </div>
@@ -888,6 +973,36 @@ export default function DetectionPanel({
             >
               Lịch sử ({camera.resultHistory.length})
             </div>
+            <div
+              style={{
+                display: 'flex',
+                gap: '6px',
+                marginBottom: '10px',
+                flexWrap: 'wrap',
+              }}
+            >
+              {['ALL', 'A', 'B', 'C', 'D'].map((g) => (
+                <button
+                  key={g}
+                  onClick={() => setHistoryFilter(g as any)}
+                  style={{
+                    padding: '4px 10px',
+                    borderRadius: '20px',
+                    border: 'none',
+                    cursor: 'pointer',
+                    fontSize: '11px',
+                    fontWeight: 600,
+                    background:
+                      historyFilter === g
+                        ? 'var(--accent)'
+                        : 'var(--bg-elevated)',
+                    color: historyFilter === g ? '#fff' : 'var(--text-muted)',
+                  }}
+                >
+                  {g}
+                </button>
+              ))}
+            </div>
 
             {camera.resultHistory.length > 0 ? (
               <div
@@ -897,7 +1012,7 @@ export default function DetectionPanel({
                   overflow: 'hidden',
                 }}
               >
-                {camera.resultHistory.map((r, i) => (
+                {filteredHistory.map((r, i) => (
                   <HistoryRow key={i} result={r} />
                 ))}
               </div>

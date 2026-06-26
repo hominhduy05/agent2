@@ -31,13 +31,12 @@ export default function CameraManagementPage() {
   const manager = getScadaManager(() => {});
 
   const [devices, setDevices] = useState<MediaDevice[]>([]);
-const [showDeviceModal, setShowDeviceModal] = useState(false);
-const [pendingCam, setPendingCam] = useState<CameraChannel | null>(null);
-// const [showIpModal, setShowIpModal] = useState(false);
-const [sourceTab, setSourceTab] =
-  useState<'webcam' | 'ip'>('webcam');
+  const [showDeviceModal, setShowDeviceModal] = useState(false);
+  const [pendingCam, setPendingCam] = useState<CameraChannel | null>(null);
+  // const [showIpModal, setShowIpModal] = useState(false);
+  const [sourceTab, setSourceTab] = useState<'webcam' | 'ip'>('webcam');
 
-const [rtspUrl, setRtspUrl] = useState('');
+  const [rtspUrl, setRtspUrl] = useState('');
 
   const [theme] = useState<'dark' | 'light'>('dark');
   const [showForm, setShowForm] = useState(false);
@@ -49,27 +48,27 @@ const [rtspUrl, setRtspUrl] = useState('');
   });
 
   useEffect(() => {
-  async function loadDevices() {
-    try {
-      await navigator.mediaDevices.getUserMedia({ video: true });
+    async function loadDevices() {
+      try {
+        await navigator.mediaDevices.getUserMedia({ video: true });
 
-      const devs = await navigator.mediaDevices.enumerateDevices();
+        const devs = await navigator.mediaDevices.enumerateDevices();
 
-      setDevices(
-        devs
-          .filter(d => d.kind === 'videoinput')
-          .map(d => ({
-            deviceId: d.deviceId,
-            label: d.label,
-          }))
-      );
-    } catch (err) {
-      console.error(err);
+        setDevices(
+          devs
+            .filter((d) => d.kind === 'videoinput')
+            .map((d) => ({
+              deviceId: d.deviceId,
+              label: d.label,
+            }))
+        );
+      } catch (err) {
+        console.error(err);
+      }
     }
-  }
 
-  loadDevices();
-}, []);
+    loadDevices();
+  }, []);
 
   const addCamera = () => {
     if (!form.name.trim()) return;
@@ -106,57 +105,42 @@ const [rtspUrl, setRtspUrl] = useState('');
     manager.setOnUpdate(() => {});
   };
 
-  const toggleCamera = (
-  cam: CameraChannel
-) => {
-  if (cam.isActive) {
-    manager.stopCamera(cam.id);
-    return;
-  }
+  const toggleCamera = (cam: CameraChannel) => {
+    if (cam.isActive) {
+      manager.stopCamera(cam.id);
+      return;
+    }
 
-  setPendingCam(cam);
+    setPendingCam(cam);
 
-  if (cam.mode === 'ip') {
-    setSourceTab('ip');
-    setRtspUrl(cam.rtspUrl || '');
-  } else {
-    setSourceTab('webcam');
-  }
+    if (cam.mode === 'ip') {
+      setSourceTab('ip');
+      setRtspUrl(cam.rtspUrl || '');
+    } else {
+      setSourceTab('webcam');
+    }
 
-  setShowDeviceModal(true);
-};
+    setShowDeviceModal(true);
+  };
 
-  const handleStartWebcam = async (
-  deviceId: string,
-  label: string
-) => {
-  if (!pendingCam) return;
+  const handleStartWebcam = async (deviceId: string, label: string) => {
+    if (!pendingCam) return;
 
-  await manager.startWebcam(
-    pendingCam.id,
-    deviceId,
-    label
-  );
+    await manager.startWebcam(pendingCam.id, deviceId, label);
 
-  setShowDeviceModal(false);
-  setPendingCam(null);
-};
+    setShowDeviceModal(false);
+    setPendingCam(null);
+  };
 
-const handleStartIPCamera = async (
-  url: string
-) => {
-  if (!pendingCam || !url.trim()) return;
+  const handleStartIPCamera = async (url: string) => {
+    if (!pendingCam || !url.trim()) return;
 
-  await manager.startIPCamera(
-    pendingCam.id,
-    url,
-    pendingCam.label
-  );
+    await manager.startIPCamera(pendingCam.id, url, pendingCam.label);
 
-  setShowDeviceModal(false);
-  setPendingCam(null);
-  setRtspUrl('');
-};
+    setShowDeviceModal(false);
+    setPendingCam(null);
+    setRtspUrl('');
+  };
 
   const testCamera = async (cam: CameraChannel) => {
     cam.error = 'Testing...';
@@ -188,9 +172,7 @@ const handleStartIPCamera = async (
             CAMERA MANAGEMENT
           </div>
 
-          <div className={styles.subtitle}>
-            SCADA Control Plane
-          </div>
+          <div className={styles.subtitle}>SCADA Control Plane</div>
         </div>
 
         <button
@@ -211,309 +193,276 @@ const handleStartIPCamera = async (
         <div className={styles.card}>
           <div className={styles.cardLabel}>Active</div>
           <div className={styles.cardValue}>
-            {cameras.filter(c => c.isActive).length}
+            {cameras.filter((c) => c.isActive).length}
           </div>
         </div>
 
         <div className={styles.card}>
           <div className={styles.cardLabel}>Detecting</div>
           <div className={styles.cardValue}>
-            {cameras.filter(c => c.isDetecting).length}
+            {cameras.filter((c) => c.isDetecting).length}
           </div>
         </div>
 
         <div className={styles.card}>
           <div className={styles.cardLabel}>Errors</div>
           <div className={styles.cardValue}>
-            {cameras.filter(c => c.error).length}
+            {cameras.filter((c) => c.error).length}
           </div>
         </div>
       </div>
 
       {/* LIST */}
       <div className={styles.list}>
-        {cameras.map(cam => (
+        {cameras.map((cam) => (
           <div key={cam.id} className={styles.item}>
-  {/* LEFT */}
-  <div className={styles.left}>
-  <div className={styles.titleRow}>
-    <span className={styles.icon}>
-      <Camera size={14} />
-    </span>
+            {/* LEFT */}
+            <div className={styles.left}>
+              <div className={styles.titleRow}>
+                <span className={styles.icon}>
+                  <Camera size={14} />
+                </span>
 
-    <span className={styles.titleText}>{cam.label}</span>
+                <span className={styles.titleText}>{cam.label}</span>
 
-    <span className={styles.badge}>#{cam.id}</span>
-  </div>
+                <span className={styles.badge}>#{cam.id}</span>
+              </div>
 
-  <div className={styles.metaRow}>
-    <span className={styles.meta}>{cam.mode.toUpperCase()}</span>
-  </div>
+              <div className={styles.metaRow}>
+                <span className={styles.meta}>{cam.mode.toUpperCase()}</span>
+              </div>
 
-  <div className={styles.statusRow}>
-    <span className={`${styles.status} ${cam.isActive ? styles.online : styles.offline}`}>
-      <Activity size={12} />
-      {cam.isActive ? 'ONLINE' : 'OFFLINE'}
-    </span>
+              <div className={styles.statusRow}>
+                <span
+                  className={`${styles.status} ${cam.isActive ? styles.online : styles.offline}`}
+                >
+                  <Activity size={12} />
+                  {cam.isActive ? 'ONLINE' : 'OFFLINE'}
+                </span>
 
-    {cam.isDetecting && (
-      <span className={`${styles.status} ${styles.ai}`}>
-        <Zap size={12} />
-        RUNNING
-      </span>
-    )}
-  </div>
-</div>
+                {cam.isDetecting && (
+                  <span className={`${styles.status} ${styles.ai}`}>
+                    <Zap size={12} />
+                    RUNNING
+                  </span>
+                )}
+              </div>
+            </div>
 
-  {/* RIGHT ACTIONS */}
-  <div className={styles.actions}>
-    <button className={styles.btn} onClick={() => testCamera(cam)}>
-      <AlertTriangle size={14} />
-      Test
-    </button>
+            {/* RIGHT ACTIONS */}
+            <div className={styles.actions}>
+              <button className={styles.btn} onClick={() => testCamera(cam)}>
+                <AlertTriangle size={14} />
+                Test
+              </button>
 
-    <button
-      className={`${styles.btn} ${
-        cam.isActive ? styles.btnDanger : styles.btnPrimary
-      }`}
-      onClick={() => toggleCamera(cam)}
-    >
-      {cam.isActive ? (
-        <>
-          <Square size={14} />
-          Stop
-        </>
-      ) : (
-        <>
-          <Play size={14} />
-          Start
-        </>
-      )}
-    </button>
-  </div>
-</div>
+              <button
+                className={`${styles.btn} ${
+                  cam.isActive ? styles.btnDanger : styles.btnPrimary
+                }`}
+                onClick={() => toggleCamera(cam)}
+              >
+                {cam.isActive ? (
+                  <>
+                    <Square size={14} />
+                    Stop
+                  </>
+                ) : (
+                  <>
+                    <Play size={14} />
+                    Start
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
         ))}
       </div>
 
       {/* MODAL */}
       {showForm && (
-  <div className={styles.modalOverlay}>
-    <div className={styles.modal}>
-      <div className={styles.modalTitle}>
-        Add Camera
-      </div>
+        <div className={styles.modalOverlay}>
+          <div className={styles.modal}>
+            <div className={styles.modalTitle}>Add Camera</div>
 
-      <div className={styles.modalSub}>
-        Create a new camera channel
-      </div>
+            <div className={styles.modalSub}>Create a new camera channel</div>
 
-      <input
-        className={styles.input}
-        placeholder="Camera name"
-        value={form.name}
-        onChange={(e) =>
-          setForm({
-            ...form,
-            name: e.target.value,
-          })
-        }
-      />
+            <input
+              className={styles.input}
+              placeholder="Camera name"
+              value={form.name}
+              onChange={(e) =>
+                setForm({
+                  ...form,
+                  name: e.target.value,
+                })
+              }
+            />
 
-      <div className={styles.typeGrid}>
-        <button
-          type="button"
-          className={
-            form.type === 'webcam'
-              ? styles.typeActive
-              : styles.typeCard
-          }
-          onClick={() =>
-            setForm({
-              ...form,
-              type: 'webcam',
-            })
-          }
-        >
-          <Camera size={18} />
-          <span>Webcam</span>
-        </button>
+            <div className={styles.typeGrid}>
+              <button
+                type="button"
+                className={
+                  form.type === 'webcam' ? styles.typeActive : styles.typeCard
+                }
+                onClick={() =>
+                  setForm({
+                    ...form,
+                    type: 'webcam',
+                  })
+                }
+              >
+                <Camera size={18} />
+                <span>Webcam</span>
+              </button>
 
-        <button
-          type="button"
-          className={
-            form.type === 'ip'
-              ? styles.typeActive
-              : styles.typeCard
-          }
-          onClick={() =>
-            setForm({
-              ...form,
-              type: 'ip',
-            })
-          }
-        >
-          <Activity size={18} />
-          <span>IP Camera</span>
-        </button>
-      </div>
+              <button
+                type="button"
+                className={
+                  form.type === 'ip' ? styles.typeActive : styles.typeCard
+                }
+                onClick={() =>
+                  setForm({
+                    ...form,
+                    type: 'ip',
+                  })
+                }
+              >
+                <Activity size={18} />
+                <span>IP Camera</span>
+              </button>
+            </div>
 
-      <div className={styles.modalActions}>
-        <button
-          className={`${styles.btn} ${styles.btnPrimary}`}
-          onClick={addCamera}
-        >
-          Add Camera
-        </button>
+            <div className={styles.modalActions}>
+              <button
+                className={`${styles.btn} ${styles.btnPrimary}`}
+                onClick={addCamera}
+              >
+                Add Camera
+              </button>
 
-        <button
-          className={styles.btn}
-          onClick={() => setShowForm(false)}
-        >
-          Cancel
-        </button>
-      </div>
-    </div>
-  </div>
-)}
+              <button className={styles.btn} onClick={() => setShowForm(false)}>
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {showDeviceModal && pendingCam && (
-  <div className={styles.modalOverlay}>
-    <div className={styles.cameraPicker}>
-      
-      <div className={styles.cameraPickerHeader}>
-        <div>
-          <h2>Connect Camera</h2>
-          <p>Select source for {pendingCam.label}</p>
-        </div>
-         <div className={styles.cameraBadge}>
-    #{pendingCam.id} • {pendingCam.label}
-  </div>
-      </div>
+        <div className={styles.modalOverlay}>
+          <div className={styles.cameraPicker}>
+            <div className={styles.cameraPickerHeader}>
+              <div>
+                <h2>Connect Camera</h2>
+                <p>Select source for {pendingCam.label}</p>
+              </div>
+              <div className={styles.cameraBadge}>
+                #{pendingCam.id} • {pendingCam.label}
+              </div>
+            </div>
 
-      <div className={styles.sourceTabs}>
-        <button
-          className={
-            sourceTab === 'webcam'
-      ? styles.activeTab
-      : styles.tab
-          }
-          onClick={() => setSourceTab('webcam')}
-        >
-          <Camera size={15} />
-          <span>Local Webcam</span>
-        </button>
-
-        <button
-          className={
-            sourceTab === 'ip'
-              ? styles.activeTab
-              : styles.tab
-          }
-          onClick={() => setSourceTab('ip')}
-        >
-          <Wifi size={16} />
-  <span>RTSP Camera</span>
-        </button>
-      </div>
-
-      {sourceTab === 'webcam' && (
-        <div className={styles.deviceGrid}>
-          {devices.map((dev) => {
-            const used = cameras.some(
-              c =>
-                c.deviceId === dev.deviceId &&
-                c.isActive
-            );
-
-            return (
-              <div
-                key={dev.deviceId}
-                className={`${styles.deviceCard} ${
-                  used ? styles.disabled : ''
-                }`}
+            <div className={styles.sourceTabs}>
+              <button
+                className={
+                  sourceTab === 'webcam' ? styles.activeTab : styles.tab
+                }
+                onClick={() => setSourceTab('webcam')}
               >
-                <div className={styles.deviceIcon}>
-                  {used ? (
-                    <Lock size={18} />
-                  ) : (
-                    <Camera size={18} />
-                  )}
-                </div>
+                <Camera size={15} />
+                <span>Local Webcam</span>
+              </button>
 
-                <div className={styles.deviceInfo}>
-                  <div className={styles.deviceName}>
-  {dev.label || 'USB Camera'}
-</div>
+              <button
+                className={sourceTab === 'ip' ? styles.activeTab : styles.tab}
+                onClick={() => setSourceTab('ip')}
+              >
+                <Wifi size={16} />
+                <span>RTSP Camera</span>
+              </button>
+            </div>
 
-                  <small>
-                    {used
-                      ? 'Already connected'
-                      : 'Available'}
-                  </small>
-                </div>
+            {sourceTab === 'webcam' && (
+              <div className={styles.deviceGrid}>
+                {devices.map((dev) => {
+                  const used = cameras.some(
+                    (c) => c.deviceId === dev.deviceId && c.isActive
+                  );
+
+                  return (
+                    <div
+                      key={dev.deviceId}
+                      className={`${styles.deviceCard} ${
+                        used ? styles.disabled : ''
+                      }`}
+                    >
+                      <div className={styles.deviceIcon}>
+                        {used ? <Lock size={18} /> : <Camera size={18} />}
+                      </div>
+
+                      <div className={styles.deviceInfo}>
+                        <div className={styles.deviceName}>
+                          {dev.label || 'USB Camera'}
+                        </div>
+
+                        <small>
+                          {used ? 'Already connected' : 'Available'}
+                        </small>
+                      </div>
+
+                      <button
+                        disabled={used}
+                        className={styles.connectBtn}
+                        onClick={() =>
+                          handleStartWebcam(dev.deviceId, dev.label)
+                        }
+                      >
+                        Connect
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+
+            {sourceTab === 'ip' && (
+              <div className={styles.ipSection}>
+                <div className={styles.sectionLabel}>Network Stream</div>
+
+                <input
+                  value={rtspUrl}
+                  onChange={(e) => setRtspUrl(e.target.value)}
+                  className={styles.ipInput}
+                  placeholder="rtsp://admin:123456@192.168.1.10:554/stream1"
+                />
 
                 <button
-                  disabled={used}
-                  className={styles.connectBtn}
-                  onClick={() =>
-                    handleStartWebcam(
-                      dev.deviceId,
-                      dev.label
-                    )
-                  }
+                  className={styles.connectBtnLarge}
+                  disabled={!rtspUrl.trim()}
+                  onClick={() => handleStartIPCamera(rtspUrl)}
                 >
-                  Connect
+                  <Wifi size={16} />
+                  Connect Stream
                 </button>
               </div>
-            );
-          })}
+            )}
+
+            <div className={styles.footer}>
+              <button
+                className={styles.cancelBtn}
+                onClick={() => {
+                  setShowDeviceModal(false);
+                  setPendingCam(null);
+                  setRtspUrl('');
+                  setSourceTab('webcam');
+                }}
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
         </div>
       )}
-
-      {sourceTab === 'ip' && (
-        <div className={styles.ipSection}>
-         <div className={styles.sectionLabel}>
-  Network Stream
-</div>
-
-          <input
-            value={rtspUrl}
-            onChange={(e) =>
-              setRtspUrl(e.target.value)
-            }
-            className={styles.ipInput}
-            placeholder="rtsp://admin:123456@192.168.1.10:554/stream1"
-          />
-
-          <button
-  className={styles.connectBtnLarge}
-  disabled={!rtspUrl.trim()}
-  onClick={() =>
-    handleStartIPCamera(rtspUrl)
-  }
->
-  <Wifi size={16} />
-  Connect Stream
-</button>
-        </div>
-      )}
-
-      <div className={styles.footer}>
-        <button
-          className={styles.cancelBtn}
-          onClick={() => {
-  setShowDeviceModal(false);
-  setPendingCam(null);
-  setRtspUrl('');
-  setSourceTab('webcam');
-}}
-        >
-          Cancel
-        </button>
-      </div>
-    </div>
-  </div>
-)}
     </div>
   );
 }
