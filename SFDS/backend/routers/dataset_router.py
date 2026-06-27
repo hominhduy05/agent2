@@ -1,6 +1,6 @@
 """
 Dataset Router — Detection, Dataset CRUD (save, list, delete, export).
-Mounted into app_scada.py.
+Mounted into main.py.
 """
 import io
 import json

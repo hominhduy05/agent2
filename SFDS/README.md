@@ -1,320 +1,164 @@
-# He Thong Phan Loai & Nhan Dien Sau Rieng
+# SFDS - Durian Sorting and Detection System
 
-He thong IoT thoi gian thuc phan loai sau rieng su dung YOLOv8, FastAPI, Next.js + Bun.
+Realtime durian detection and sorting demo using FastAPI, Ultralytics YOLO,
+Next.js, camera/WebSocket flows, dataset capture, and SCADA-style monitoring.
 
----
+## Project Structure
 
-## Kien truc he thong
-
-```
-Browser (Next.js)
-    │ REST / WebSocket
-    ▼
-FastAPI Backend — app_scada.py (port 9000)
-    ├── routers/
-    │   ├── scada_router.py   — WebSocket, RTSP camera proxy
-    │   └── dataset_router.py — Detection, Dataset CRUD
-    ├── core/
-    │   ├── shared.py       — Model config, engines, Pydantic schemas
-    │   ├── auth.py         — JWT helpers (hien chua dung)
-    │   ├── database.py     — SQLAlchemy models
-    │   └── sort_tracker.py — SORT multi-object tracking
-    ├── services/
-    │   ├── dataset_service.py  — Luu anh + YOLO labels
-    │   └── mqtt_publisher.py   — MQTT broker client
-    └── YOLO Inference Engine   → durian_yolov8.pt/.onnx/.engine
-```
-
----
-
-## Cau truc project
-
-> Luu y: Thu muc thuc te trong repo la `backend/` va `frontend/` (khong co `system/`).
-
-```
+```text
 backend/
-├── app_scada.py               # FastAPI server — mount routers (port 9000)
-├── routers/
-│   ├── __init__.py
-│   ├── scada_router.py        # WebSocket, RTSP camera proxy
-│   └── dataset_router.py      # Detection, Dataset CRUD
-├── inference.py               # Deprecated
-├── model/                     # Model weights
-│   ├── durian_yolov8.pt       # YOLOv8 PyTorch (UU TIEN)
-│   ├── durian_yolov8.onnx     # YOLOv8 ONNX
-│   └── durian_yolov8.engine   # TensorRT CUDA
-├── core/
-│   ├── __init__.py
-│   ├── auth.py                # JWT helpers (hien chua dung)
-│   ├── database.py
-│   ├── sort_tracker.py
-│   └── shared.py
-├── services/
-│   ├── dataset_service.py     # Luu anh + YOLO labels
-│   └── mqtt_publisher.py      # MQTT broker client
-└── scripts/
-    ├── train.py
-    ├── export_model.py
-    └── evaluate_model.py
+  main.py                  FastAPI app on port 9000
+  core/shared.py           model loading, schemas, inference wrappers
+  routers/scada_router.py  realtime camera/WebSocket and SCADA endpoints
+  routers/dataset_router.py
+  services/
+  scripts/
+  model/                   put local model weights here
 
-frontend/  (Next.js + Bun)
-├── app/
-│   ├── page.tsx               # Root → redirect /dashboard
-│   ├── login/
-│   ├── dashboard/
-│   ├── scada/                 # Camera realtime + detection
-│   └── dataset/               # Thu thap anh + gan nhan
-├── components/
-│   ├── layout/
-│   ├── scada/
-│   ├── dashboard/
-│   └── ui/
-└── lib/
-    ├── api.ts
-    ├── scada-camera.ts
-    ├── ws-client.ts
-    └── types.ts
+frontend/
+  app/
+  components/
+  lib/
+  package.json
+
+dist/durian_pi_runtime/    optional Raspberry Pi runtime package
 ```
 
----
+## Requirements
 
-## Thiet lap moi truong
+- Python 3.10 or newer
+- Node.js 18+ or Bun 1.0+
+- Optional: CUDA-capable GPU
+- A YOLO model file for backend inference
 
-### 1. Backend
+## Model Setup
+
+Model binaries are intentionally ignored by git because they are large.
+After cloning on another computer, copy one of these files into
+`backend/model/`:
+
+```text
+backend/model/durian_yolo26m_seg.pt
+backend/model/durian_yolov8.pt
+backend/model/durian_yolo26m_seg.onnx
+backend/model/durian_yolov8.onnx
+backend/model/durian_yolo26m_seg.engine
+```
+
+The backend checks those names in order. You can also keep the model anywhere
+and point the backend to it:
+
+```powershell
+$env:DURIAN_MODEL_PATH="D:\path\to\model.pt"
+```
+
+```bash
+export DURIAN_MODEL_PATH="/path/to/model.pt"
+```
+
+Ultralytics settings are stored in the local `backend/.ultralytics/` folder at runtime,
+so the app does not depend on a user-specific Windows `AppData` path.
+
+## Backend Setup
 
 ```bash
 cd backend
-pip install -r requirements.txt
+python -m venv .venv
 ```
 
-### 2. Frontend
+Windows:
+
+```powershell
+.\.venv\Scripts\Activate.ps1
+pip install -r requirements.txt
+uvicorn main:app --host 127.0.0.1 --port 9000 --reload
+```
+
+macOS/Linux:
+
+```bash
+source .venv/bin/activate
+pip install -r requirements.txt
+uvicorn main:app --host 127.0.0.1 --port 9000 --reload
+```
+
+Check the backend:
+
+```text
+http://127.0.0.1:9000/health/
+http://127.0.0.1:9000/docs
+```
+
+The health endpoint should return `"model_loaded": true` before camera
+detection will work.
+
+## Frontend Setup
+
+```bash
+cd frontend
+npm install
+npm run dev
+```
+
+Or with Bun:
 
 ```bash
 cd frontend
 bun install
+bun run dev
 ```
 
----
+Open:
 
-## Khoi dong he thong
-
-### Backend (port 9000)
-
-```bash
-cd backend
-uvicorn app_scada:app --reload --port 9000
+```text
+http://localhost:3000
 ```
 
-- API docs: http://localhost:9000/docs
-- Health check: http://localhost:9000/health/
-- Model tu dong load khi start
+By default, the frontend calls `http://localhost:9000`. If the backend is on
+another computer, set:
 
-### Frontend (dev)
-
-```bash
-cd frontend
-bun run dev --port 3000
+```text
+NEXT_PUBLIC_API_URL=http://BACKEND_IP:9000
+NEXT_PUBLIC_WS_URL=ws://BACKEND_IP:8080
 ```
 
-- Trinh duyet: http://localhost:3000
+## Useful Endpoints
 
-#### Ghi chu (Windows / Next.js)
-
-- `bun run lint` hien se **fail** vi `next lint` da deprecated (Next.js 15) va yeu cau config ESLint interactive.
-- `bun run build` co the bi treo/crash (exit code 4294967295) tren Windows. Neu chi can chay demo, uu tien `dev`.
-
----
-
-## Inference Model
-
-### Thu tu uu tien load
-
-| Thu tu | File | Engine | Thiet bi |
-|--------|------|--------|----------|
-| 1 | `durian_yolov8.pt` | YOLOEngine (ultralytics) | CUDA / CPU |
-| 2 | `durian_yolov8.onnx` | YOLOEngine (ultralytics) | CUDA / CPU |
-
-### Classes nhan dien
-
-```
-defective  → hu, sau ray
-immature   → chua chin
-mature     → chin
+```text
+GET  /health/
+POST /detect/
+GET  /api/scada/cameras/
+POST /api/scada/cameras/
+GET  /api/scada/frame/{slot}/
+POST /api/scada/detect/{slot}/
+WS   /ws/scada/detect/{slot}/
 ```
 
----
+## Raspberry Pi Runtime
 
-## WebSocket — Realtime Detection
+The optional runtime in `dist/durian_pi_runtime/` is separate from the main
+backend. It expects an ONNX locator model at:
 
-```
-ws://localhost:9000/ws/scada/detect/{slot}/
-```
-
-**Client → Server:**
-
-```json
-{ "type": "frame", "data": "<base64 jpeg>" }
-{ "type": "set_confidence", "value": 0.25 }
+```text
+dist/durian_pi_runtime/models/durian_fruit_locator.onnx
 ```
 
-**Server → Client:**
+If you only run the FastAPI backend and Next.js frontend on a PC, this Pi
+model is not required.
 
-```json
-{
-  "type": "result",
-  "slot": 0,
-  "detections": [{ "x1": 0, "y1": 0, "x2": 100, "y2": 200, "confidence": 0.92, "class_name": "mature" }],
-  "image_width": 640,
-  "image_height": 480,
-  "unique_mature": 1,
-  "unique_immature": 0,
-  "unique_defective": 0
-}
+## Before Pushing
+
+Do not commit local runtime artifacts:
+
+```text
+backend/**/*.db
+backend/model/*.pt
+backend/model/*.onnx
+backend/model/*.engine
+frontend/node_modules/
+Ultralytics/**/*.json
+__pycache__/
 ```
 
----
-
-## API Endpoints
-
-### Detection
-
-| Method | Endpoint | Mo ta |
-|--------|----------|-------|
-| `POST` | `/detect/?conf=0.25` | Upload anh → YOLO detection |
-| `POST` | `/api/scada/detect/{slot}/?conf=0.25` | Detection frame tu IP camera slot |
-| `POST` | `/api/detect/batch/` | Batch detection |
-
-### SCADA — RTSP Camera
-
-| Method | Endpoint | Mo ta |
-|--------|----------|-------|
-| `GET` | `/api/scada/cameras/` | Lay cau hinh 4 slots RTSP |
-| `POST` | `/api/scada/cameras/` | Luu cau hinh RTSP URLs |
-| `GET` | `/api/scada/frame/{slot}/` | Doc 1 frame JPEG tu IP camera |
-| `POST` | `/api/scada/cameras/{slot}/start/` | Bat camera IP (background thread) |
-| `POST` | `/api/scada/cameras/{slot}/stop/` | Tat camera IP |
-| `WS` | `/ws/scada/detect/{slot}/` | Realtime detection qua WebSocket |
-
-### Dataset
-
-| Method | Endpoint | Mo ta |
-|--------|----------|-------|
-| `POST` | `/api/dataset/save-face/` | Luu anh + labels YOLO |
-| `GET` | `/api/dataset/items/` | Danh sach items |
-| `GET` | `/api/dataset/stats/` | Thong ke so anh theo nhan |
-| `DELETE` | `/api/dataset/items/{cat}/{label}/{file}/` | Xoa item |
-| `GET` | `/api/dataset/export/?category=condition` | Export ZIP dataset |
-| `GET` | `/api/dataset/data-yaml/?category=condition` | Generate `data.yaml` |
-
----
-
-## Cac trang chinh
-
-| Route | Mo ta |
-|-------|---------|
-| `/scada` | Camera realtime, detection sau rieng |
-| `/dataset` | Thu thap anh + gan nhan de train YOLOv8 |
-
----
-
-## Dataset — Thu thap anh cho YOLO
-
-### Luong hoat dong
-
-1. Upload/camera 4 mat trai cay (Truoc, Trai, Phai, Sau)
-2. YOLOv8 detect bounding boxes tren tung anh
-3. Chon **tieu chi xuat khau** (A / B / C / D) va **tinh trang thuc te** (Xanh / Suong / Chin / Sau ray / Hu)
-4. Bam **Luu Dataset** → moi face luu **2 anh** vao 2 folder → **8 anh / 4 mat**
-5. Bam **Export ZIP** de export dataset chuan YOLO
-
-### Cau truc dataset
-
-```
-dataset/
-├── images/
-│   ├── export_criteria/
-│   │   ├── A/  {timestamp}_{face}.jpg
-│   │   ├── B/  ...
-│   │   ├── C/  ...
-│   │   └── D/  ...
-│   └── condition/
-│       ├── Xanh/    {timestamp}_{face}.jpg
-│       ├── Suong/   ...
-│       ├── Chin/    ...
-│       ├── Sau ray/ ...
-│       └── Hu/      ...
-└── labels/                     (mirror cau truc images/)
-    ├── export_criteria/
-    │   └── {timestamp}_{face}.txt   ← YOLO format
-    └── condition/
-        └── {timestamp}_{face}.txt   ← YOLO format
-```
-
-### Dinh dang YOLO label (`.txt`)
-
-Moi dong: `class_id x_center y_center width height` (normalized 0 → 1)
-
-```
-0 0.5123 0.4876 0.2341 0.3187
-```
-
-### Class IDs
-
-**export_criteria:**
-
-| ID | Label |
-|----|-------|
-| 0 | A |
-| 1 | B |
-| 2 | C |
-| 3 | D |
-
-**condition:**
-
-| ID | Label |
-|----|-------|
-| 0 | Xanh |
-| 1 | Suong |
-| 2 | Chin |
-| 3 | Sau ray |
-| 4 | Hu |
-
----
-
-## Huan luyen & Export Model
-
-### Huan luyen
-
-```bash
-cd backend
-python scripts/train.py
-```
-
-Model luu tai `backend/model/durian_yolov8.pt`.
-
-### Export sang ONNX
-
-```bash
-cd backend
-python scripts/export_model.py
-```
-
-### Export sang TensorRT (can GPU CUDA)
-
-```bash
-cd backend
-python -c "
-from ultralytics import YOLO
-model = YOLO('model/durian_yolov8.pt')
-model.export(format='engine')
-"
-```
-
----
-
-## Yeu cau he thong
-
-- Python 3.10+
-- Bun 1.0+
-- CUDA GPU (tuy chon)
-- Camera webcam / IP camera (RTSP) cho chuc nang SCADA
+Those are covered by `.gitignore`. Commit source code, docs, lockfiles, and
+small config examples only.

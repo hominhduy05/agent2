@@ -1,6 +1,6 @@
 """
 SCADA Router — WebSocket realtime detection, RTSP camera proxy.
-Mounted into app_scada.py.
+Mounted into main.py.
 """
 import io
 import os

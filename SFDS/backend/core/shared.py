@@ -1,4 +1,5 @@
 from datetime import datetime
+import os
 from pathlib import Path
 from typing import List, Optional
 
@@ -7,6 +8,10 @@ from PIL import Image
 import numpy as np
 import torch
 
+YOLO_CONFIG_DIR = Path(__file__).resolve().parents[1] / ".ultralytics"
+YOLO_CONFIG_DIR.mkdir(parents=True, exist_ok=True)
+os.environ.setdefault("YOLO_CONFIG_DIR", str(YOLO_CONFIG_DIR))
+
 from ultralytics import YOLO
 
 # ---------------------------------------------------------------------------
@@ -14,11 +19,44 @@ from ultralytics import YOLO
 # ---------------------------------------------------------------------------
 MODEL_DIR   = Path(__file__).parent.parent / "model"
 PT_PATH     = MODEL_DIR / "durian_yolo26m_seg.pt"
+LEGACY_PT_PATH = MODEL_DIR / "durian_yolov8.pt"
 ABC_PATH    = MODEL_DIR / "durian_abc.pt"
 ONNX_PATH   = MODEL_DIR / "durian_yolo26m_seg.onnx"
+LEGACY_ONNX_PATH = MODEL_DIR / "durian_yolov8.onnx"
 TRT_ENGINE  = MODEL_DIR / "durian_yolo26m_seg.engine"
 CLASS_NAMES = ["defective", "immature", "mature"]
 ABC_CLASS_NAMES = ["A", "B", "C"]
+
+
+def _resolve_model_path(value: str) -> Path:
+    path = Path(value).expanduser()
+    if path.is_absolute():
+        return path
+    return Path(__file__).parent.parent / path
+
+
+def _model_format_for(path: Path) -> str:
+    suffix = path.suffix.lower()
+    if suffix == ".pt":
+        return "pytorch"
+    if suffix == ".onnx":
+        return "onnx"
+    if suffix == ".engine":
+        return "tensorrt"
+    return suffix.lstrip(".") or "unknown"
+
+
+def _patch_yolo26_compat() -> None:
+    """Allow YOLO26 checkpoints to load on older Ultralytics installs."""
+    try:
+        from ultralytics.nn.modules import block, head
+    except Exception:
+        return
+
+    if not hasattr(head, "Segment26") and hasattr(head, "Segment"):
+        head.Segment26 = head.Segment
+    if not hasattr(block, "Proto26") and hasattr(block, "Proto"):
+        block.Proto26 = block.Proto
 
 
 # ---------------------------------------------------------------------------
@@ -26,6 +64,7 @@ ABC_CLASS_NAMES = ["A", "B", "C"]
 # ---------------------------------------------------------------------------
 class YOLOEngine:
     def __init__(self, model_path: Path, device: str):
+        _patch_yolo26_compat()
         self.model = YOLO(str(model_path))
         self.device = device
 
@@ -137,20 +176,30 @@ class TRTEngine:
 def build_engine() -> tuple:
     has_cuda = torch.cuda.is_available()
     print(f"[INFO] GPU available: {has_cuda}")
+    device = "cuda" if has_cuda else "cpu"
 
-    if PT_PATH.exists():
-        device = "cuda" if has_cuda else "cpu"
-        print(f"[INFO] Loading PyTorch on {device}...")
-        return YOLOEngine(PT_PATH, device), "pytorch", device
+    env_model_path = os.getenv("DURIAN_MODEL_PATH", "").strip()
+    checked_paths = []
+    if env_model_path:
+        model_path = _resolve_model_path(env_model_path)
+        checked_paths.append(model_path)
+        if not model_path.exists():
+            raise FileNotFoundError(f"DURIAN_MODEL_PATH does not exist: {model_path}")
+        print(f"[INFO] Loading model from DURIAN_MODEL_PATH on {device}: {model_path}")
+        return YOLOEngine(model_path, device), _model_format_for(model_path), device
 
-    if ONNX_PATH.exists():
-        device = "cuda" if has_cuda else "cpu"
-        print(f"[INFO] Loading ONNX on {device} (CUDA GPU)...")
-        return YOLOEngine(ONNX_PATH, device), "onnx", device
+    candidates = [PT_PATH, LEGACY_PT_PATH, ONNX_PATH, LEGACY_ONNX_PATH, TRT_ENGINE]
+    for model_path in candidates:
+        checked_paths.append(model_path)
+        if model_path.exists():
+            fmt = _model_format_for(model_path)
+            print(f"[INFO] Loading {fmt} on {device}: {model_path}")
+            return YOLOEngine(model_path, device), fmt, device
 
+    checked = "\n  - ".join(str(path) for path in checked_paths)
     raise FileNotFoundError(
-        f"No model found. Checked:\n  - {TRT_ENGINE}\n  - {ONNX_PATH}\n  - {PT_PATH}\n"
-        f"Run export_model.py first."
+        f"No model found. Checked:\n  - {checked}\n"
+        f"Copy a model into backend/model or set DURIAN_MODEL_PATH."
     )
 
 

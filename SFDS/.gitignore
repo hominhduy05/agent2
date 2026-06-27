@@ -25,21 +25,22 @@
 # ============================================================
 # Backend
 # ============================================================
-backend/__pycache__/
-backend/*.pyc
-backend/*.db
+__pycache__/
+*.py[cod]
+backend/**/*.db
 backend/durian.db
 backend/durian.db-journal
 backend/*.log
 backend/.venv/
+backend/.ultralytics/
 backend/env/
 backend/env37/
 venv/
 env/
 env37/
 
-# Conda env
-C:\Users\User_06\anaconda3\envs\admin\
+# Conda / local env
+conda-env/
 .env
 .env.local
 .env.*.local
@@ -64,6 +65,13 @@ frontend/.env.local
 frontend/.env.development.local
 frontend/.env.test.local
 frontend/.env.production.local
+frontend/tsconfig.tsbuildinfo
+
+# Ultralytics local machine cache/settings
+Ultralytics/**/*.json
+Ultralytics/**/*.ttf
+Ultralytics/*.json
+Ultralytics/*.ttf
 
 # ============================================================
 # IDE & OS

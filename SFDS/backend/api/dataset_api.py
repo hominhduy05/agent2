@@ -1,7 +1,7 @@
 """
 Dataset API — FastAPI endpoints cho dataset sầu riêng.
 
-NOTE: These endpoints are now in app_scada.py (port 9000).
+NOTE: These endpoints are now in main.py (port 9000).
 This file is kept for backwards compatibility if needed.
 """
 import io
