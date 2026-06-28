@@ -44,17 +44,43 @@ The script checks for Conda, Node.js, npm, and Bun. It uses the Conda
 environment named `admin` for the backend, installs backend dependencies,
 installs frontend dependencies with npm, starts the FastAPI backend, starts
 the Next.js frontend, starts the Bun WebSocket proxy when Bun is available,
-and opens the app at:
+auto-detects the server LAN IP, chooses free ports, and opens the app at a
+network URL like:
 
 ```text
-http://localhost:3000
+http://SERVER_IP:FRONTEND_PORT
 ```
 
-Keep the service windows open while using the app.
+Use the printed `Client URL` on other computers in the same network. The same
+URL is saved to:
+
+```text
+sfds_launch_info.txt
+```
+
+Keep the service windows open while using the app. If the launcher is run as
+Administrator, it also adds Windows Firewall rules for the selected frontend
+and backend ports. Without Administrator permission, allow those printed TCP
+ports manually if another computer cannot connect.
 
 Dependency installation is cached. The script skips Python/npm installs on
 later runs unless `backend/requirements.txt` or `frontend/package-lock.json`
 changes.
+
+Inference device selection defaults to `auto`: GPU/CUDA is preferred when
+available, and CPU is used as a fallback. To force a device:
+
+```bat
+set DURIAN_DEVICE=cpu
+run_all.bat
+```
+
+or:
+
+```bat
+set DURIAN_DEVICE=cuda
+run_all.bat
+```
 
 If you want to use a different Conda environment name, set `SFDS_CONDA_ENV`
 before running the script:
@@ -77,8 +103,9 @@ Use the real path to `conda.bat` on that machine.
 
 This project keeps `package-lock.json`, so npm is the safest package manager
 for installing frontend dependencies. Bun is still used at runtime for
-`frontend/bun-ws.ts`, which provides `ws://localhost:8080` for realtime
-webcam and dataset detection flows.
+`frontend/bun-ws.ts`, which provides `ws://localhost:8080` for the older
+generic detection proxy. The SCADA webcam realtime flow connects directly to
+the FastAPI backend at `ws://127.0.0.1:9000/ws/scada/detect/{slot}/`.
 
 ## Model Setup
 
@@ -107,6 +134,47 @@ export DURIAN_MODEL_PATH="/path/to/model.pt"
 
 Ultralytics settings are stored in the local `backend/.ultralytics/` folder at runtime,
 so the app does not depend on a user-specific Windows `AppData` path.
+
+## Camera Health Check
+
+`run_all.bat` does not auto-open camera checks. To debug RTSP/IP camera
+connections manually after the backend starts, run:
+
+```text
+check_cameras.bat
+```
+
+The script waits for `http://127.0.0.1:9000/health/`, prints the active
+inference device, then checks camera slots `0` to `3` through:
+
+```text
+http://127.0.0.1:9000/api/scada/cameras/health/
+```
+
+RTSP camera settings are saved locally in:
+
+```text
+backend/scada_cameras.json
+```
+
+That file is ignored by git because camera URLs are machine-specific.
+
+To debug browser webcam permissions manually, open:
+
+```text
+http://localhost:3000/webcam-check
+```
+
+or run:
+
+```text
+check_webcams.bat
+```
+
+Browser webcam checks must run inside the browser because Windows/browser
+camera permissions cannot be verified from the backend. Allow camera access
+when prompted, then click `Kiem tra webcam` to list and test local USB/webcam
+devices.
 
 ## Backend Setup
 
@@ -148,13 +216,16 @@ Open:
 http://localhost:3000
 ```
 
-By default, the frontend calls `http://localhost:9000`. If the backend is on
+By default, the frontend calls `http://127.0.0.1:9000`. If the backend is on
 another computer, set:
 
 ```text
 NEXT_PUBLIC_API_URL=http://BACKEND_IP:9000
-NEXT_PUBLIC_WS_URL=ws://BACKEND_IP:8080
+NEXT_PUBLIC_WS_URL=ws://BACKEND_IP:9000
+SFDS_BACKEND_HOST=0.0.0.0
 ```
+
+`run_all.bat` sets those values automatically for the current machine.
 
 ## Useful Endpoints
 

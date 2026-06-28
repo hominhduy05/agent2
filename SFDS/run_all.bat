@@ -6,6 +6,7 @@ cd /d "%~dp0"
 set "ROOT=%~dp0"
 set "BACKEND_DIR=%ROOT%backend"
 set "FRONTEND_DIR=%ROOT%frontend"
+set "LAUNCHER_PS=%ROOT%scripts\sfds_launcher.ps1"
 set "BACKEND_DEPS_MARKER=%BACKEND_DIR%\.sfds_requirements.sha256"
 set "FRONTEND_DEPS_MARKER=%FRONTEND_DIR%\.sfds_frontend_deps.sha256"
 set "CONDA_ENV_NAME=admin"
@@ -14,6 +15,7 @@ set "CONDA_BAT="
 if not "%SFDS_CONDA_BAT%"=="" if exist "%SFDS_CONDA_BAT%" set "CONDA_BAT=%SFDS_CONDA_BAT%"
 set "NPM_CMD=npm.cmd"
 set "HAVE_BUN="
+set "LAUNCH_INFO=%ROOT%sfds_launch_info.txt"
 
 title SFDS Setup and Launcher
 
@@ -121,6 +123,38 @@ if errorlevel 1 (
 where bun >nul 2>nul
 if not errorlevel 1 set "HAVE_BUN=1"
 
+if "%SFDS_SERVER_IP%"=="" (
+  for /f "usebackq delims=" %%I in (`powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%LAUNCHER_PS%" ip`) do set "SFDS_SERVER_IP=%%I"
+)
+if "%SFDS_SERVER_IP%"=="" set "SFDS_SERVER_IP=127.0.0.1"
+
+if "%SFDS_BACKEND_PORT%"=="" set "SFDS_BACKEND_PORT=9000"
+if "%SFDS_FRONTEND_PORT%"=="" set "SFDS_FRONTEND_PORT=3000"
+if "%SFDS_BUN_PORT%"=="" set "SFDS_BUN_PORT=8080"
+
+for /f "usebackq delims=" %%P in (`powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%LAUNCHER_PS%" port %SFDS_BACKEND_PORT%`) do set "SFDS_BACKEND_PORT=%%P"
+for /f "usebackq delims=" %%P in (`powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%LAUNCHER_PS%" port %SFDS_FRONTEND_PORT%`) do set "SFDS_FRONTEND_PORT=%%P"
+if defined HAVE_BUN (
+  for /f "usebackq delims=" %%P in (`powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%LAUNCHER_PS%" port %SFDS_BUN_PORT%`) do set "SFDS_BUN_PORT=%%P"
+)
+
+set "SFDS_BACKEND_HOST=0.0.0.0"
+set "NEXT_PUBLIC_API_URL=http://%SFDS_SERVER_IP%:%SFDS_BACKEND_PORT%"
+set "NEXT_PUBLIC_WS_URL=ws://%SFDS_SERVER_IP%:%SFDS_BACKEND_PORT%"
+set "API_URL=http://127.0.0.1:%SFDS_BACKEND_PORT%"
+
+net session >nul 2>nul
+if not errorlevel 1 (
+  netsh advfirewall firewall add rule name="SFDS Backend %SFDS_BACKEND_PORT%" dir=in action=allow protocol=TCP localport=%SFDS_BACKEND_PORT% >nul 2>nul
+  netsh advfirewall firewall add rule name="SFDS Frontend %SFDS_FRONTEND_PORT%" dir=in action=allow protocol=TCP localport=%SFDS_FRONTEND_PORT% >nul 2>nul
+  if defined HAVE_BUN netsh advfirewall firewall add rule name="SFDS Bun Proxy %SFDS_BUN_PORT%" dir=in action=allow protocol=TCP localport=%SFDS_BUN_PORT% >nul 2>nul
+) else (
+  echo [WARN] This launcher is not running as Administrator.
+  echo [WARN] Firewall rules cannot be added automatically.
+  echo [WARN] If another machine cannot open the app, allow TCP ports %SFDS_FRONTEND_PORT% and %SFDS_BACKEND_PORT%.
+  echo.
+)
+
 echo [1/4] Preparing Conda backend environment: %CONDA_ENV_NAME%
 call "%CONDA_BAT%" run -n "%CONDA_ENV_NAME%" python -c "import sys; raise SystemExit(0 if sys.version_info >= (3, 10) else 1)" >nul 2>nul
 if errorlevel 1 (
@@ -226,28 +260,37 @@ if defined HAVE_BUN (
   set "FRONTEND_SCRIPT=dev:full"
 ) else (
   set "FRONTEND_SCRIPT=dev"
-  echo [WARN] Bun was not found. The app will run without the extra WebSocket proxy on port 8080.
-  echo Install Bun if webcam/dataset realtime detection needs ws://localhost:8080.
+  echo [WARN] Bun was not found. The app will run without the extra WebSocket proxy.
   echo.
 )
 
 echo [4/4] Starting services...
 echo.
-echo Backend:  http://127.0.0.1:9000/health/
-echo Frontend: http://localhost:3000
-if defined HAVE_BUN echo WebSocket: ws://localhost:8080
+echo Server IP: %SFDS_SERVER_IP%
+echo Backend:   http://%SFDS_SERVER_IP%:%SFDS_BACKEND_PORT%/health/
+echo Frontend:  http://%SFDS_SERVER_IP%:%SFDS_FRONTEND_PORT%
+echo SCADA WS:  ws://%SFDS_SERVER_IP%:%SFDS_BACKEND_PORT%/ws/scada/detect/
+if defined HAVE_BUN echo Bun proxy: ws://%SFDS_SERVER_IP%:%SFDS_BUN_PORT%
 echo.
+
+>"%LAUNCH_INFO%" echo SFDS launch info
+>>"%LAUNCH_INFO%" echo Frontend: http://%SFDS_SERVER_IP%:%SFDS_FRONTEND_PORT%
+>>"%LAUNCH_INFO%" echo Backend: http://%SFDS_SERVER_IP%:%SFDS_BACKEND_PORT%/health/
+>>"%LAUNCH_INFO%" echo SCADA WebSocket: ws://%SFDS_SERVER_IP%:%SFDS_BACKEND_PORT%/ws/scada/detect/
+if defined HAVE_BUN >>"%LAUNCH_INFO%" echo Bun proxy: ws://%SFDS_SERVER_IP%:%SFDS_BUN_PORT%
 
 start "SFDS Backend API" "%COMSPEC%" /k call "%ROOT%start_backend.bat" "%CONDA_BAT%" "%CONDA_ENV_NAME%" "%BACKEND_DIR%"
 timeout /t 3 /nobreak >nul
 start "SFDS Frontend" "%COMSPEC%" /k call "%ROOT%start_frontend.bat" "%FRONTEND_DIR%" "%NPM_CMD%" "%FRONTEND_SCRIPT%"
 timeout /t 2 /nobreak >nul
-start "" "http://localhost:3000"
+start "" "http://%SFDS_SERVER_IP%:%SFDS_FRONTEND_PORT%"
 
 echo SFDS is starting in separate windows.
 echo Backend is using Conda environment "%CONDA_ENV_NAME%".
 if defined HAVE_BUN echo Frontend is running "%FRONTEND_SCRIPT%" with Bun WebSocket support.
 if not defined HAVE_BUN echo Frontend is running "%FRONTEND_SCRIPT%" without Bun WebSocket support.
+echo Client URL: http://%SFDS_SERVER_IP%:%SFDS_FRONTEND_PORT%
+echo Launch info saved to: %LAUNCH_INFO%
 echo Keep those windows open while using the app.
 echo.
 pause

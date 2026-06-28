@@ -1,4 +1,18 @@
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:9000";
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:9000";
+
+async function fetchWithTimeout(
+  input: RequestInfo | URL,
+  init: RequestInit = {},
+  timeoutMs = 5000
+): Promise<Response> {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    return await fetch(input, { ...init, signal: controller.signal });
+  } finally {
+    clearTimeout(timeout);
+  }
+}
 
 // ---------------------------------------------------------------------------
 // Detection
@@ -71,17 +85,17 @@ export interface ScadaDemoMode {
 }
 
 export async function getScadaDemoMode(): Promise<ScadaDemoMode> {
-  const res = await fetch(`${API_BASE}/api/scada/demo-mode/`, { cache: "no-store" });
+  const res = await fetchWithTimeout(`${API_BASE}/api/scada/demo-mode/`, { cache: "no-store" }, 2500);
   if (!res.ok) throw new Error("Khong the lay che do demo");
   return res.json();
 }
 
 export async function setScadaDemoMode(enabled: boolean): Promise<ScadaDemoMode> {
-  const res = await fetch(`${API_BASE}/api/scada/demo-mode/`, {
+  const res = await fetchWithTimeout(`${API_BASE}/api/scada/demo-mode/`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ enabled }),
-  });
+  }, 2500);
   if (!res.ok) throw new Error("Khong the cap nhat che do demo");
   return res.json();
 }
@@ -106,7 +120,7 @@ export interface ScadaScaleStatus {
 }
 
 export async function getScadaScale(): Promise<ScadaScaleStatus> {
-  const res = await fetch(`${API_BASE}/api/scada/scale/`, { cache: "no-store" });
+  const res = await fetchWithTimeout(`${API_BASE}/api/scada/scale/`, { cache: "no-store" }, 1500);
   if (!res.ok) throw new Error("Khong the lay du lieu can");
   return res.json();
 }

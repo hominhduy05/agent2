@@ -97,8 +97,9 @@ const DEMO_ROI = {
 };
 let activeRoi = ROI;
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:9000";
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:9000";
 const WS_PROTOCOL = API_BASE.startsWith("https") ? "wss" : "ws";
+const SCADA_WS_BASE = process.env.NEXT_PUBLIC_WS_URL || `${WS_PROTOCOL}://${new URL(API_BASE).host}`;
 const SCADA_SESSION_STORAGE_VERSION = "display-id-v2";
 const SCADA_SESSION_VERSION_KEY = "scada:session-storage-version";
 
@@ -788,13 +789,13 @@ export class ScadaCameraManager {
     this.onUpdate(cam);
   }
 
-  // ── WebSocket real-time detection (via Bun WS proxy on port 8080) ─────
+  // ── WebSocket real-time detection (FastAPI backend) ─────
 
   startWebSocketDetect(index: number) {
     const cam = this.cameras[index];
     if (!cam.isActive || cam.ws) return;
 
-    const url = `${WS_PROTOCOL}://${new URL(API_BASE).host}/ws/scada/detect/${index}/`;
+    const url = `${SCADA_WS_BASE.replace(/\/$/, "")}/ws/scada/detect/${index}/`;
     const ws = new WebSocket(url);
 
     ws.onopen = () => {

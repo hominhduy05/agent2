@@ -24,6 +24,7 @@ export default function ScadaPage() {
   const [sourceMode, setSourceMode] = useState<"webcam" | "ip">("webcam");
   const [demoMode, setDemoMode] = useState(false);
   const [demoBusy, setDemoBusy] = useState(false);
+  const [demoError, setDemoError] = useState("");
   const [scaleStatus, setScaleStatus] = useState<ScadaScaleStatus | null>(null);
 
   const managerRef = useRef<ScadaCameraManager | null>(null);
@@ -159,13 +160,25 @@ export default function ScadaPage() {
 
   const handleDemoModeToggle = async () => {
     if (demoBusy) return;
+    const previousEnabled = demoMode;
+    const nextEnabled = !previousEnabled;
     setDemoBusy(true);
+    setDemoError("");
+    setDemoMode(nextEnabled);
+    if (!nextEnabled) setScaleStatus(null);
+    managerRef.current?.setDemoMode(nextEnabled);
     try {
-      const status = await setScadaDemoMode(!demoMode);
+      const status = await setScadaDemoMode(nextEnabled);
       const enabled = Boolean(status.enabled);
       setDemoMode(enabled);
       if (!enabled) setScaleStatus(null);
       managerRef.current?.setDemoMode(enabled);
+    } catch (err) {
+      setDemoMode(previousEnabled);
+      if (!previousEnabled) setScaleStatus(null);
+      managerRef.current?.setDemoMode(previousEnabled);
+      const timeout = err instanceof Error && err.name === "AbortError";
+      setDemoError(timeout ? "Backend phan hoi cham, demo chua duoc cap nhat" : "Khong the cap nhat demo");
     } finally {
       setDemoBusy(false);
     }
@@ -230,6 +243,23 @@ export default function ScadaPage() {
               }} />
               {demoMode ? "ON" : "OFF"}
             </button>
+            {demoError && (
+              <span
+                title={demoError}
+                style={{
+                  maxWidth: "180px",
+                  overflow: "hidden",
+                  textOverflow: "ellipsis",
+                  whiteSpace: "nowrap",
+                  color: "#f59e0b",
+                  fontFamily: "var(--font-outfit)",
+                  fontSize: "11px",
+                  fontWeight: 700,
+                }}
+              >
+                {demoError}
+              </span>
+            )}
             {/* Config gear button */}
             <button
               onClick={() => setShowConfigModal(true)}

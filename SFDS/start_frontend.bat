@@ -12,8 +12,19 @@ if errorlevel 1 (
   exit /b 1
 )
 
-set "NEXT_PUBLIC_API_URL=http://localhost:9000"
-set "NEXT_PUBLIC_WS_URL=ws://localhost:8080"
-set "API_URL=http://127.0.0.1:9000"
+if "%SFDS_SERVER_IP%"=="" set "SFDS_SERVER_IP=127.0.0.1"
+if "%SFDS_BACKEND_PORT%"=="" set "SFDS_BACKEND_PORT=9000"
+if "%SFDS_FRONTEND_PORT%"=="" set "SFDS_FRONTEND_PORT=3000"
+if "%SFDS_BUN_PORT%"=="" set "SFDS_BUN_PORT=8080"
 
-call %NPM_CMD% run %FRONTEND_SCRIPT%
+if "%NEXT_PUBLIC_API_URL%"=="" set "NEXT_PUBLIC_API_URL=http://%SFDS_SERVER_IP%:%SFDS_BACKEND_PORT%"
+if "%NEXT_PUBLIC_WS_URL%"=="" set "NEXT_PUBLIC_WS_URL=ws://%SFDS_SERVER_IP%:%SFDS_BACKEND_PORT%"
+if "%API_URL%"=="" set "API_URL=http://127.0.0.1:%SFDS_BACKEND_PORT%"
+set "WS_HOST=0.0.0.0"
+set "WS_PORT=%SFDS_BUN_PORT%"
+
+if /I "%FRONTEND_SCRIPT%"=="dev:full" (
+  call "%FRONTEND_DIR%\node_modules\.bin\concurrently.cmd" "next dev -H 0.0.0.0 -p %SFDS_FRONTEND_PORT%" "bun run bun-ws.ts"
+) else (
+  call "%FRONTEND_DIR%\node_modules\.bin\next.cmd" dev -H 0.0.0.0 -p "%SFDS_FRONTEND_PORT%"
+)

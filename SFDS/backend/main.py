@@ -2,7 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from core.database import init_db
-from core.shared import model_loaded, device_name, model_format
+from core.shared import engine_obj, model_loaded, device_name, model_format
 from services.serial_scale_reader import get_serial_scale_status, start_serial_scale_reader
 
 from routers.scada_router import router as scada_router
@@ -25,6 +25,7 @@ app.add_middleware(
         "http://localhost:3000",
         "http://127.0.0.1:3000",
     ],
+    allow_origin_regex=r"https?://.*",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -42,7 +43,7 @@ def health_check():
     return {
         "status": "ok",
         "model_loaded": model_loaded,
-        "device": device_name,
+        "device": getattr(engine_obj, "device", device_name),
         "model_format": model_format,
         "service": "scada",
         "serial_scale": get_serial_scale_status(),

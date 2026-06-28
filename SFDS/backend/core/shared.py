@@ -69,7 +69,15 @@ class YOLOEngine:
         self.device = device
 
     def predict(self, image: Image.Image, conf: float, iou: float):
-        results = self.model.predict(image, conf=conf, iou=iou, device=self.device, verbose=False)
+        try:
+            results = self.model.predict(image, conf=conf, iou=iou, device=self.device, verbose=False)
+        except Exception as exc:
+            if self.device == "cuda":
+                print(f"[WARN] CUDA inference failed: {exc}. Falling back to CPU.")
+                self.device = "cpu"
+                results = self.model.predict(image, conf=conf, iou=iou, device=self.device, verbose=False)
+            else:
+                raise
         parsed = []
         for r in (results or []):
             if r.boxes is None or len(r.boxes) == 0:
@@ -173,10 +181,38 @@ class TRTEngine:
 # ---------------------------------------------------------------------------
 # Auto-select engine
 # ---------------------------------------------------------------------------
+def _preferred_devices() -> list[str]:
+    requested = os.getenv("DURIAN_DEVICE", "auto").strip().lower()
+    if requested in {"cpu", "cuda"}:
+        if requested == "cuda" and not torch.cuda.is_available():
+            print("[WARN] DURIAN_DEVICE=cuda but CUDA is not available. Falling back to CPU.")
+            return ["cpu"]
+        return [requested]
+
+    if torch.cuda.is_available():
+        return ["cuda", "cpu"]
+    return ["cpu"]
+
+
+def _build_yolo_with_fallback(model_path: Path) -> tuple[YOLOEngine, str]:
+    last_error: Exception | None = None
+    for device in _preferred_devices():
+        try:
+            print(f"[INFO] Loading {_model_format_for(model_path)} on {device}: {model_path}")
+            return YOLOEngine(model_path, device), device
+        except Exception as exc:
+            last_error = exc
+            print(f"[WARN] Could not load model on {device}: {exc}")
+            if device == "cuda":
+                print("[WARN] Falling back to CPU.")
+    if last_error:
+        raise last_error
+    raise RuntimeError("No usable inference device found.")
+
+
 def build_engine() -> tuple:
     has_cuda = torch.cuda.is_available()
     print(f"[INFO] GPU available: {has_cuda}")
-    device = "cuda" if has_cuda else "cpu"
 
     env_model_path = os.getenv("DURIAN_MODEL_PATH", "").strip()
     checked_paths = []
@@ -185,16 +221,16 @@ def build_engine() -> tuple:
         checked_paths.append(model_path)
         if not model_path.exists():
             raise FileNotFoundError(f"DURIAN_MODEL_PATH does not exist: {model_path}")
-        print(f"[INFO] Loading model from DURIAN_MODEL_PATH on {device}: {model_path}")
-        return YOLOEngine(model_path, device), _model_format_for(model_path), device
+        engine, device = _build_yolo_with_fallback(model_path)
+        return engine, _model_format_for(model_path), device
 
     candidates = [PT_PATH, LEGACY_PT_PATH, ONNX_PATH, LEGACY_ONNX_PATH, TRT_ENGINE]
     for model_path in candidates:
         checked_paths.append(model_path)
         if model_path.exists():
             fmt = _model_format_for(model_path)
-            print(f"[INFO] Loading {fmt} on {device}: {model_path}")
-            return YOLOEngine(model_path, device), fmt, device
+            engine, device = _build_yolo_with_fallback(model_path)
+            return engine, fmt, device
 
     checked = "\n  - ".join(str(path) for path in checked_paths)
     raise FileNotFoundError(

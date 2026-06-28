@@ -3,6 +3,7 @@ SCADA Router — WebSocket realtime detection, RTSP camera proxy.
 Mounted into main.py.
 """
 import io
+import json
 import os
 import time
 import threading
@@ -60,8 +61,91 @@ def get_tracker_mgr() -> TrackerManager:
 # ---------------------------------------------------------------------------
 # Global RTSP config
 # ---------------------------------------------------------------------------
+CAMERA_CONFIG_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), "scada_cameras.json")
 CAMERA_RTSP_URLS: dict[int, str] = {0: "", 1: "", 2: "", 3: ""}
 _slot_captures: dict[int, "RtspCapture"] = {}
+
+
+def _load_camera_config() -> None:
+    if not os.path.exists(CAMERA_CONFIG_PATH):
+        return
+    try:
+        with open(CAMERA_CONFIG_PATH, "r", encoding="utf-8") as fh:
+            data = json.load(fh)
+        cameras = data.get("cameras", data)
+        for slot in range(4):
+            value = cameras.get(str(slot), cameras.get(slot, ""))
+            if isinstance(value, dict):
+                value = value.get("url", "")
+            CAMERA_RTSP_URLS[slot] = str(value or "")
+    except Exception as exc:
+        print(f"[WARN] Could not load camera config: {exc}")
+
+
+def _save_camera_config() -> None:
+    try:
+        with open(CAMERA_CONFIG_PATH, "w", encoding="utf-8") as fh:
+            json.dump(
+                {"cameras": {str(slot): url for slot, url in CAMERA_RTSP_URLS.items()}},
+                fh,
+                indent=2,
+            )
+    except Exception as exc:
+        print(f"[WARN] Could not save camera config: {exc}")
+
+
+def _check_camera_slot(slot: int, url: str, timeout_ms: int = 2500) -> dict:
+    result = {
+        "slot": slot,
+        "configured": bool(url),
+        "url": url,
+        "online": False,
+        "message": "not_configured" if not url else "offline",
+    }
+    if not url:
+        return result
+
+    cap = None
+    start = time.time()
+    try:
+        import cv2
+        cap = cv2.VideoCapture()
+        try:
+            cap.set(cv2.CAP_PROP_OPEN_TIMEOUT_MSEC, timeout_ms)
+            cap.set(cv2.CAP_PROP_READ_TIMEOUT_MSEC, timeout_ms)
+        except Exception:
+            pass
+
+        if not cap.open(url):
+            result["message"] = "open_failed"
+            return result
+
+        deadline = start + max(timeout_ms / 1000.0, 0.5)
+        while time.time() < deadline:
+            ok, frame = cap.read()
+            if ok and frame is not None:
+                height, width = frame.shape[:2]
+                result.update({
+                    "online": True,
+                    "message": "ok",
+                    "width": int(width),
+                    "height": int(height),
+                    "latency_ms": int((time.time() - start) * 1000),
+                })
+                return result
+            time.sleep(0.05)
+
+        result["message"] = "read_timeout"
+        return result
+    except Exception as exc:
+        result["message"] = f"error: {exc}"
+        return result
+    finally:
+        if cap is not None:
+            cap.release()
+
+
+_load_camera_config()
 
 
 @router.get("/api/scada/pi-feed/")
@@ -800,9 +884,26 @@ async def ws_scada_detect(ws: WebSocket, slot: int):
 async def get_camera_config() -> dict:
     return {
         "cameras": {
-            str(slot): {"url": url, "online": False}
+            str(slot): {
+                "url": url,
+                "online": slot in _slot_captures and _slot_captures[slot].get_frame() is not None,
+            }
             for slot, url in CAMERA_RTSP_URLS.items()
         }
+    }
+
+
+@router.get("/api/scada/cameras/health/")
+async def get_camera_health(timeout_ms: int = 2500) -> dict:
+    checks = [
+        _check_camera_slot(slot, CAMERA_RTSP_URLS.get(slot, ""), timeout_ms=timeout_ms)
+        for slot in range(4)
+    ]
+    return {
+        "status": "ok" if all(item["online"] or not item["configured"] for item in checks) else "degraded",
+        "configured_count": sum(1 for item in checks if item["configured"]),
+        "online_count": sum(1 for item in checks if item["online"]),
+        "cameras": {str(item["slot"]): item for item in checks},
     }
 
 
@@ -817,6 +918,7 @@ async def update_camera_config(body: CameraConfigRequest) -> dict:
         if slot in _slot_captures:
             _slot_captures[slot].stop()
             del _slot_captures[slot]
+    _save_camera_config()
     return {"status": "ok", "cameras": CAMERA_RTSP_URLS}
 
 

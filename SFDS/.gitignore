@@ -31,7 +31,9 @@ backend/**/*.db
 backend/durian.db
 backend/durian.db-journal
 backend/*.log
+backend/scada_cameras.json
 backend/.sfds_requirements.sha256
+sfds_launch_info.txt
 backend/.venv/
 backend/.ultralytics/
 backend/env/
