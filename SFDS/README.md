@@ -63,6 +63,18 @@ Administrator, it also adds Windows Firewall rules for the selected frontend
 and backend ports. Without Administrator permission, allow those printed TCP
 ports manually if another computer cannot connect.
 
+Browser webcam access only works on secure origins. On the server machine,
+use the local URL that `run_all.bat` opens automatically:
+
+```text
+http://127.0.0.1:FRONTEND_PORT
+```
+
+Other computers can open the LAN `Client URL`, but browser/USB webcam access
+from that remote computer may be blocked by Chrome unless HTTPS or a Chrome
+secure-origin exception is configured. RTSP/IP camera mode still works through
+the backend over the LAN URL.
+
 Dependency installation is cached. The script skips Python/npm installs on
 later runs unless `backend/requirements.txt` or `frontend/package-lock.json`
 changes.

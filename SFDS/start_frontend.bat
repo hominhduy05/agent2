@@ -23,8 +23,11 @@ if "%API_URL%"=="" set "API_URL=http://127.0.0.1:%SFDS_BACKEND_PORT%"
 set "WS_HOST=0.0.0.0"
 set "WS_PORT=%SFDS_BUN_PORT%"
 
-if /I "%FRONTEND_SCRIPT%"=="dev:full" (
-  call "%FRONTEND_DIR%\node_modules\.bin\concurrently.cmd" "next dev -H 0.0.0.0 -p %SFDS_FRONTEND_PORT%" "bun run bun-ws.ts"
-) else (
-  call "%FRONTEND_DIR%\node_modules\.bin\next.cmd" dev -H 0.0.0.0 -p "%SFDS_FRONTEND_PORT%"
+if not exist "%FRONTEND_DIR%\node_modules\.bin\next.cmd" (
+  echo [ERROR] Next.js launcher was not found.
+  echo Please run run_all.bat again so frontend dependencies can be installed.
+  pause
+  exit /b 1
 )
+
+call "%FRONTEND_DIR%\node_modules\.bin\next.cmd" dev -H 0.0.0.0 -p "%SFDS_FRONTEND_PORT%"

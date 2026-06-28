@@ -18,6 +18,7 @@ export default function ScadaPage() {
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [threshold, setThreshold] = useState(0.25);
   const [devices, setDevices] = useState<MediaDevice[]>([]);
+  const [webcamError, setWebcamError] = useState("");
   const [showDeviceModal, setShowDeviceModal] = useState(false);
   const [showConfigModal, setShowConfigModal] = useState(false);
   const [pendingId, setPendingId] = useState<number | null>(null);
@@ -54,6 +55,17 @@ export default function ScadaPage() {
     setCameras([...managerRef.current.cameras]);
 
     async function loadDevices() {
+      setWebcamError("");
+      if (typeof window !== "undefined" && !window.isSecureContext) {
+        setDevices([]);
+        setWebcamError("Webcam bi chan tren HTTP IP LAN. Mo bang 127.0.0.1 tren may server, hoac dung HTTPS/Chrome secure-origin flag.");
+        return;
+      }
+      if (!navigator.mediaDevices?.getUserMedia) {
+        setDevices([]);
+        setWebcamError("Trinh duyet khong ho tro hoac dang chan camera.");
+        return;
+      }
       try {
         await navigator.mediaDevices.getUserMedia({ video: true });
         const devs = await navigator.mediaDevices.enumerateDevices();
@@ -62,7 +74,10 @@ export default function ScadaPage() {
             .filter((d) => d.kind === "videoinput")
             .map((d) => ({ deviceId: d.deviceId, label: d.label || `Camera ${d.deviceId.slice(0, 8)}` }))
         );
-      } catch { setDevices([]); }
+      } catch (err) {
+        setDevices([]);
+        setWebcamError(err instanceof Error ? err.message : "Khong the truy cap webcam.");
+      }
     }
     loadDevices();
 
@@ -555,7 +570,7 @@ export default function ScadaPage() {
               devices.length === 0 ? (
                 <p className={styles.modalEmpty}>
                   Khong tim thay webcam nao.<br />
-                  Vui long cho phep truy cap camera.
+                  {webcamError || "Vui long cho phep truy cap camera."}
                 </p>
               ) : (
                 <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>

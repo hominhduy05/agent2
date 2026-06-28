@@ -629,6 +629,16 @@ export class ScadaCameraManager {
     if (cam.isActive) return;
     cam.error = null;
     cam.mode = "webcam";
+    if (typeof window !== "undefined" && !window.isSecureContext) {
+      cam.error = "Webcam bi chan tren HTTP IP LAN. Hay mo 127.0.0.1 tren may server hoac dung HTTPS.";
+      this.onUpdate(cam);
+      return;
+    }
+    if (!navigator.mediaDevices?.getUserMedia) {
+      cam.error = "Trinh duyet khong ho tro hoac dang chan camera.";
+      this.onUpdate(cam);
+      return;
+    }
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
         video: { deviceId: { exact: deviceId } },

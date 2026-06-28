@@ -1,9 +1,11 @@
 param(
   [Parameter(Mandatory = $true)]
-  [ValidateSet("ip", "port")]
+  [ValidateSet("ip", "port", "wait-http")]
   [string]$Mode,
 
-  [int]$StartPort = 0
+  [int]$StartPort = 0,
+  [string]$Url = "",
+  [int]$TimeoutSeconds = 60
 )
 
 function Get-SfdsLanIp {
@@ -74,4 +76,19 @@ if ($Mode -eq "ip") {
   Get-SfdsLanIp
 } elseif ($Mode -eq "port") {
   Get-SfdsFreePort -Port $StartPort
+} elseif ($Mode -eq "wait-http") {
+  $deadline = (Get-Date).AddSeconds($TimeoutSeconds)
+  while ((Get-Date) -lt $deadline) {
+    try {
+      $res = Invoke-WebRequest -Uri $Url -UseBasicParsing -TimeoutSec 2
+      if ($res.StatusCode -ge 200 -and $res.StatusCode -lt 500) {
+        "ready"
+        exit 0
+      }
+    } catch {
+      Start-Sleep -Seconds 1
+    }
+  }
+  "timeout"
+  exit 1
 }

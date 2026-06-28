@@ -256,10 +256,8 @@ if defined FRONTEND_DEPS_READY (
   if defined FRONTEND_HASH >"%FRONTEND_DEPS_MARKER%" echo !FRONTEND_HASH!
 )
 
-if defined HAVE_BUN (
-  set "FRONTEND_SCRIPT=dev:full"
-) else (
-  set "FRONTEND_SCRIPT=dev"
+set "FRONTEND_SCRIPT=dev"
+if not defined HAVE_BUN (
   echo [WARN] Bun was not found. The app will run without the extra WebSocket proxy.
   echo.
 )
@@ -275,21 +273,40 @@ echo.
 
 >"%LAUNCH_INFO%" echo SFDS launch info
 >>"%LAUNCH_INFO%" echo Frontend: http://%SFDS_SERVER_IP%:%SFDS_FRONTEND_PORT%
+>>"%LAUNCH_INFO%" echo Local frontend: http://127.0.0.1:%SFDS_FRONTEND_PORT%
 >>"%LAUNCH_INFO%" echo Backend: http://%SFDS_SERVER_IP%:%SFDS_BACKEND_PORT%/health/
 >>"%LAUNCH_INFO%" echo SCADA WebSocket: ws://%SFDS_SERVER_IP%:%SFDS_BACKEND_PORT%/ws/scada/detect/
 if defined HAVE_BUN >>"%LAUNCH_INFO%" echo Bun proxy: ws://%SFDS_SERVER_IP%:%SFDS_BUN_PORT%
 
 start "SFDS Backend API" "%COMSPEC%" /k call "%ROOT%start_backend.bat" "%CONDA_BAT%" "%CONDA_ENV_NAME%" "%BACKEND_DIR%"
-timeout /t 3 /nobreak >nul
+echo Waiting for backend...
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%LAUNCHER_PS%" wait-http -Url "http://127.0.0.1:%SFDS_BACKEND_PORT%/health/" -TimeoutSeconds 90 >nul
+if errorlevel 1 (
+  echo [WARN] Backend did not become ready in time.
+  echo [WARN] Check the "SFDS Backend API" window for errors.
+)
+if defined HAVE_BUN (
+  start "SFDS Bun WebSocket Proxy" "%COMSPEC%" /k call "%ROOT%start_bun_ws.bat" "%FRONTEND_DIR%"
+)
 start "SFDS Frontend" "%COMSPEC%" /k call "%ROOT%start_frontend.bat" "%FRONTEND_DIR%" "%NPM_CMD%" "%FRONTEND_SCRIPT%"
-timeout /t 2 /nobreak >nul
-start "" "http://%SFDS_SERVER_IP%:%SFDS_FRONTEND_PORT%"
+echo Waiting for frontend...
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%LAUNCHER_PS%" wait-http -Url "http://127.0.0.1:%SFDS_FRONTEND_PORT%" -TimeoutSeconds 90 >nul
+if errorlevel 1 (
+  echo [ERROR] Frontend did not become ready on port %SFDS_FRONTEND_PORT%.
+  echo Check the "SFDS Frontend" window for the real error.
+  echo Client URL would be: http://%SFDS_SERVER_IP%:%SFDS_FRONTEND_PORT%
+  echo.
+  pause
+  exit /b 1
+)
+start "" "http://127.0.0.1:%SFDS_FRONTEND_PORT%"
 
 echo SFDS is starting in separate windows.
 echo Backend is using Conda environment "%CONDA_ENV_NAME%".
-if defined HAVE_BUN echo Frontend is running "%FRONTEND_SCRIPT%" with Bun WebSocket support.
-if not defined HAVE_BUN echo Frontend is running "%FRONTEND_SCRIPT%" without Bun WebSocket support.
+if defined HAVE_BUN echo Bun WebSocket proxy is running in a separate window.
+if not defined HAVE_BUN echo Bun WebSocket proxy is not running.
 echo Client URL: http://%SFDS_SERVER_IP%:%SFDS_FRONTEND_PORT%
+echo Local URL:  http://127.0.0.1:%SFDS_FRONTEND_PORT%
 echo Launch info saved to: %LAUNCH_INFO%
 echo Keep those windows open while using the app.
 echo.
