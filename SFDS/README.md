@@ -64,6 +64,17 @@ set SFDS_CONDA_ENV=your_env_name
 run_all.bat
 ```
 
+On Windows Server, Anaconda may be installed outside the usual PATH. If
+`run_all.bat` says Conda is missing even though it is installed, point the
+launcher directly to Conda:
+
+```bat
+set "SFDS_CONDA_BAT=C:\ProgramData\anaconda3\condabin\conda.bat"
+run_all.bat
+```
+
+Use the real path to `conda.bat` on that machine.
+
 This project keeps `package-lock.json`, so npm is the safest package manager
 for installing frontend dependencies. Bun is still used at runtime for
 `frontend/bun-ws.ts`, which provides `ws://localhost:8080` for realtime

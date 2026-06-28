@@ -11,6 +11,7 @@ set "FRONTEND_DEPS_MARKER=%FRONTEND_DIR%\.sfds_frontend_deps.sha256"
 set "CONDA_ENV_NAME=admin"
 if not "%SFDS_CONDA_ENV%"=="" set "CONDA_ENV_NAME=%SFDS_CONDA_ENV%"
 set "CONDA_BAT="
+if not "%SFDS_CONDA_BAT%"=="" if exist "%SFDS_CONDA_BAT%" set "CONDA_BAT=%SFDS_CONDA_BAT%"
 set "NPM_CMD=npm.cmd"
 set "HAVE_BUN="
 
@@ -22,22 +23,54 @@ echo  SFDS - Setup and run all services
 echo ============================================================
 echo.
 
-for /f "delims=" %%C in ('where conda.bat 2^>nul') do (
+if not defined CONDA_BAT for /f "delims=" %%C in ('where conda.bat 2^>nul') do (
   if not defined CONDA_BAT set "CONDA_BAT=%%C"
 )
 
+if not defined CONDA_BAT for /f "delims=" %%E in ('where conda.exe 2^>nul') do (
+  if not defined CONDA_BAT if exist "%%~dpE..\condabin\conda.bat" (
+    for %%D in ("%%~dpE..\condabin\conda.bat") do set "CONDA_BAT=%%~fD"
+  )
+)
+
+if not defined CONDA_BAT if not "%CONDA_EXE%"=="" (
+  for %%E in ("%CONDA_EXE%") do if exist "%%~dpE..\condabin\conda.bat" (
+    for %%D in ("%%~dpE..\condabin\conda.bat") do set "CONDA_BAT=%%~fD"
+  )
+)
+if not defined CONDA_BAT if exist "%USERPROFILE%\anaconda3\condabin\conda.bat" set "CONDA_BAT=%USERPROFILE%\anaconda3\condabin\conda.bat"
+if not defined CONDA_BAT if exist "%USERPROFILE%\miniconda3\condabin\conda.bat" set "CONDA_BAT=%USERPROFILE%\miniconda3\condabin\conda.bat"
 if not defined CONDA_BAT if exist "%USERPROFILE%\anaconda3\Library\bin\conda.bat" set "CONDA_BAT=%USERPROFILE%\anaconda3\Library\bin\conda.bat"
 if not defined CONDA_BAT if exist "%USERPROFILE%\miniconda3\Library\bin\conda.bat" set "CONDA_BAT=%USERPROFILE%\miniconda3\Library\bin\conda.bat"
+if not defined CONDA_BAT if exist "%LOCALAPPDATA%\anaconda3\condabin\conda.bat" set "CONDA_BAT=%LOCALAPPDATA%\anaconda3\condabin\conda.bat"
+if not defined CONDA_BAT if exist "%LOCALAPPDATA%\miniconda3\condabin\conda.bat" set "CONDA_BAT=%LOCALAPPDATA%\miniconda3\condabin\conda.bat"
+if not defined CONDA_BAT if exist "%LOCALAPPDATA%\anaconda3\Library\bin\conda.bat" set "CONDA_BAT=%LOCALAPPDATA%\anaconda3\Library\bin\conda.bat"
+if not defined CONDA_BAT if exist "%LOCALAPPDATA%\miniconda3\Library\bin\conda.bat" set "CONDA_BAT=%LOCALAPPDATA%\miniconda3\Library\bin\conda.bat"
+if not defined CONDA_BAT if exist "%ProgramData%\anaconda3\condabin\conda.bat" set "CONDA_BAT=%ProgramData%\anaconda3\condabin\conda.bat"
+if not defined CONDA_BAT if exist "%ProgramData%\miniconda3\condabin\conda.bat" set "CONDA_BAT=%ProgramData%\miniconda3\condabin\conda.bat"
+if not defined CONDA_BAT if exist "%ProgramData%\anaconda3\Library\bin\conda.bat" set "CONDA_BAT=%ProgramData%\anaconda3\Library\bin\conda.bat"
+if not defined CONDA_BAT if exist "%ProgramData%\miniconda3\Library\bin\conda.bat" set "CONDA_BAT=%ProgramData%\miniconda3\Library\bin\conda.bat"
+if not defined CONDA_BAT if exist "C:\anaconda3\condabin\conda.bat" set "CONDA_BAT=C:\anaconda3\condabin\conda.bat"
+if not defined CONDA_BAT if exist "C:\miniconda3\condabin\conda.bat" set "CONDA_BAT=C:\miniconda3\condabin\conda.bat"
 if not defined CONDA_BAT if exist "C:\anaconda3\Library\bin\conda.bat" set "CONDA_BAT=C:\anaconda3\Library\bin\conda.bat"
 if not defined CONDA_BAT if exist "C:\miniconda3\Library\bin\conda.bat" set "CONDA_BAT=C:\miniconda3\Library\bin\conda.bat"
+if not defined CONDA_BAT if exist "%ProgramFiles%\Anaconda3\condabin\conda.bat" set "CONDA_BAT=%ProgramFiles%\Anaconda3\condabin\conda.bat"
+if not defined CONDA_BAT if exist "%ProgramFiles%\Miniconda3\condabin\conda.bat" set "CONDA_BAT=%ProgramFiles%\Miniconda3\condabin\conda.bat"
+if not defined CONDA_BAT if exist "%ProgramFiles%\Anaconda3\Library\bin\conda.bat" set "CONDA_BAT=%ProgramFiles%\Anaconda3\Library\bin\conda.bat"
+if not defined CONDA_BAT if exist "%ProgramFiles%\Miniconda3\Library\bin\conda.bat" set "CONDA_BAT=%ProgramFiles%\Miniconda3\Library\bin\conda.bat"
 
 if not defined CONDA_BAT (
   echo [ERROR] Conda was not found.
   echo Please install Anaconda or Miniconda, then run this file again.
+  echo If Conda is installed in a custom location, run:
+  echo set "SFDS_CONDA_BAT=C:\Path\To\anaconda3\condabin\conda.bat"
+  echo run_all.bat
   echo.
   pause
   exit /b 1
 )
+
+echo Conda launcher: %CONDA_BAT%
 
 where powershell.exe >nul 2>nul
 if errorlevel 1 (
