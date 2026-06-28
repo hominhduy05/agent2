@@ -31,6 +31,7 @@ backend/**/*.db
 backend/durian.db
 backend/durian.db-journal
 backend/*.log
+backend/.sfds_requirements.sha256
 backend/.venv/
 backend/.ultralytics/
 backend/env/
@@ -58,6 +59,7 @@ frontend/.vercel/
 frontend/.turbo/
 frontend/.DS_Store
 frontend/npm-debug.log*
+frontend/.sfds_frontend_deps.sha256
 frontend/yarn-debug.log*
 frontend/yarn-error.log*
 frontend/.env

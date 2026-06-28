@@ -26,10 +26,48 @@ dist/durian_pi_runtime/    optional Raspberry Pi runtime package
 
 ## Requirements
 
-- Python 3.10 or newer
-- Node.js 18+ or Bun 1.0+
+- Anaconda or Miniconda
+- Node.js 18+
+- Bun 1.0+ for the realtime WebSocket proxy
 - Optional: CUDA-capable GPU
 - A YOLO model file for backend inference
+
+## One-click Windows Setup and Run
+
+On Windows, double-click this file from the project root:
+
+```text
+run_all.bat
+```
+
+The script checks for Conda, Node.js, npm, and Bun. It uses the Conda
+environment named `admin` for the backend, installs backend dependencies,
+installs frontend dependencies with npm, starts the FastAPI backend, starts
+the Next.js frontend, starts the Bun WebSocket proxy when Bun is available,
+and opens the app at:
+
+```text
+http://localhost:3000
+```
+
+Keep the service windows open while using the app.
+
+Dependency installation is cached. The script skips Python/npm installs on
+later runs unless `backend/requirements.txt` or `frontend/package-lock.json`
+changes.
+
+If you want to use a different Conda environment name, set `SFDS_CONDA_ENV`
+before running the script:
+
+```bat
+set SFDS_CONDA_ENV=your_env_name
+run_all.bat
+```
+
+This project keeps `package-lock.json`, so npm is the safest package manager
+for installing frontend dependencies. Bun is still used at runtime for
+`frontend/bun-ws.ts`, which provides `ws://localhost:8080` for realtime
+webcam and dataset detection flows.
 
 ## Model Setup
 
@@ -62,22 +100,8 @@ so the app does not depend on a user-specific Windows `AppData` path.
 ## Backend Setup
 
 ```bash
+conda activate admin
 cd backend
-python -m venv .venv
-```
-
-Windows:
-
-```powershell
-.\.venv\Scripts\Activate.ps1
-pip install -r requirements.txt
-uvicorn main:app --host 127.0.0.1 --port 9000 --reload
-```
-
-macOS/Linux:
-
-```bash
-source .venv/bin/activate
 pip install -r requirements.txt
 uvicorn main:app --host 127.0.0.1 --port 9000 --reload
 ```
@@ -97,15 +121,14 @@ detection will work.
 ```bash
 cd frontend
 npm install
-npm run dev
+npm run dev:full
 ```
 
-Or with Bun:
+If Bun is not installed, run only the Next.js frontend:
 
 ```bash
 cd frontend
-bun install
-bun run dev
+npm run dev
 ```
 
 Open:
