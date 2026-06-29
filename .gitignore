@@ -25,8 +25,8 @@
 # ============================================================
 # Backend
 # ============================================================
-backend/__pycache__/
-backend/*.pyc
+__pycache__/
+*.pyc
 backend/*.db
 backend/durian.db
 backend/durian.db-journal
@@ -39,7 +39,6 @@ env/
 env37/
 
 # Conda env
-C:\Users\User_06\anaconda3\envs\admin\
 .env
 .env.local
 .env.*.local
@@ -50,20 +49,20 @@ C:\Users\User_06\anaconda3\envs\admin\
 # ============================================================
 # Frontend
 # ============================================================
-frontend/node_modules/
-frontend/.next/
-frontend/out/
-frontend/.vercel/
-frontend/.turbo/
-frontend/.DS_Store
-frontend/npm-debug.log*
-frontend/yarn-debug.log*
-frontend/yarn-error.log*
-frontend/.env
-frontend/.env.local
-frontend/.env.development.local
-frontend/.env.test.local
-frontend/.env.production.local
+node_modules/
+.next/
+out/
+.vercel/
+.turbo/
+.DS_Store
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
 
 # ============================================================
 # IDE & OS
