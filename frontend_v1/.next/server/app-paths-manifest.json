@@ -1,4 +1,5 @@
 {
+  "/_not-found/page": "app/_not-found/page.js",
   "/login/page": "app/login/page.js",
   "/(admin)/scada/dashboard/page": "app/(admin)/scada/dashboard/page.js",
   "/(admin)/scada/monitor/page": "app/(admin)/scada/monitor/page.js",

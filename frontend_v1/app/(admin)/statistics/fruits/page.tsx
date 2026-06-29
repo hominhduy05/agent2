@@ -14,6 +14,7 @@ import {
 } from 'recharts';
 
 import styles from './page.module.css';
+import Link from 'next/link';
 
 type Grade = 'A' | 'B' | 'C' | 'D' | null;
 
@@ -418,7 +419,19 @@ export default function StatisticsPage() {
           <tbody>
             {filtered.map((f) => (
               <tr key={f.fruitId}>
-                <td className={styles.td}>{f.fruitId}</td>
+                {/* <td className={styles.td}>{f.fruitId}</td> */}
+                <td className={styles.td}>
+  <Link
+    href={`/scada/statistics/fruits/${f.fruitId}`}
+    style={{
+      color: '#00bfff',
+      fontWeight: 600,
+      textDecoration: 'underline',
+    }}
+  >
+    {f.fruitId}
+  </Link>
+</td>
 
                 <td className={styles.td}>{f.room}</td>
 

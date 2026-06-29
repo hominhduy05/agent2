@@ -104,3 +104,4 @@ export const CONDITION_TO_GRADE: Record<ActualCondition, ExportGrade> = {
   'Sau ray': 'D',
   Hu: 'D',
 };
+
