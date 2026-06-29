@@ -86,7 +86,7 @@ export default function ScadaPage() {
 
     const deviceIds = webcams.map((x) => x.deviceId);
 
-    for (let i = 0; i < 4; i++) {
+    for (let i = 0; i < 5; i++) {
       const cam = m.cameras[i];
 
       if (cam?.isActive && cam.deviceId && !deviceIds.includes(cam.deviceId)) {
@@ -100,7 +100,7 @@ export default function ScadaPage() {
   };
 
   useEffect(() => {
-    for (let i = 0; i < 4; i++) {
+    for (let i = 0; i < 5; i++) {
       videoRefs.current[i] = { current: null };
       canvasRefs.current[i] = { current: null };
     }
@@ -115,7 +115,7 @@ export default function ScadaPage() {
 
     managerRef.current = manager;
 
-    for (let i = 0; i < 4; i++) {
+    for (let i = 0; i < 5; i++) {
       managerRef.current.setRefs(
         i,
         videoRefs.current[i] as React.RefObject<HTMLVideoElement>,
@@ -126,7 +126,7 @@ export default function ScadaPage() {
     /**
      * Re-attach stream cho video sau khi quay từ detail về
      */
-    for (let i = 0; i < 4; i++) {
+    for (let i = 0; i < 5; i++) {
       const cam = managerRef.current.cameras[i];
 
       if (cam?.stream && videoRefs.current[i]?.current) {
@@ -219,7 +219,7 @@ export default function ScadaPage() {
     if (managerRef.current) {
       managerRef.current.setThreshold(threshold);
       // Gui threshold moi qua WebSocket cho tat ca camera dang chay
-      for (let i = 0; i < 4; i++) {
+      for (let i = 0; i < 5; i++) {
         if (managerRef.current.cameras[i].isActive) {
           managerRef.current.sendThreshold(i);
         }
@@ -231,7 +231,7 @@ export default function ScadaPage() {
     const m = managerRef.current;
     if (!m) return;
 
-    for (let i = 0; i < 4; i++) {
+    for (let i = 0; i < 5; i++) {
       const cam = m.cameras[i];
       const video = videoRefs.current[i]?.current;
 
@@ -250,7 +250,7 @@ export default function ScadaPage() {
     if (!m) return;
 
     requestAnimationFrame(() => {
-      for (let i = 0; i < 4; i++) {
+      for (let i = 0; i < 5; i++) {
         m.setRefs(i, videoRefs.current[i] as any, canvasRefs.current[i] as any);
 
         const cam = m.cameras[i];
@@ -339,13 +339,13 @@ export default function ScadaPage() {
     styles.cam2,
     styles.cam3,
     styles.cam4,
-    // styles.cam5,
+    styles.cam5,
   ];
 
   useEffect(() => {
     if (!managerRef.current) return;
 
-    for (let i = 0; i < 4; i++) {
+    for (let i = 0; i < 5; i++) {
       managerRef.current.setRefs(
         i,
         videoRefs.current[i] as React.RefObject<HTMLVideoElement>,
@@ -365,7 +365,7 @@ export default function ScadaPage() {
 
   const errorCams = cameras.filter((c) => c.error).length;
 
-  const totalCams = 4;
+  const totalCams = 5;
   const activeRate = (activeCams / totalCams) * 100;
   const inactiveCams = totalCams - activeCams;
 

@@ -15,50 +15,9 @@ import { getScadaManager } from '@/lib/scada-manager';
 import { CameraChannel } from '@/lib/scada-camera';
 
 import styles from './page.module.css';
+import { getGrade } from '@/lib/fruit-grade';
 
-export const GRADE_RULES = {
-  A: 4.5, // loại lớn
-  B: 3.5, // loại trung
-  C: 2.5, // loại nhỏ
-};
-export function getGrade(item: any): 'A' | 'B' | 'C' | 'D' {
-  const finalGrade = item?.final_grade?.toLowerCase?.();
 
-  if (finalGrade) {
-    if (finalGrade.includes('grade_a')) return 'A';
-    if (finalGrade.includes('grade_b')) return 'B';
-    if (finalGrade.includes('grade_c')) return 'C';
-    if (finalGrade.includes('grade_d')) return 'D';
-  }
-
-  const className = item?.class_name?.toLowerCase?.();
-
-  if (className) {
-    if (
-      className.includes('ripe') ||
-      className.includes('mature') ||
-      className.includes('demo_grade_a')
-    ) {
-      return 'A';
-    }
-
-    if (className.includes('semi') || className.includes('demo_grade_b')) {
-      return 'B';
-    }
-
-    if (className.includes('green') || className.includes('demo_grade_c')) {
-      return 'C';
-    }
-  }
-
-  const weight = Number(item?.weight_kg ?? 0);
-
-  if (weight >= GRADE_RULES.A) return 'A';
-  if (weight >= GRADE_RULES.B) return 'B';
-  if (weight >= GRADE_RULES.C) return 'C';
-
-  return 'D';
-}
 
 export default function ScadaDetailPage() {
   const params = useParams();
@@ -84,21 +43,25 @@ export default function ScadaDetailPage() {
 
   const [, force] = useState(0);
 
+  
   const getRandomWeight = (id: string) => {
-    if (!id) return 0;
+  if (!id) {
+    return Number((2 + Math.random() * 3).toFixed(2));
+  }
 
-    const cache = weightMapRef.current;
+  const cache = weightMapRef.current;
 
-    if (cache.has(id)) {
-      return cache.get(id)!;
-    }
+  if (cache.has(id)) {
+    return cache.get(id)!;
+  }
 
-    const weight = Number((2 + Math.random() * 3).toFixed(2));
+  // Random từ 2kg -> 5kg
+  const weight = Number((2 + Math.random() * 3).toFixed(2));
 
-    cache.set(id, weight);
+  cache.set(id, weight);
 
-    return weight;
-  };
+  return weight;
+};
 
   /**
    * LOAD CAMERA + LISTENER
@@ -208,9 +171,9 @@ export default function ScadaDetailPage() {
 
         const manager = getScadaManager();
 
-        if (data?.latest?.fruit_id && data?.latest?.weight_kg) {
-          manager.setFruitWeight(data.latest.fruit_id, data.latest.weight_kg);
-        }
+        // if (data?.latest?.fruit_id && data?.latest?.weight_kg) {
+        //   manager.setFruitWeight(data.latest.fruit_id, data.latest.weight_kg);
+        // }
       } catch {
         setScaleStatus(null);
       }
@@ -265,11 +228,11 @@ export default function ScadaDetailPage() {
     return Array.from(map.values()).sort((a, b) => b.timestamp - a.timestamp);
   }, [camera?.cropHistory]);
 
-  useEffect(() => {
-    if (camera?.confidenceThreshold != null) {
-      setThreshold(camera.confidenceThreshold);
-    }
-  }, [camera?.confidenceThreshold]);
+  // useEffect(() => {
+  //   if (camera?.confidenceThreshold != null) {
+  //     setThreshold(camera.confidenceThreshold);
+  //   }
+  // }, [camera?.confidenceThreshold]);
 
   const historyData = React.useMemo(() => {
     return uniqueHistory.map((item) => {
@@ -288,49 +251,49 @@ export default function ScadaDetailPage() {
   }, [uniqueHistory]);
 
   const historyItems = React.useMemo(() => {
-    if (!camera) return [];
+  if (!camera) return [];
 
-    const map = new Map();
+  const map = new Map();
 
-    const manager = getScadaManager();
+  (camera.inspectionHistory || []).forEach((item) => {
+    (item.detections || []).forEach((detection) => {
+      const key =
+        detection.fruit_id ||
+        detection.display_id ||
+        detection.track_id;
 
-    (camera.inspectionHistory || []).forEach((item) => {
-      (item.detections || []).forEach((detection) => {
-        const key =
-          detection.fruit_id || detection.display_id || detection.track_id;
+      if (!key) return;
 
-        if (!key) return;
+      const fruitKey = String(key);
 
-        map.set(key, {
-          fruit_id: detection.fruit_id,
-          display_id: detection.display_id,
-          track_id: detection.track_id,
+      map.set(key, {
+        fruit_id: detection.fruit_id,
+        display_id: detection.display_id,
+        track_id: detection.track_id,
 
-          class_name: detection.class_name,
-          final_grade: detection.final_grade || detection.class_name,
+        class_name: detection.class_name,
+        final_grade:
+          detection.final_grade || detection.class_name,
 
-          weight_kg:
-            detection.weight_kg ??
-            manager.getFruitWeight(detection.fruit_id) ??
-            getRandomWeight(
-              String(
-                detection.fruit_id ?? detection.display_id ?? detection.track_id
-              )
-            ),
+        // LUÔN RANDOM
+        weight_kg: getRandomWeight(fruitKey),
 
-          confidence: detection.confidence,
+        confidence: detection.confidence,
 
-          timestamp: item.timestamp,
+        timestamp: item.timestamp,
 
-          image: item.dataUrl || camera.lastCropDataUrl || '',
-        });
+        image:
+          item.dataUrl ||
+          camera.lastCropDataUrl ||
+          '',
       });
     });
+  });
 
-    return Array.from(map.values()).sort(
-      (a: any, b: any) => b.timestamp - a.timestamp
-    );
-  }, [camera?.inspectionHistory]);
+  return Array.from(map.values()).sort(
+    (a: any, b: any) => b.timestamp - a.timestamp
+  );
+}, [camera?.inspectionHistory]);
 
   const historyStats = React.useMemo(() => {
     return historyItems.reduce(
@@ -510,7 +473,7 @@ export default function ScadaDetailPage() {
                       </div>
 
                       <div className={styles.historyWeight}>
-                        ⚖ {item.weight_kg?.toFixed(2)} kg
+                        ⚖ {Number(item.weight_kg).toFixed(2)} kg
                       </div>
 
                       <div className={styles.historyTime}>

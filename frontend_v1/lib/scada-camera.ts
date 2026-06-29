@@ -374,7 +374,10 @@ function drawDetections(
     ctx.roundRect(x1, y1, w, h, 4);
     ctx.stroke();
 
-    const idLabel = `ID ${box.display_id ?? box.track_id ?? '-'}`;
+    const idLabel = `ID ${
+      box.fruit_id ?? box.display_id ?? box.track_id ?? '-'
+    }`;
+    // const idLabel = `ID ${box.display_id ?? box.track_id ?? '-'}`;
     const gradeLabel = classGrade(box.class_name);
     const labelHeight = 24;
     const labelPadX = 8;
@@ -423,6 +426,82 @@ function scaleCanvasToElement(
 export class ScadaCameraManager {
   cameras: CameraChannel[] = [];
   private threshold = 0.25;
+
+  private fruitCounter = 0;
+  private currentFruitId: string | null = null;
+  private lastFruitSeenAt = 0;
+  // private assignFruitId(detections: BoundingBox[]) {
+  //   if (!detections.length) return;
+
+  //   if (!this.currentFruitId) {
+  //     this.fruitCounter += 1;
+  //     this.currentFruitId = `F${this.fruitCounter}`;
+
+  //     console.log(
+  //       '[NEW FRUIT]',
+  //       this.currentFruitId,
+  //       'counter=',
+  //       this.fruitCounter
+  //     );
+  //   }
+
+  //   this.lastFruitSeenAt = Date.now();
+
+  //   detections.forEach((det) => {
+  //     det.fruit_id = this.currentFruitId;
+  //   });
+
+  //   console.log('[ASSIGN]', this.currentFruitId, detections.length);
+  // }
+  private assignFruitId(
+    cameraIndex: number,
+    detections: BoundingBox[],
+    source: string
+  ) {
+    if (!detections.length) return;
+
+    if (!this.currentFruitId) {
+      this.fruitCounter += 1;
+      this.currentFruitId = `F${this.fruitCounter}`;
+
+      console.log(
+        '[NEW FRUIT]',
+        this.currentFruitId,
+        'cam=',
+        cameraIndex,
+        'source=',
+        source
+      );
+    }
+
+    this.lastFruitSeenAt = Date.now();
+
+    detections.forEach((det) => {
+      det.fruit_id = this.currentFruitId!;
+    });
+
+    console.log(
+      '[ASSIGN]',
+      this.currentFruitId,
+      'cam=',
+      cameraIndex,
+      'source=',
+      source
+    );
+  }
+  private checkFruitGone() {
+    if (!this.currentFruitId) return;
+
+    const now = Date.now();
+
+    // if (now - this.lastFruitSeenAt > 3000) {
+    //   this.currentFruitId = null;
+    // }
+    if (now - this.lastFruitSeenAt > 3000) {
+      this.currentFruitId = null;
+    }
+  }
+
   // private onUpdate: (camera: CameraChannel) => void;
   private onUpdate: (camera: CameraChannel) => void = () => {};
 
@@ -455,6 +534,10 @@ export class ScadaCameraManager {
         this.cameras[i].inspectionHistory || []
       );
     }
+
+    setInterval(() => {
+      this.checkFruitGone();
+    }, 1000);
   }
 
   public setOnUpdate(callback?: (camera: CameraChannel) => void) {
@@ -627,7 +710,11 @@ export class ScadaCameraManager {
         const cropDetections = (data.detections || []).filter(
           (d) => d.confidence >= this.threshold
         );
+        // detections = cropDetections;
         detections = cropDetections;
+
+        // this.assignFruitId(detections);
+        this.assignFruitId(index, detections, 'ws');
         imageWidth = data.image_width;
         imageHeight = data.image_height;
       } catch {
@@ -953,8 +1040,6 @@ export class ScadaCameraManager {
     cam.lastRawDetectionCount = 0;
     cam.error = null;
     this.onUpdate(cam);
-
-    
   }
 
   // ── Auto capture ───────────────────────────────────────────────
@@ -995,11 +1080,13 @@ export class ScadaCameraManager {
   startWebSocketDetect(index: number) {
     const cam = this.cameras[index];
     console.log(
-  '[START WS]',
-  index,
-  'active=', cam.isActive,
-  'hasWs=', !!cam.ws
-);
+      '[START WS]',
+      index,
+      'active=',
+      cam.isActive,
+      'hasWs=',
+      !!cam.ws
+    );
 
     if (!cam.isActive || cam.ws) return;
 
@@ -1092,6 +1179,9 @@ export class ScadaCameraManager {
           : undefined,
       };
 
+      // this.assignFruitId(result.detections);
+      this.assignFruitId(index, result.detections, 'ws');
+
       const crop = this.hasCapturedTrack(index, result)
         ? null
         : this.captureCrop(index, result);
@@ -1138,11 +1228,7 @@ export class ScadaCameraManager {
         );
       }
 
-      console.log(
-  "[RESULT]",
-  index,
-  data
-);
+      console.log('[RESULT]', index, data);
     };
 
     ws.onerror = () => {
@@ -1211,12 +1297,12 @@ export class ScadaCameraManager {
           reader.onload = () => {
             const base64 = (reader.result as string).split(',')[1];
             console.log(
-  '[SEND]',
-  index,
-  video?.videoWidth,
-  video?.videoHeight,
-  ws.readyState
-);
+              '[SEND]',
+              index,
+              video?.videoWidth,
+              video?.videoHeight,
+              ws.readyState
+            );
             ws.send(
               JSON.stringify({
                 type: 'frame',
@@ -1283,6 +1369,8 @@ export class ScadaCameraManager {
           timestamp: Date.now(),
           scale: slotResult?.scale || data.scale || null,
         };
+        // this.assignFruitId(result.detections);
+        this.assignFruitId(index, result.detections, 'ws');
 
         const crop = this.hasCapturedTrack(index, result)
           ? null
@@ -1347,6 +1435,8 @@ export class ScadaCameraManager {
                 }
               : null),
         };
+        // this.assignFruitId(result.detections);
+        this.assignFruitId(index, result.detections, 'ws');
 
         const crop = this.hasCapturedTrack(index, result)
           ? null
