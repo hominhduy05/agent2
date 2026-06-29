@@ -130,24 +130,40 @@ console.log('cameras:', cameras);
     setShowDeviceModal(true);
   };
 
-  const handleStartWebcam = async (deviceId: string, label: string) => {
-    if (!pendingCam) return;
+  const handleStartWebcam = async (
+  deviceId: string,
+  label: string
+) => {
+  if (!pendingCam) return;
 
-    await manager.startWebcam(pendingCam.id, deviceId, label);
+  await manager.startWebcam(
+    pendingCam.id,
+    deviceId,
+    label
+  );
 
-    setShowDeviceModal(false);
-    setPendingCam(null);
-  };
+  // Bắt đầu detect bằng WebSocket
+  await manager.startWebSocketDetect(pendingCam.id);
+
+  setShowDeviceModal(false);
+  setPendingCam(null);
+};
 
   const handleStartIPCamera = async (url: string) => {
-    if (!pendingCam || !url.trim()) return;
+  if (!pendingCam || !url.trim()) return;
 
-    await manager.startIPCamera(pendingCam.id, url, pendingCam.label);
+  await manager.startIPCamera(
+    pendingCam.id,
+    url,
+    pendingCam.label
+  );
 
-    setShowDeviceModal(false);
-    setPendingCam(null);
-    setRtspUrl('');
-  };
+  await manager.startWebSocketDetect(pendingCam.id);
+
+  setShowDeviceModal(false);
+  setPendingCam(null);
+  setRtspUrl('');
+};
 
   const testCamera = async (cam: CameraChannel) => {
     cam.error = 'Testing...';

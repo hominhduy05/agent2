@@ -6,17 +6,32 @@
       "static/css/app/layout.css",
       "static/chunks/app/layout.js"
     ],
+    "/page": [
+      "static/chunks/webpack.js",
+      "static/chunks/main-app.js",
+      "static/chunks/app/page.js"
+    ],
+    "/login/page": [
+      "static/chunks/webpack.js",
+      "static/chunks/main-app.js",
+      "static/chunks/app/login/page.js"
+    ],
+    "/api/login/route": [
+      "static/chunks/webpack.js",
+      "static/chunks/main-app.js",
+      "static/chunks/app/api/login/route.js"
+    ],
     "/(admin)/layout": [
       "static/chunks/webpack.js",
       "static/chunks/main-app.js",
       "static/css/app/(admin)/layout.css",
       "static/chunks/app/(admin)/layout.js"
     ],
-    "/(admin)/scada/monitor/page": [
+    "/(admin)/scada/dashboard/page": [
       "static/chunks/webpack.js",
       "static/chunks/main-app.js",
-      "static/css/app/(admin)/scada/monitor/page.css",
-      "static/chunks/app/(admin)/scada/monitor/page.js"
+      "static/css/app/(admin)/scada/dashboard/page.css",
+      "static/chunks/app/(admin)/scada/dashboard/page.js"
     ],
     "/api/me/route": [
       "static/chunks/webpack.js",
@@ -28,6 +43,12 @@
       "static/chunks/main-app.js",
       "static/css/app/(admin)/camera-manager/page.css",
       "static/chunks/app/(admin)/camera-manager/page.js"
+    ],
+    "/(admin)/scada/monitor/page": [
+      "static/chunks/webpack.js",
+      "static/chunks/main-app.js",
+      "static/css/app/(admin)/scada/monitor/page.css",
+      "static/chunks/app/(admin)/scada/monitor/page.js"
     ]
   }
 }

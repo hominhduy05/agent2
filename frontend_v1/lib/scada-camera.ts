@@ -942,11 +942,17 @@ export class ScadaCameraManager {
       cam.deviceLabel = deviceLabel;
       cam.isActive = true;
 
+      cam.autoEnabled = true;
+
+      console.log("[START WEBCAM]", index);
+
       if (cam.videoRef?.current) {
         cam.videoRef.current.srcObject = stream;
         cam.videoRef.current.onloadedmetadata = () => {
           cam.videoRef?.current?.play().catch(() => {});
           this.drawGuide(index);
+
+          this.startWebSocketDetect(index);
           if (cam.autoEnabled) this.startWebSocketDetect(index);
         };
         cam.videoRef.current.play().catch(() => {});
@@ -975,6 +981,8 @@ export class ScadaCameraManager {
       await configScadaCameras({ [String(index)]: rtspUrl });
       await startScadaCamera(index);
       cam.isActive = true;
+
+      cam.autoEnabled = true;
 
       // Start frame-fetch loop: pull JPEG from backend, display in <img> via object URL
       this.startFrameLoop(index);
@@ -1060,6 +1068,8 @@ export class ScadaCameraManager {
     }
 
     cam.isActive = false;
+    
+    cam.autoEnabled = false;
     // cam.deviceId = null;
     // cam.deviceLabel = null;
     cam.rtspUrl = '';
@@ -1123,6 +1133,14 @@ export class ScadaCameraManager {
       'hasWs=',
       !!cam.ws
     );
+
+     console.log('[WS START]', {
+    index,
+    isActive: cam.isActive,
+    autoEnabled: cam.autoEnabled,
+    hasWs: !!cam.ws,
+    mode: cam.mode,
+  });
 
     if (!cam.isActive) return;
 
