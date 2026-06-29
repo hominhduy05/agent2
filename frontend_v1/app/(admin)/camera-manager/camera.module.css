@@ -1,0 +1,551 @@
+/* =========================
+   PAGE
+========================= */
+.page {
+  min-height: 100vh;
+  padding: 18px;
+  background: var(--bg);
+  color: var(--scada-text-base);
+}
+
+/* =========================
+   HEADER
+========================= */
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  margin-bottom: 22px;
+}
+
+.title {
+  font-size: 20px;
+  font-weight: 700;
+  letter-spacing: 0.2px;
+}
+
+.subtitle {
+  font-size: 12px;
+  color: var(--scada-text-muted);
+  margin-top: 4px;
+}
+
+/* =========================
+   BUTTONS
+========================= */
+.btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 9px 12px;
+  border-radius: 10px;
+  border: 1px solid var(--scada-border-base);
+
+  background: var(--scada-surface);
+  color: var(--scada-text-base);
+
+  font-size: 12px;
+  cursor: pointer;
+
+  transition: all 0.15s ease;
+}
+
+.btn:hover {
+  background: var(--scada-surface-2);
+  transform: translateY(-1px);
+}
+
+.btnPrimary {
+  background: #38bdf8;
+  color: #07131a;
+  border: 1px solid rgba(56, 189, 248, 0.35);
+}
+
+.btnPrimary:hover {
+  background: #2faee6;
+}
+
+.btnDanger {
+  background: rgba(239, 68, 68, 0.08);
+  color: #f87171;
+  border: 1px solid rgba(239, 68, 68, 0.25);
+}
+
+/* =========================
+   STATS
+========================= */
+.stats {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 12px;
+  margin-bottom: 18px;
+}
+
+.card {
+  background: var(--scada-panel-base);
+  border: 1px solid var(--scada-border-base);
+  border-radius: 12px;
+  padding: 14px;
+}
+
+.cardLabel {
+  font-size: 11px;
+  color: var(--scada-text-muted);
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+}
+
+.cardValue {
+  font-size: 20px;
+  font-weight: 700;
+  margin-top: 6px;
+}
+
+/* =========================
+   LIST
+========================= */
+.list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.item {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  /* ❗ FIX QUAN TRỌNG */
+
+  padding: 14px;
+  border-radius: 12px;
+
+  background: var(--scada-panel-base);
+  border: 1px solid var(--scada-border-base);
+
+  transition: all 0.15s ease;
+}
+
+.left {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  /* ❗ tạo rhythm */
+}
+
+.titleRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.item:hover {
+  border-color: rgba(56, 189, 248, 0.25);
+  background: rgba(255, 255, 255, 0.02);
+}
+
+/* =========================
+   INFO
+========================= */
+.infoTitle {
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.metaRow {
+  margin-top: 2px;
+}
+
+.meta {
+  font-size: 11px;
+  color: var(--scada-text-muted);
+}
+
+/* =========================
+   STATUS
+========================= */
+.status {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+
+  font-size: 10px;
+  padding: 2px 8px;
+  border-radius: 6px;
+
+  border: 1px solid var(--scada-border-base);
+  background: var(--scada-surface);
+}
+
+.statusRow {
+  display: flex;
+  gap: 8px;
+  margin-top: 6px;
+  flex-wrap: wrap;
+}
+
+.online,
+.offline,
+.ai {
+  font-size: 10px;
+  padding: 2px 8px;
+  border-radius: 6px;
+
+  border: 1px solid var(--scada-border-base);
+  background: var(--scada-surface);
+
+  letter-spacing: 0.4px;
+}
+
+.online {
+  color: #22c55e;
+  border-color: rgba(34, 197, 94, 0.25);
+}
+
+.offline {
+  color: var(--scada-text-muted);
+}
+
+.ai {
+  color: #38bdf8;
+  border-color: rgba(56, 189, 248, 0.25);
+}
+
+/* =========================
+   ACTIONS
+========================= */
+.actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+/* =========================
+   MODAL
+========================= */
+.modalOverlay {
+  position: fixed;
+  inset: 0;
+
+  background: rgba(0, 0, 0, 0.65);
+  backdrop-filter: blur(15px);
+  -webkit-backdrop-filter: blur(12px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.modal {
+  width: 420px;
+  border-radius: 14px;
+
+  background: var(--scada-panel-base);
+  border: 1px solid var(--scada-border-base);
+
+  padding: 18px;
+}
+
+/* =========================
+   INPUTS
+========================= */
+.input,
+.select {
+  width: 100%;
+  padding: 10px 12px;
+
+  border-radius: 10px;
+  border: 1px solid var(--scada-border-base);
+
+  background: var(--scada-surface);
+  color: var(--scada-text-base);
+
+  font-size: 13px;
+
+  margin-bottom: 10px;
+}
+
+.input:focus,
+.select:focus {
+  outline: none;
+  border-color: #38bdf8;
+}
+
+.cameraPicker {
+  width: 760px;
+  max-width: calc(100vw - 40px);
+
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: 24px;
+
+  padding: 28px;
+
+  box-shadow:
+    0 20px 40px rgba(15, 23, 42, 0.08),
+    0 4px 12px rgba(15, 23, 42, 0.04);
+}
+
+.cameraPickerHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+
+  padding-bottom: 20px;
+  margin-bottom: 20px;
+
+  border-bottom: 1px solid var(--border-soft);
+}
+
+.cameraPickerHeader h2 {
+  margin: 0;
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.cameraPickerHeader p {
+  margin-top: 4px;
+  color: var(--text-muted);
+  font-size: 14px;
+}
+
+.sourceTabs {
+  display: flex;
+  gap: 8px;
+
+  padding: 6px;
+
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+
+  margin-bottom: 24px;
+}
+
+.sourceTabs button {
+  flex: 1;
+
+  height: 46px;
+
+  border: none;
+  border-radius: 10px;
+
+  background: transparent;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+
+  color: var(--text-muted);
+
+  cursor: pointer;
+  transition: all 0.18s ease;
+}
+
+.sourceTabs button:hover {
+  background: var(--bg-hover);
+}
+
+.activeTab {
+  background: var(--surface) !important;
+  color: var(--accent) !important;
+
+  font-weight: 600;
+
+  box-shadow:
+    0 1px 2px rgba(15, 23, 42, 0.04),
+    0 0 0 1px var(--border);
+}
+
+.deviceGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.deviceCard {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+
+  padding: 16px;
+
+  background: var(--surface);
+
+  border: 1px solid var(--border);
+  border-radius: 16px;
+
+  transition: all 0.18s ease;
+}
+
+.deviceCard:hover {
+  border-color: var(--accent);
+  transform: translateY(-2px);
+  box-shadow: 0 8px 20px rgba(99, 102, 241, 0.08);
+}
+
+.deviceIcon {
+  width: 46px;
+  height: 46px;
+
+  flex-shrink: 0;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  border-radius: 12px;
+
+  background: var(--accent-dim);
+  color: var(--accent);
+}
+
+.deviceInfo {
+  flex: 1;
+  min-width: 0;
+}
+
+.deviceName {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text);
+
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.deviceStatus {
+  margin-top: 3px;
+
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.disabled {
+  opacity: 0.55;
+}
+
+.disabled .deviceIcon {
+  background: var(--bg);
+  color: var(--text-faint);
+}
+
+.connectBtn {
+  height: 36px;
+  padding: 0 14px;
+
+  border: none;
+  border-radius: 10px;
+
+  background: var(--accent);
+  color: white;
+
+  font-size: 13px;
+  font-weight: 600;
+
+  cursor: pointer;
+}
+
+.connectBtn:hover {
+  opacity: 0.92;
+}
+
+.connectBtn:disabled {
+  background: var(--border);
+  color: var(--text-muted);
+  cursor: not-allowed;
+}
+
+.ipSection {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.sectionLabel {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.ipInput {
+  width: 100%;
+  height: 52px;
+
+  padding: 0 16px;
+
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+
+  color: var(--text);
+  font-size: 14px;
+}
+
+.ipInput:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: var(--accent-glow);
+}
+
+.connectBtnLarge {
+  height: 48px;
+
+  border: none;
+  border-radius: 14px;
+
+  background: var(--accent);
+  color: white;
+
+  font-size: 14px;
+  font-weight: 600;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+
+  cursor: pointer;
+}
+
+.footer {
+  display: flex;
+  justify-content: flex-end;
+
+  margin-top: 24px;
+  padding-top: 20px;
+
+  border-top: 1px solid var(--border-soft);
+}
+
+.cancelBtn {
+  height: 42px;
+  padding: 0 18px;
+
+  border-radius: 12px;
+
+  background: var(--bg);
+  border: 1px solid var(--border);
+
+  color: var(--text-muted);
+
+  cursor: pointer;
+}
+
+.cameraBadge {
+  height: 34px;
+  padding: 0 12px;
+
+  display: flex;
+  align-items: center;
+
+  border-radius: 999px;
+
+  background: var(--accent-dim);
+  color: var(--accent);
+
+  font-size: 12px;
+  font-weight: 700;
+}
