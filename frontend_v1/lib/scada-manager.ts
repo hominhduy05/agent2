@@ -22,6 +22,7 @@ function exposeDev(instance: ScadaCameraManager | null) {
   }
 }
 
+
 function pushFruitRealtime(
   cameraIndex: number,
   result: any

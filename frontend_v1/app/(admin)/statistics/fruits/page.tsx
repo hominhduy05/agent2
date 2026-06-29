@@ -422,7 +422,7 @@ export default function StatisticsPage() {
                 {/* <td className={styles.td}>{f.fruitId}</td> */}
                 <td className={styles.td}>
   <Link
-    href={`/scada/statistics/fruits/${f.fruitId}`}
+    href={`/statistics/fruits/${f.fruitId}`}
     style={{
       color: '#00bfff',
       fontWeight: 600,
