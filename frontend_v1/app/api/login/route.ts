@@ -19,9 +19,13 @@ export async function POST(req: Request) {
 
   const user = USERS.find((u) => u.email === email && u.password === password);
 
+  const host = req.headers.get('host') || 'localhost:3000';
+  const proto = process.env.NODE_ENV === 'production' ? 'https' : 'http';
+  const baseUrl = `${proto}://${host}`;
+
   if (!user) {
     return NextResponse.redirect(
-      new URL(`/login?error=1&email=${encodeURIComponent(email)}`, req.url)
+      new URL(`/login?error=1&email=${encodeURIComponent(email)}`, baseUrl)
     );
   }
 
@@ -59,7 +63,7 @@ export async function POST(req: Request) {
       break;
   }
 
-  const res = NextResponse.redirect(new URL(redirectUrl, req.url));
+  const res = NextResponse.redirect(new URL(redirectUrl, baseUrl));
 
   res.cookies.set('auth', token, {
     httpOnly: true,

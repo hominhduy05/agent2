@@ -2,6 +2,8 @@
 SCADA Router — WebSocket realtime detection, RTSP camera proxy.
 Mounted into app_scada.py.
 """
+import asyncio
+import functools
 import io
 import os
 import time
@@ -53,14 +55,14 @@ _tracker_mgr: TrackerManager | None = None
 def get_tracker_mgr() -> TrackerManager:
     global _tracker_mgr
     if _tracker_mgr is None:
-        _tracker_mgr = TrackerManager(num_slots=4, max_age=15, min_hits=1, iou_threshold=0.3)
+        _tracker_mgr = TrackerManager(num_slots=5, max_age=15, min_hits=1, iou_threshold=0.3)
     return _tracker_mgr
 
 
 # ---------------------------------------------------------------------------
 # Global RTSP config
 # ---------------------------------------------------------------------------
-CAMERA_RTSP_URLS: dict[int, str] = {0: "", 1: "", 2: "", 3: ""}
+CAMERA_RTSP_URLS: dict[int, str] = {0: "", 1: "", 2: "", 3: "", 4: ""}
 _slot_captures: dict[int, "RtspCapture"] = {}
 
 
@@ -639,8 +641,8 @@ def _quality_gate(slot: int, raw: list[dict], image: Image.Image, width: int, he
 
 @router.websocket("/ws/scada/detect/{slot}/")
 async def ws_scada_detect(ws: WebSocket, slot: int):
-    if not (0 <= slot <= 3):
-        await ws.close(code=1008, reason="slot must be 0-3")
+    if not (0 <= slot <= 4):
+        await ws.close(code=1008, reason="slot must be 0-4")
         return
 
     await ws.accept()
@@ -677,16 +679,24 @@ async def ws_scada_detect(ws: WebSocket, slot: int):
                     await ws.send_json({"type": "error", "message": "Model not loaded"})
                     continue
 
+                loop = asyncio.get_event_loop()
                 try:
-                    raw = engine_obj.predict(image, conf=frame_conf, iou=0.45)
-                    tracked = get_tracker_mgr().update(slot, raw)
+                    def _run_inference():
+                        raw = engine_obj.predict(image, conf=frame_conf, iou=0.45)
+                        tracked = get_tracker_mgr().update(slot, raw)
+                        return raw, tracked
+
+                    raw, tracked = await loop.run_in_executor(None, _run_inference)
                 except Exception as e:
                     print(f"[WS] Inference error slot {slot}: {e}")
                     await ws.send_json({"type": "error", "message": f"Inference error: {e}"})
                     continue
 
                 try:
-                    quality = _quality_gate(slot, tracked, image, width, height, frame_conf)
+                    quality = await loop.run_in_executor(
+                        None,
+                        functools.partial(_quality_gate, slot, tracked, image, width, height, frame_conf)
+                    )
 
                     if not quality["ready"]:
                         if quality.get("reason") == "tracked_fruit_left_frame":
@@ -825,8 +835,8 @@ async def update_camera_config(body: CameraConfigRequest) -> dict:
 # ---------------------------------------------------------------------------
 @router.get("/api/scada/frame/{slot}/")
 async def get_camera_frame(slot: int) -> StreamingResponse:
-    if not (0 <= slot <= 3):
-        raise HTTPException(status_code=400, detail="slot must be 0-3")
+    if not (0 <= slot <= 4):
+        raise HTTPException(status_code=400, detail="slot must be 0-4")
 
     rtsp_url = CAMERA_RTSP_URLS.get(slot, "")
     if not rtsp_url:
@@ -860,8 +870,8 @@ async def detect_camera_frame(
     slot: int,
     conf: float = Form(0.25),
 ) -> BatchDetectResponse:
-    if not (0 <= slot <= 3):
-        raise HTTPException(status_code=400, detail="slot must be 0-3")
+    if not (0 <= slot <= 4):
+        raise HTTPException(status_code=400, detail="slot must be 0-4")
 
     if engine_obj is None:
         raise HTTPException(status_code=503, detail="Model not loaded.")
@@ -966,8 +976,8 @@ async def detect_camera_frame(
 # ---------------------------------------------------------------------------
 @router.post("/api/scada/cameras/{slot}/start/")
 async def start_camera(slot: int) -> dict:
-    if not (0 <= slot <= 3):
-        raise HTTPException(status_code=400, detail="slot must be 0-3")
+    if not (0 <= slot <= 4):
+        raise HTTPException(status_code=400, detail="slot must be 0-4")
 
     global _slot_captures
     rtsp_url = CAMERA_RTSP_URLS.get(slot, "")

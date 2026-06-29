@@ -5,6 +5,8 @@ import styles from './camera.module.css';
 import { useScada } from '@/hooks/use-scada';
 import { getScadaManager } from '@/lib/scada-manager';
 import { CameraChannel } from '@/lib/scada-camera';
+import { Modal } from '@/components/ui/Modal';
+import Button from '@/components/ui/Button';
 
 import {
   Camera,
@@ -50,7 +52,8 @@ export default function CameraManagementPage() {
   useEffect(() => {
     async function loadDevices() {
       try {
-        await navigator.mediaDevices.getUserMedia({ video: true });
+        const tempStream = await navigator.mediaDevices.getUserMedia({ video: true });
+        tempStream.getTracks().forEach((track) => track.stop());
 
         const devs = await navigator.mediaDevices.enumerateDevices();
 
@@ -280,15 +283,21 @@ export default function CameraManagementPage() {
       </div>
 
       {/* MODAL */}
-      {showForm && (
-        <div className={styles.modalOverlay}>
-          <div className={styles.modal}>
-            <div className={styles.modalTitle}>Add Camera</div>
+      <Modal isOpen={showForm} onClose={() => setShowForm(false)} className="max-w-md p-6 border border-gray-200 dark:border-gray-800 shadow-2xl overflow-hidden">
+        <div className="space-y-6">
+          <div>
+            <h3 className="text-lg font-bold text-gray-900 dark:text-white" style={{ fontFamily: 'Sora, sans-serif' }}>
+              Add Camera
+            </h3>
+            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+              Create a new camera channel
+            </p>
+          </div>
 
-            <div className={styles.modalSub}>Create a new camera channel</div>
-
+          <div className="space-y-1.5">
+            <label className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase">Camera name</label>
             <input
-              className={styles.input}
+              className="w-full px-3 py-2.5 text-sm rounded-lg bg-gray-50 dark:bg-gray-950 border border-gray-200 dark:border-gray-800 text-gray-900 dark:text-white focus:outline-none focus:border-brand-500 transition-colors"
               placeholder="Camera name"
               value={form.name}
               onChange={(e) =>
@@ -298,13 +307,18 @@ export default function CameraManagementPage() {
                 })
               }
             />
+          </div>
 
-            <div className={styles.typeGrid}>
+          <div className="space-y-2">
+            <label className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase">Loại Camera</label>
+            <div className="grid grid-cols-2 gap-4">
               <button
                 type="button"
-                className={
-                  form.type === 'webcam' ? styles.typeActive : styles.typeCard
-                }
+                className={`flex flex-col items-center justify-center p-4 rounded-xl border transition-all gap-2 group ${
+                  form.type === 'webcam'
+                    ? 'border-brand-500 bg-brand-500/10 text-brand-500'
+                    : 'border-gray-200 dark:border-gray-800 bg-gray-50/50 dark:bg-gray-950/40 hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-600 dark:text-gray-400'
+                }`}
                 onClick={() =>
                   setForm({
                     ...form,
@@ -312,15 +326,17 @@ export default function CameraManagementPage() {
                   })
                 }
               >
-                <Camera size={18} />
-                <span>Webcam</span>
+                <Camera size={20} className={form.type === 'webcam' ? 'text-brand-500' : 'text-gray-400 group-hover:text-gray-500'} />
+                <span className="text-xs font-bold">Webcam</span>
               </button>
 
               <button
                 type="button"
-                className={
-                  form.type === 'ip' ? styles.typeActive : styles.typeCard
-                }
+                className={`flex flex-col items-center justify-center p-4 rounded-xl border transition-all gap-2 group ${
+                  form.type === 'ip'
+                    ? 'border-brand-500 bg-brand-500/10 text-brand-500'
+                    : 'border-gray-200 dark:border-gray-800 bg-gray-50/50 dark:bg-gray-950/40 hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-600 dark:text-gray-400'
+                }`}
                 onClick={() =>
                   setForm({
                     ...form,
@@ -328,26 +344,22 @@ export default function CameraManagementPage() {
                   })
                 }
               >
-                <Activity size={18} />
-                <span>IP Camera</span>
-              </button>
-            </div>
-
-            <div className={styles.modalActions}>
-              <button
-                className={`${styles.btn} ${styles.btnPrimary}`}
-                onClick={addCamera}
-              >
-                Add Camera
-              </button>
-
-              <button className={styles.btn} onClick={() => setShowForm(false)}>
-                Cancel
+                <Activity size={20} className={form.type === 'ip' ? 'text-brand-500' : 'text-gray-400 group-hover:text-gray-500'} />
+                <span className="text-xs font-bold">IP Camera</span>
               </button>
             </div>
           </div>
+
+          <div className="flex justify-end gap-2 pt-4 border-t border-gray-100 dark:border-gray-800">
+            <Button variant="outline" size="sm" onClick={() => setShowForm(false)}>
+              Cancel
+            </Button>
+            <Button variant="primary" size="sm" onClick={addCamera}>
+              Add Camera
+            </Button>
+          </div>
         </div>
-      )}
+      </Modal>
 
       {showDeviceModal && pendingCam && (
         <div className={styles.modalOverlay}>

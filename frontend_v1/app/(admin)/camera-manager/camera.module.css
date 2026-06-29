@@ -114,7 +114,8 @@
 .item {
   display: flex;
   justify-content: space-between;
-  align-items: flex-start; /* ❗ FIX QUAN TRỌNG */
+  align-items: flex-start;
+  /* ❗ FIX QUAN TRỌNG */
 
   padding: 14px;
   border-radius: 12px;
@@ -124,11 +125,14 @@
 
   transition: all 0.15s ease;
 }
+
 .left {
   display: flex;
   flex-direction: column;
-  gap: 6px; /* ❗ tạo rhythm */
+  gap: 6px;
+  /* ❗ tạo rhythm */
 }
+
 .titleRow {
   display: flex;
   align-items: center;
@@ -224,6 +228,8 @@
   inset: 0;
 
   background: rgba(0, 0, 0, 0.65);
+  backdrop-filter: blur(15px);
+  -webkit-backdrop-filter: blur(12px);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -268,7 +274,7 @@
   width: 760px;
   max-width: calc(100vw - 40px);
 
-  background: var(--surface);
+  background: var(--bg-surface);
   border: 1px solid var(--border);
   border-radius: 24px;
 

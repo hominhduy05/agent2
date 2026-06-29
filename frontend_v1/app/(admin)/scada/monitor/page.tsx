@@ -140,9 +140,10 @@ export default function ScadaPage() {
 
     async function loadDevices() {
       try {
-        await navigator.mediaDevices.getUserMedia({
+        const tempStream = await navigator.mediaDevices.getUserMedia({
           video: true,
         });
+        tempStream.getTracks().forEach((track) => track.stop());
 
         const devs = await navigator.mediaDevices.enumerateDevices();
 
@@ -163,10 +164,13 @@ export default function ScadaPage() {
     }
     loadDevices();
 
-    // return () => {
-    //   console.log('GRID UNMOUNT -> CLEANUP');
-    //   managerRef.current?.cleanup();
-    // };
+    return () => {
+      const nextPath = window.location.pathname;
+      if (!nextPath.startsWith('/scada')) {
+        console.log('LEAVING SCADA MODULE -> CLEANING UP SOCKETS & CAMERAS');
+        managerRef.current?.cleanup();
+      }
+    };
   }, []);
 
   const selectedIndex =
@@ -267,8 +271,13 @@ export default function ScadaPage() {
   const router = useRouter();
 
   const handleTileClick = (id: number) => {
-    console.log('BEFORE PUSH', managerRef.current?.cameras[id]);
+    const cam = managerRef.current?.cameras[id];
+    if (!cam || !cam.isActive) {
+      console.log('CAMERA NOT ACTIVE, PREVENTING DETAIL VIEW');
+      return;
+    }
 
+    console.log('BEFORE PUSH', cam);
     router.push(`/scada/${id}`);
   };
 
@@ -623,19 +632,10 @@ export default function ScadaPage() {
                       Chua ket noi
                     </span>
                     <button
-                      // onClick={(e) => {
-                      //   e.stopPropagation();
-                      //   setPendingId(cam.id);
-                      //   setShowDeviceModal(true);
-                      // }}
                       onClick={(e) => {
                         e.stopPropagation();
-
-                        const dev = devices[cam.id];
-
-                        if (!dev) return;
-
-                        handleStartWebcam(dev.deviceId, dev.label);
+                        setPendingId(cam.id);
+                        setShowDeviceModal(true);
                       }}
                       style={{
                         marginTop: '6px',

@@ -3,8 +3,8 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev",
-    "dev:full": "concurrently \"next dev\" \"bun run bun-ws.ts\"",
+    "dev": "next dev -H 0.0.0.0",
+    "dev:full": "concurrently \"next dev -H 0.0.0.0\" \"bun run bun-ws.ts\"",
     "build": "next build",
     "start": "next start",
     "lint": "next lint",

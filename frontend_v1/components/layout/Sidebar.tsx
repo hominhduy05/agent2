@@ -1,19 +1,11 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useSidebar } from '@/components/context/SidebarContext';
+import { SIDEBAR_BY_ROLE, SidebarItem } from '@/lib/sidebar-config';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { useSidebar } from '@/components/context/SidebarContext';
-import {
-  UserCircleIcon,
-  FolderIcon,
-  AnalyserIcon,
-  AlertIcon,
-  DetectIcon,
-  CameraManagerIcon,
-} from '@/icons/index';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import SidebarWidget from './SidebarWidget';
-import { SIDEBAR_BY_ROLE, SidebarItem } from '@/lib/sidebar-config';
 
 // type NavItem = {
 //   name: string;

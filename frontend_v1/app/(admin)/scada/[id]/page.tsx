@@ -100,9 +100,14 @@ export default function ScadaDetailPage() {
 
         videoRef.current.play().catch(() => {});
       }
+    return () => {
+      const nextPath = window.location.pathname;
+      if (!nextPath.startsWith('/scada')) {
+        console.log('LEAVING SCADA MODULE -> CLEANING UP SOCKETS & CAMERAS');
+        manager.cleanup();
+      }
     }
-
-    return () => {};
+    };
   }, [id]);
 
   /**

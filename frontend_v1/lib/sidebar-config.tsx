@@ -12,6 +12,7 @@ import {
 } from '@/icons';
 
 import { UserRole } from './auth-users';
+import { HistoryIcon, Scan } from 'lucide-react';
 
 export type SidebarItem = {
   name: string;
@@ -42,7 +43,7 @@ export const SIDEBAR_BY_ROLE: Record<UserRole, SidebarItem[]> = {
 
     {
       name: 'Detect',
-      icon: <AlertIcon />,
+      icon: <Scan />,
       path: '/detect',
     },
 
@@ -81,7 +82,7 @@ export const SIDEBAR_BY_ROLE: Record<UserRole, SidebarItem[]> = {
 
     {
       name: 'Detection History',
-      icon: <AlertIcon />,
+      icon: <HistoryIcon />,
       path: '/detection-history',
     },
   ],

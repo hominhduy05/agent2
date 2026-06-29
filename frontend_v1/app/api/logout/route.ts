@@ -15,13 +15,15 @@ function clearAuth(res: NextResponse) {
 }
 
 export async function POST(req: Request) {
-  const res = NextResponse.redirect(new URL('/login', req.url));
-
+  const host = req.headers.get('host') || 'localhost:3000';
+  const proto = process.env.NODE_ENV === 'production' ? 'https' : 'http';
+  const res = NextResponse.redirect(`${proto}://${host}/login`);
   return clearAuth(res);
 }
 
 export async function GET(req: Request) {
-  const res = NextResponse.redirect(new URL('/login', req.url));
-
+  const host = req.headers.get('host') || 'localhost:3000';
+  const proto = process.env.NODE_ENV === 'production' ? 'https' : 'http';
+  const res = NextResponse.redirect(`${proto}://${host}/login`);
   return clearAuth(res);
 }
