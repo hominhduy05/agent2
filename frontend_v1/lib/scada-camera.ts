@@ -14,6 +14,7 @@ import {
 import { CameraHealth } from './scada-health-monitor';
 import { AnalyticsEvent } from './scada-analytics';
 import { fruitStore } from './fruit-store';
+import { getGrade } from './fruit-grade';
 
 export type CameraMode = 'webcam' | 'ip';
 
@@ -736,13 +737,13 @@ export class ScadaCameraManager {
     const det = detections[0];
 
     if (det && det.fruit_id && crop.dataUrl) {
-      fruitStore.addCameraResult(
-        String(det.fruit_id),
-        index + 1,
-        det.final_grade || classGrade(det.class_name),
-        crop.dataUrl
-      );
-    }
+  fruitStore.addCameraResult(
+    String(det.fruit_id),
+    index + 1,
+    getGrade(det),
+    crop.dataUrl
+  );
+}
 
     this.rememberCrop(index, item);
     this.markCapturedTrack(index, fallback);
