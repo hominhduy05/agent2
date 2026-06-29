@@ -36,7 +36,7 @@ export default function AppHeader() {
       case "owner":
         return "Owner (bên mình)";
       case "admin":
-        return "Admin (bên họ)";
+        return "Admin";
       case "manager":
         return "Quản lý";
       case "accountant":
