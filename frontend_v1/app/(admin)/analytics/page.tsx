@@ -8,7 +8,27 @@ export default function AnalyticsPage() {
   const { cameras } = useScada();
 
   const events = useMemo(() => {
-    return cameras.flatMap((c) => c.inspectionHistory || []);
+    const allEvents = cameras.flatMap((c) => c.inspectionHistory || []);
+
+
+    console.log('=== CAMERAS ===');
+  console.log(cameras);
+
+  console.log('=== EVENTS ===');
+  console.table(
+    allEvents.map((e: any) => ({
+      timestamp: e.timestamp,
+      ripeness: e.ripeness,
+      confidence: e.confidence,
+      weight: e.weight,
+      cameraId: e.cameraId,
+    }))
+  );
+
+  console.log('TOTAL EVENTS:', allEvents.length);
+
+  return allEvents;
+
   }, [cameras]);
 
   const stats = useMemo(() => {

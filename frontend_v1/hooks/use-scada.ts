@@ -51,9 +51,16 @@ export function useScada() {
      * tránh rerender liên tục khi AI streaming FPS cao
      */
     const sync = () => {
+
+      console.log('manager update');
+
+
       if (rafRef.current !== null) return;
 
       rafRef.current = requestAnimationFrame(() => {
+
+        console.log('setCameras', manager.cameras);
+        
         // IMPORTANT: clone array để React detect change
         setCameras([...manager.cameras]);
         rafRef.current = null;

@@ -48,37 +48,36 @@ export default function ScadaPage() {
   const canvasRefs = useRef<React.RefObject<HTMLCanvasElement | null>[]>([]);
 
   const autoConnectCameras = async (webcams: MediaDevice[]) => {
-    const m = managerRef.current;
+  const m = managerRef.current;
+  if (!m) return;
 
-    if (!m) return;
+  const usedDeviceIds = new Set(
+    m.cameras
+      .filter(c => c?.isActive)
+      .map(c => c.deviceId)
+  );
 
-    const max = Math.min(webcams.length, 5);
+  const available = webcams.filter(
+    d => !usedDeviceIds.has(d.deviceId)
+  );
 
-    for (let i = 0; i < max; i++) {
-      const dev = webcams[i];
+  const max = Math.min(available.length, 5);
 
-      try {
-        const cam = m.cameras[i];
+  for (let i = 0; i < max; i++) {
+    const dev = available[i];
 
-        if (cam?.isActive && cam.deviceId === dev.deviceId) {
-          continue;
-        }
+    try {
+      await m.startWebcam(i, dev.deviceId, dev.label);
+      m.startAuto(i);
 
-        await m.startWebcam(i, dev.deviceId, dev.label);
-
-        m.startAuto(i);
-
-        console.log(`Camera ${i + 1} connected`);
-      } catch (err) {
-        console.error(`Camera ${i + 1} failed`, err);
-      }
+      console.log(`Camera slot ${i + 1} connected`);
+    } catch (err) {
+      console.error(`Camera slot ${i + 1} failed`, err);
     }
+  }
 
-    setCameras([...m.cameras]);
-
-    setSelectedId((prev) => (prev === null ? 0 : prev));
-  };
-
+  setCameras([...m.cameras]);
+};
   const syncDisconnectedCameras = async (webcams: MediaDevice[]) => {
     const m = managerRef.current;
 
@@ -106,11 +105,14 @@ export default function ScadaPage() {
     }
 
     const manager = getScadaManager((cam) => {
-      setCameras((prev) => {
-        const next = [...prev];
-        next[cam.id] = { ...cam };
-        return next;
-      });
+      setCameras(prev => {
+  const next = [...prev];
+
+  const index = cam.id ?? 0;
+  next[index] = { ...cam };
+
+  return next;
+});
     });
 
     managerRef.current = manager;

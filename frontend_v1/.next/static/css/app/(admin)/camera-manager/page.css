@@ -1,0 +1,549 @@
+/*!****************************************************************************************************************************************************************************************************************************************************************************************!*\
+  !*** css ./node_modules/next/dist/build/webpack/loaders/css-loader/src/index.js??ruleSet[1].rules[14].oneOf[5].use[2]!./node_modules/next/dist/build/webpack/loaders/postcss-loader/src/index.js??ruleSet[1].rules[14].oneOf[5].use[3]!./app/(admin)/camera-manager/camera.module.css ***!
+  \****************************************************************************************************************************************************************************************************************************************************************************************/
+/* =========================
+   PAGE
+========================= */
+.camera_page__DZFjd {
+  min-height: 100vh;
+  padding: 18px;
+  background: var(--bg);
+  color: var(--scada-text-base);
+}
+
+/* =========================
+   HEADER
+========================= */
+.camera_header__g8v63 {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  margin-bottom: 22px;
+}
+
+.camera_title__nCi_p {
+  font-size: 20px;
+  font-weight: 700;
+  letter-spacing: 0.2px;
+}
+
+.camera_subtitle__Xa9_X {
+  font-size: 12px;
+  color: var(--scada-text-muted);
+  margin-top: 4px;
+}
+
+/* =========================
+   BUTTONS
+========================= */
+.camera_btn__3Spmu {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 9px 12px;
+  border-radius: 10px;
+  border: 1px solid var(--scada-border-base);
+
+  background: var(--scada-surface);
+  color: var(--scada-text-base);
+
+  font-size: 12px;
+  cursor: pointer;
+
+  transition: all 0.15s ease;
+}
+
+.camera_btn__3Spmu:hover {
+  background: var(--scada-surface-2);
+  transform: translateY(-1px);
+}
+
+.camera_btnPrimary__TpAqn {
+  background: #38bdf8;
+  color: #07131a;
+  border: 1px solid rgba(56, 189, 248, 0.35);
+}
+
+.camera_btnPrimary__TpAqn:hover {
+  background: #2faee6;
+}
+
+.camera_btnDanger__xsqj0 {
+  background: rgba(239, 68, 68, 0.08);
+  color: #f87171;
+  border: 1px solid rgba(239, 68, 68, 0.25);
+}
+
+/* =========================
+   STATS
+========================= */
+.camera_stats__0QDUB {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 12px;
+  margin-bottom: 18px;
+}
+
+.camera_card__ucawO {
+  background: var(--scada-panel-base);
+  border: 1px solid var(--scada-border-base);
+  border-radius: 12px;
+  padding: 14px;
+}
+
+.camera_cardLabel__hCSEI {
+  font-size: 11px;
+  color: var(--scada-text-muted);
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+}
+
+.camera_cardValue__M2tQn {
+  font-size: 20px;
+  font-weight: 700;
+  margin-top: 6px;
+}
+
+/* =========================
+   LIST
+========================= */
+.camera_list__NwAT3 {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.camera_item__ZzBhQ {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start; /* ❗ FIX QUAN TRỌNG */
+
+  padding: 14px;
+  border-radius: 12px;
+
+  background: var(--scada-panel-base);
+  border: 1px solid var(--scada-border-base);
+
+  transition: all 0.15s ease;
+}
+.camera_left__UHPtj {
+  display: flex;
+  flex-direction: column;
+  gap: 6px; /* ❗ tạo rhythm */
+}
+.camera_titleRow__q6HR0 {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.camera_item__ZzBhQ:hover {
+  border-color: rgba(56, 189, 248, 0.25);
+  background: rgba(255, 255, 255, 0.02);
+}
+
+/* =========================
+   INFO
+========================= */
+.camera_infoTitle__IO1Fg {
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.camera_metaRow__3tPy_ {
+  margin-top: 2px;
+}
+
+.camera_meta__PQyC_ {
+  font-size: 11px;
+  color: var(--scada-text-muted);
+}
+
+/* =========================
+   STATUS
+========================= */
+.camera_status__oszzK {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+
+  font-size: 10px;
+  padding: 2px 8px;
+  border-radius: 6px;
+
+  border: 1px solid var(--scada-border-base);
+  background: var(--scada-surface);
+}
+
+.camera_statusRow__Gab_6 {
+  display: flex;
+  gap: 8px;
+  margin-top: 6px;
+  flex-wrap: wrap;
+}
+
+.camera_online__FN2_8,
+.camera_offline__MDGKL,
+.camera_ai___2ER7 {
+  font-size: 10px;
+  padding: 2px 8px;
+  border-radius: 6px;
+
+  border: 1px solid var(--scada-border-base);
+  background: var(--scada-surface);
+
+  letter-spacing: 0.4px;
+}
+
+.camera_online__FN2_8 {
+  color: #22c55e;
+  border-color: rgba(34, 197, 94, 0.25);
+}
+
+.camera_offline__MDGKL {
+  color: var(--scada-text-muted);
+}
+
+.camera_ai___2ER7 {
+  color: #38bdf8;
+  border-color: rgba(56, 189, 248, 0.25);
+}
+
+/* =========================
+   ACTIONS
+========================= */
+.camera_actions__LPJMt {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+/* =========================
+   MODAL
+========================= */
+.camera_modalOverlay__d7fFg {
+  position: fixed;
+  inset: 0;
+
+  background: rgba(0, 0, 0, 0.65);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.camera_modal__HDesv {
+  width: 420px;
+  border-radius: 14px;
+
+  background: var(--scada-panel-base);
+  border: 1px solid var(--scada-border-base);
+
+  padding: 18px;
+}
+
+/* =========================
+   INPUTS
+========================= */
+.camera_input__5t9PS,
+.camera_select__t2W8w {
+  width: 100%;
+  padding: 10px 12px;
+
+  border-radius: 10px;
+  border: 1px solid var(--scada-border-base);
+
+  background: var(--scada-surface);
+  color: var(--scada-text-base);
+
+  font-size: 13px;
+
+  margin-bottom: 10px;
+}
+
+.camera_input__5t9PS:focus,
+.camera_select__t2W8w:focus {
+  outline: none;
+  border-color: #38bdf8;
+}
+
+.camera_cameraPicker__5kYkO {
+  width: 760px;
+  max-width: calc(100vw - 40px);
+
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 24px;
+
+  padding: 28px;
+
+  box-shadow:
+    0 20px 40px rgba(15, 23, 42, 0.08),
+    0 4px 12px rgba(15, 23, 42, 0.04);
+}
+
+.camera_cameraPickerHeader__aBslu {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+
+  padding-bottom: 20px;
+  margin-bottom: 20px;
+
+  border-bottom: 1px solid var(--border-soft);
+}
+
+.camera_cameraPickerHeader__aBslu h2 {
+  margin: 0;
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.camera_cameraPickerHeader__aBslu p {
+  margin-top: 4px;
+  color: var(--text-muted);
+  font-size: 14px;
+}
+
+.camera_sourceTabs__XSrLD {
+  display: flex;
+  gap: 8px;
+
+  padding: 6px;
+
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+
+  margin-bottom: 24px;
+}
+
+.camera_sourceTabs__XSrLD button {
+  flex: 1;
+
+  height: 46px;
+
+  border: none;
+  border-radius: 10px;
+
+  background: transparent;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+
+  color: var(--text-muted);
+
+  cursor: pointer;
+  transition: all 0.18s ease;
+}
+
+.camera_sourceTabs__XSrLD button:hover {
+  background: var(--bg-hover);
+}
+
+.camera_activeTab__ixscK {
+  background: var(--surface) !important;
+  color: var(--accent) !important;
+
+  font-weight: 600;
+
+  box-shadow:
+    0 1px 2px rgba(15, 23, 42, 0.04),
+    0 0 0 1px var(--border);
+}
+
+.camera_deviceGrid__eQQUy {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.camera_deviceCard__0orDq {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+
+  padding: 16px;
+
+  background: var(--surface);
+
+  border: 1px solid var(--border);
+  border-radius: 16px;
+
+  transition: all 0.18s ease;
+}
+
+.camera_deviceCard__0orDq:hover {
+  border-color: var(--accent);
+  transform: translateY(-2px);
+  box-shadow: 0 8px 20px rgba(99, 102, 241, 0.08);
+}
+
+.camera_deviceIcon__MD3QA {
+  width: 46px;
+  height: 46px;
+
+  flex-shrink: 0;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  border-radius: 12px;
+
+  background: var(--accent-dim);
+  color: var(--accent);
+}
+
+.camera_deviceInfo__M4AxS {
+  flex: 1;
+  min-width: 0;
+}
+
+.camera_deviceName__MRsoB {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text);
+
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.camera_deviceStatus__VicWm {
+  margin-top: 3px;
+
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.camera_disabled__UdsUT {
+  opacity: 0.55;
+}
+
+.camera_disabled__UdsUT .camera_deviceIcon__MD3QA {
+  background: var(--bg);
+  color: var(--text-faint);
+}
+
+.camera_connectBtn__2v7Pa {
+  height: 36px;
+  padding: 0 14px;
+
+  border: none;
+  border-radius: 10px;
+
+  background: var(--accent);
+  color: white;
+
+  font-size: 13px;
+  font-weight: 600;
+
+  cursor: pointer;
+}
+
+.camera_connectBtn__2v7Pa:hover {
+  opacity: 0.92;
+}
+
+.camera_connectBtn__2v7Pa:disabled {
+  background: var(--border);
+  color: var(--text-muted);
+  cursor: not-allowed;
+}
+
+.camera_ipSection__IVSUH {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.camera_sectionLabel__fmbUK {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.camera_ipInput__aJHhT {
+  width: 100%;
+  height: 52px;
+
+  padding: 0 16px;
+
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+
+  color: var(--text);
+  font-size: 14px;
+}
+
+.camera_ipInput__aJHhT:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: var(--accent-glow);
+}
+
+.camera_connectBtnLarge__aGdWZ {
+  height: 48px;
+
+  border: none;
+  border-radius: 14px;
+
+  background: var(--accent);
+  color: white;
+
+  font-size: 14px;
+  font-weight: 600;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+
+  cursor: pointer;
+}
+
+.camera_footer__cQPug {
+  display: flex;
+  justify-content: flex-end;
+
+  margin-top: 24px;
+  padding-top: 20px;
+
+  border-top: 1px solid var(--border-soft);
+}
+
+.camera_cancelBtn__Cbncb {
+  height: 42px;
+  padding: 0 18px;
+
+  border-radius: 12px;
+
+  background: var(--bg);
+  border: 1px solid var(--border);
+
+  color: var(--text-muted);
+
+  cursor: pointer;
+}
+
+.camera_cameraBadge__gD2oA {
+  height: 34px;
+  padding: 0 12px;
+
+  display: flex;
+  align-items: center;
+
+  border-radius: 999px;
+
+  background: var(--accent-dim);
+  color: var(--accent);
+
+  font-size: 12px;
+  font-weight: 700;
+}
+

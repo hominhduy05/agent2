@@ -12,21 +12,22 @@
       "static/css/app/(admin)/layout.css",
       "static/chunks/app/(admin)/layout.js"
     ],
-    "/(admin)/statistics/fruits/page": [
+    "/(admin)/scada/monitor/page": [
       "static/chunks/webpack.js",
       "static/chunks/main-app.js",
-      "static/css/app/(admin)/statistics/fruits/page.css",
-      "static/chunks/app/(admin)/statistics/fruits/page.js"
+      "static/css/app/(admin)/scada/monitor/page.css",
+      "static/chunks/app/(admin)/scada/monitor/page.js"
     ],
     "/api/me/route": [
       "static/chunks/webpack.js",
       "static/chunks/main-app.js",
       "static/chunks/app/api/me/route.js"
     ],
-    "/(admin)/statistics/fruits/[fruitId]/page": [
+    "/(admin)/camera-manager/page": [
       "static/chunks/webpack.js",
       "static/chunks/main-app.js",
-      "static/chunks/app/(admin)/statistics/fruits/[fruitId]/page.js"
+      "static/css/app/(admin)/camera-manager/page.css",
+      "static/chunks/app/(admin)/camera-manager/page.js"
     ]
   }
 }

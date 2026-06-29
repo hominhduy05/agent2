@@ -28,7 +28,11 @@ interface MediaDevice {
 
 export default function CameraManagementPage() {
   const { cameras } = useScada();
-  const manager = getScadaManager(() => {});
+console.log('RENDER CameraManagementPage');
+console.log('cameras:', cameras);
+
+  // const manager = getScadaManager(() => {});
+  const manager = getScadaManager();
 
   const [devices, setDevices] = useState<MediaDevice[]>([]);
   const [showDeviceModal, setShowDeviceModal] = useState(false);
@@ -98,7 +102,10 @@ export default function CameraManagementPage() {
     };
 
     manager.cameras.push(cam);
-    manager.setOnUpdate(() => {});
+    // manager.setOnUpdate(() => {});
+
+     console.log('after push:', manager.cameras);
+     
     setShowForm(false);
     setForm({ name: '', type: 'ip', ipUrl: '' });
 

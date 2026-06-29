@@ -737,18 +737,41 @@ export class ScadaCameraManager {
     const det = detections[0];
 
     if (det && det.fruit_id && crop.dataUrl) {
-  fruitStore.addCameraResult(
-    String(det.fruit_id),
-    index + 1,
-    getGrade(det),
-    crop.dataUrl
-  );
-}
+      fruitStore.addCameraResult(
+        String(det.fruit_id),
+        index + 1,
+        getGrade(det),
+        crop.dataUrl
+      );
+    }
 
     this.rememberCrop(index, item);
     this.markCapturedTrack(index, fallback);
-    fallback.cropDataUrl = crop.dataUrl;
-    fallback.detections = detections;
+    // fallback.cropDataUrl = crop.dataUrl;
+    // fallback.detections = detections;
+
+    const cam = this.cameras[index];
+    const newResult: ScadaResult = {
+      detections: [...detections], // clone để tránh reference bug
+      imageWidth: fallback.imageWidth,
+      imageHeight: fallback.imageHeight,
+      imageDataUrl: fallback.imageDataUrl,
+      timestamp: Date.now(),
+      cropDataUrl: crop.dataUrl,
+      quality: fallback.quality,
+      scale: fallback.scale,
+    };
+
+    // update camera state đồng bộ
+    cam.result = newResult;
+    cam.resultHistory = [newResult, ...(cam.resultHistory || [])].slice(
+      0,
+      MAX_HISTORY
+    );
+    cam.frameCount += 1;
+
+    // quan trọng: force UI update
+    this.onUpdate(cam);
   }
 
   setThreshold(t: number) {
@@ -1101,7 +1124,14 @@ export class ScadaCameraManager {
       !!cam.ws
     );
 
-    if (!cam.isActive || cam.ws) return;
+    if (!cam.isActive) return;
+
+    if (cam.ws) {
+      try {
+        cam.ws.close();
+      } catch (e) {}
+      cam.ws = undefined;
+    }
 
     const url = `${WS_PROTOCOL}://${new URL(API_BASE).host}/ws/scada/detect/${index}/`;
     const ws = new WebSocket(url);
@@ -1195,9 +1225,10 @@ export class ScadaCameraManager {
       // this.assignFruitId(result.detections);
       this.assignFruitId(index, result.detections, 'ws');
 
-      const crop = this.hasCapturedTrack(index, result)
-        ? null
-        : this.captureCrop(index, result);
+      // const crop = this.hasCapturedTrack(index, result)
+      //   ? null
+      //   : this.captureCrop(index, result);
+      const crop = this.captureCrop(index, result);
       if (crop) {
         await this.analyzeCrop(index, crop, result);
       } else {
@@ -1261,6 +1292,7 @@ export class ScadaCameraManager {
         cam.autoEnabled &&
         cam.mode === 'webcam'
       ) {
+        cam.ws = undefined;
         setTimeout(() => this.startWebSocketDetect(index), 2000);
       }
     };

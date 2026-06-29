@@ -41,7 +41,7 @@ DEMO_SAME_FRUIT_WINDOW_SECONDS = float(
     os.getenv("DURIAN_DEMO_SAME_FRUIT_WINDOW_SECONDS", "2")
 )
 DEMO_EVENT_MAX_SECONDS = float(os.getenv("DURIAN_DEMO_EVENT_MAX_SECONDS", "10"))
-DEMO_CAMERA_GROUP_SIZE = max(1, int(os.getenv("DURIAN_DEMO_CAMERA_GROUP_SIZE", "4")))
+DEMO_CAMERA_GROUP_SIZE = max(1, int(os.getenv("DURIAN_DEMO_CAMERA_GROUP_SIZE", "5")))
 
 _lock = threading.Lock()
 _demo_enabled = os.getenv("DURIAN_DEMO_LABEL_OVERRIDE", "0").strip().lower() in {
