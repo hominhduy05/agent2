@@ -1,4 +1,4 @@
-import DatasetPageClient from "./DatasetPageClient";
+import DatasetPageClient from './DatasetPageClient';
 
 export default function DatasetPage() {
   return <DatasetPageClient />;

@@ -1,7 +1,7 @@
-"use client";
+'use client';
 
-import React, { createContext, useContext, useState, useCallback } from "react";
-import { BoundingBox } from "@/lib/types";
+import React, { createContext, useContext, useState, useCallback } from 'react';
+import { BoundingBox } from '@/lib/types';
 
 interface WebcamStatsState {
   totalCount: number;
@@ -49,19 +49,28 @@ export function useWebcamStats() {
   return useContext(WebcamContext);
 }
 
-export function WebcamStatsProvider({ children }: { children: React.ReactNode }) {
+export function WebcamStatsProvider({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
   const [stats, setStats] = useState<WebcamStatsState>(defaultStats);
   const [isStreaming, setIsStreaming] = useState(false);
   const [isDetecting, setIsDetecting] = useState(false);
 
   const onDetection = useCallback((detections: BoundingBox[]) => {
     setStats((prev) => {
-      const mature = detections.filter((d) => d.class_name === "mature").length;
-      const immature = detections.filter((d) => d.class_name === "immature").length;
-      const defective = detections.filter((d) => d.class_name === "defective").length;
+      const mature = detections.filter((d) => d.class_name === 'mature').length;
+      const immature = detections.filter(
+        (d) => d.class_name === 'immature'
+      ).length;
+      const defective = detections.filter(
+        (d) => d.class_name === 'defective'
+      ).length;
       const frameTotal = mature + immature + defective;
       const newTotal = prev.totalCount + frameTotal;
-      const goodCount = (prev.matureCount + mature) + (prev.immatureCount + immature);
+      const goodCount =
+        prev.matureCount + mature + (prev.immatureCount + immature);
 
       return {
         ...prev,
@@ -69,7 +78,8 @@ export function WebcamStatsProvider({ children }: { children: React.ReactNode })
         matureCount: prev.matureCount + mature,
         immatureCount: prev.immatureCount + immature,
         defectiveCount: prev.defectiveCount + defective,
-        qualityRate: newTotal > 0 ? Math.round((goodCount / newTotal) * 1000) / 10 : 0,
+        qualityRate:
+          newTotal > 0 ? Math.round((goodCount / newTotal) * 1000) / 10 : 0,
         lastUpdate: Date.now(),
         sessionCount: prev.sessionCount + 1,
       };
@@ -81,7 +91,17 @@ export function WebcamStatsProvider({ children }: { children: React.ReactNode })
   }, []);
 
   return (
-    <WebcamContext.Provider value={{ stats, isStreaming, isDetecting, onDetection, onReset, setStreaming: setIsStreaming, setDetecting: setIsDetecting }}>
+    <WebcamContext.Provider
+      value={{
+        stats,
+        isStreaming,
+        isDetecting,
+        onDetection,
+        onReset,
+        setStreaming: setIsStreaming,
+        setDetecting: setIsDetecting,
+      }}
+    >
       {children}
     </WebcamContext.Provider>
   );

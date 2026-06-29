@@ -102,7 +102,9 @@ export function deduplicateByTrack(
       continue;
     }
 
-    const overlapped = countedBoxes.some((k) => computeIoU(box, k) >= iouThresh);
+    const overlapped = countedBoxes.some(
+      (k) => computeIoU(box, k) >= iouThresh
+    );
     if (!overlapped) {
       unique.push(box);
       if (box.track_id != null) {

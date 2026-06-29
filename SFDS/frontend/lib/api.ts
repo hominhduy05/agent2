@@ -1,18 +1,4 @@
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:9000";
-
-async function fetchWithTimeout(
-  input: RequestInfo | URL,
-  init: RequestInit = {},
-  timeoutMs = 5000
-): Promise<Response> {
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), timeoutMs);
-  try {
-    return await fetch(input, { ...init, signal: controller.signal });
-  } finally {
-    clearTimeout(timeout);
-  }
-}
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:9000';
 
 // ---------------------------------------------------------------------------
 // Detection
@@ -20,9 +6,12 @@ async function fetchWithTimeout(
 
 export async function detectImage(file: File) {
   const formData = new FormData();
-  formData.append("file", file);
-  const res = await fetch(`${API_BASE}/detect/`, { method: "POST", body: formData });
-  if (!res.ok) throw new Error("Detection failed");
+  formData.append('file', file);
+  const res = await fetch(`${API_BASE}/detect/`, {
+    method: 'POST',
+    body: formData,
+  });
+  if (!res.ok) throw new Error('Detection failed');
   return res.json();
 }
 
@@ -42,39 +31,39 @@ export interface ScadaCameraConfig {
 
 export async function getScadaCameras(): Promise<ScadaCameraConfig> {
   const res = await fetch(`${API_BASE}/api/scada/cameras/`);
-  if (!res.ok) throw new Error("Khong the lay cau hinh camera");
+  if (!res.ok) throw new Error('Khong the lay cau hinh camera');
   return res.json();
 }
 
 export async function configScadaCameras(cameras: Record<string, string>) {
   const res = await fetch(`${API_BASE}/api/scada/cameras/`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ cameras }),
   });
-  if (!res.ok) throw new Error("Khong the luu cau hinh camera");
+  if (!res.ok) throw new Error('Khong the luu cau hinh camera');
   return res.json();
 }
 
 export async function startScadaCamera(slot: number) {
   const res = await fetch(`${API_BASE}/api/scada/cameras/${slot}/start/`, {
-    method: "POST",
+    method: 'POST',
   });
-  if (!res.ok) throw new Error("Loi bat camera");
+  if (!res.ok) throw new Error('Loi bat camera');
   return res.json();
 }
 
 export async function stopScadaCamera(slot: number) {
   const res = await fetch(`${API_BASE}/api/scada/cameras/${slot}/stop/`, {
-    method: "POST",
+    method: 'POST',
   });
-  if (!res.ok) throw new Error("Khong the tat camera");
+  if (!res.ok) throw new Error('Khong the tat camera');
   return res.json();
 }
 
 export async function fetchScadaFrame(slot: number): Promise<Blob> {
   const res = await fetch(`${API_BASE}/api/scada/frame/${slot}/`);
-  if (!res.ok) throw new Error("Loi doc frame");
+  if (!res.ok) throw new Error('Loi doc frame');
   return res.blob();
 }
 
@@ -85,18 +74,22 @@ export interface ScadaDemoMode {
 }
 
 export async function getScadaDemoMode(): Promise<ScadaDemoMode> {
-  const res = await fetchWithTimeout(`${API_BASE}/api/scada/demo-mode/`, { cache: "no-store" }, 2500);
-  if (!res.ok) throw new Error("Khong the lay che do demo");
+  const res = await fetch(`${API_BASE}/api/scada/demo-mode/`, {
+    cache: 'no-store',
+  });
+  if (!res.ok) throw new Error('Khong the lay che do demo');
   return res.json();
 }
 
-export async function setScadaDemoMode(enabled: boolean): Promise<ScadaDemoMode> {
-  const res = await fetchWithTimeout(`${API_BASE}/api/scada/demo-mode/`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
+export async function setScadaDemoMode(
+  enabled: boolean
+): Promise<ScadaDemoMode> {
+  const res = await fetch(`${API_BASE}/api/scada/demo-mode/`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ enabled }),
-  }, 2500);
-  if (!res.ok) throw new Error("Khong the cap nhat che do demo");
+  });
+  if (!res.ok) throw new Error('Khong the cap nhat che do demo');
   return res.json();
 }
 
@@ -120,8 +113,10 @@ export interface ScadaScaleStatus {
 }
 
 export async function getScadaScale(): Promise<ScadaScaleStatus> {
-  const res = await fetchWithTimeout(`${API_BASE}/api/scada/scale/`, { cache: "no-store" }, 1500);
-  if (!res.ok) throw new Error("Khong the lay du lieu can");
+  const res = await fetch(`${API_BASE}/api/scada/scale/`, {
+    cache: 'no-store',
+  });
+  if (!res.ok) throw new Error('Khong the lay du lieu can');
   return res.json();
 }
 
@@ -129,8 +124,13 @@ export interface ScadaDetectionResult {
   results: Array<{
     slot_index: number;
     detections: Array<{
-      x1: number; y1: number; x2: number; y2: number;
-      confidence: number; class_id: number; class_name: string;
+      x1: number;
+      y1: number;
+      x2: number;
+      y2: number;
+      confidence: number;
+      class_id: number;
+      class_name: string;
       polygon?: number[][] | null;
       track_id?: number | null;
       display_id?: number | null;
@@ -159,16 +159,22 @@ export interface ScadaDetectionResult {
   scale?: ScadaScaleSnapshot | null;
 }
 
-export async function detectScadaCamera(slot: number, conf = 0.25): Promise<ScadaDetectionResult> {
-  const res = await fetch(`${API_BASE}/api/scada/detect/${slot}/?conf=${conf}`, {
-    method: "POST",
-  });
-  if (!res.ok) throw new Error("Loi nhan dien");
+export async function detectScadaCamera(
+  slot: number,
+  conf = 0.25
+): Promise<ScadaDetectionResult> {
+  const res = await fetch(
+    `${API_BASE}/api/scada/detect/${slot}/?conf=${conf}`,
+    {
+      method: 'POST',
+    }
+  );
+  if (!res.ok) throw new Error('Loi nhan dien');
   return res.json();
 }
 
 export interface ScadaPiFeed {
-  type: "pi_feed";
+  type: 'pi_feed';
   online: boolean;
   channel_id?: string;
   slot_index: number;
@@ -179,8 +185,13 @@ export interface ScadaPiFeed {
   image_width?: number;
   image_height?: number;
   detections?: Array<{
-    x1: number; y1: number; x2: number; y2: number;
-    confidence: number; class_id: number; class_name: string;
+    x1: number;
+    y1: number;
+    x2: number;
+    y2: number;
+    confidence: number;
+    class_id: number;
+    class_name: string;
     polygon?: number[][] | null;
     track_id?: number | null;
     display_id?: number | null;
@@ -193,28 +204,37 @@ export interface ScadaPiFeed {
 }
 
 export async function getScadaPiFeed(): Promise<ScadaPiFeed> {
-  const res = await fetch(`${API_BASE}/api/scada/pi-feed/`, { cache: "no-store" });
-  if (!res.ok) throw new Error("Khong the lay feed Raspberry Pi");
+  const res = await fetch(`${API_BASE}/api/scada/pi-feed/`, {
+    cache: 'no-store',
+  });
+  if (!res.ok) throw new Error('Khong the lay feed Raspberry Pi');
   return res.json();
 }
 
 export interface ScadaPiFeedList {
-  type: "pi_feed_list";
+  type: 'pi_feed_list';
   capacity: number;
   feeds: ScadaPiFeed[];
   online_count: number;
 }
 
 export async function getScadaPiFeeds(): Promise<ScadaPiFeedList> {
-  const res = await fetch(`${API_BASE}/api/scada/pi-feeds/`, { cache: "no-store" });
-  if (!res.ok) throw new Error("Khong the lay danh sach feed Raspberry Pi");
+  const res = await fetch(`${API_BASE}/api/scada/pi-feeds/`, {
+    cache: 'no-store',
+  });
+  if (!res.ok) throw new Error('Khong the lay danh sach feed Raspberry Pi');
   return res.json();
 }
 
 export interface WebcamDetectResult {
   detections: Array<{
-    x1: number; y1: number; x2: number; y2: number;
-    confidence: number; class_id: number; class_name: string;
+    x1: number;
+    y1: number;
+    x2: number;
+    y2: number;
+    confidence: number;
+    class_id: number;
+    class_name: string;
     polygon?: number[][] | null;
     track_id?: number | null;
     display_id?: number | null;
@@ -235,14 +255,17 @@ export interface WebcamDetectResult {
   scale?: ScadaScaleSnapshot | null;
 }
 
-export async function detectWebcamFrame(imageBlob: Blob, conf = 0.25): Promise<WebcamDetectResult> {
+export async function detectWebcamFrame(
+  imageBlob: Blob,
+  conf = 0.25
+): Promise<WebcamDetectResult> {
   const formData = new FormData();
-  formData.append("file", imageBlob, "capture.jpg");
+  formData.append('file', imageBlob, 'capture.jpg');
   const res = await fetch(`${API_BASE}/detect/?conf=${conf}`, {
-    method: "POST",
+    method: 'POST',
     body: formData,
   });
-  if (!res.ok) throw new Error("Loi nhan dien webcam");
+  if (!res.ok) throw new Error('Loi nhan dien webcam');
   return res.json();
 }
 
@@ -260,18 +283,20 @@ export async function saveFaceDataset(payload: {
   img_height?: number;
 }) {
   const formData = new FormData();
-  formData.append("face", payload.face);
-  formData.append("grade", payload.grade);
-  formData.append("condition", payload.condition);
-  formData.append("file", payload.file);
-  if (payload.boxes) formData.append("boxes", payload.boxes);
-  if (payload.img_width !== undefined) formData.append("img_width", String(payload.img_width));
-  if (payload.img_height !== undefined) formData.append("img_height", String(payload.img_height));
+  formData.append('face', payload.face);
+  formData.append('grade', payload.grade);
+  formData.append('condition', payload.condition);
+  formData.append('file', payload.file);
+  if (payload.boxes) formData.append('boxes', payload.boxes);
+  if (payload.img_width !== undefined)
+    formData.append('img_width', String(payload.img_width));
+  if (payload.img_height !== undefined)
+    formData.append('img_height', String(payload.img_height));
   const res = await fetch(`${API_BASE}/api/dataset/save-face/`, {
-    method: "POST",
+    method: 'POST',
     body: formData,
   });
-  if (!res.ok) throw new Error("Loi luu dataset");
+  if (!res.ok) throw new Error('Loi luu dataset');
   return res.json();
 }
 
@@ -282,36 +307,47 @@ export async function listDatasetItems(params: {
   offset?: number;
 }) {
   const qs = new URLSearchParams({ category: params.category });
-  if (params.cls) qs.set("cls", params.cls);
-  if (params.limit) qs.set("limit", String(params.limit));
-  if (params.offset) qs.set("offset", String(params.offset));
+  if (params.cls) qs.set('cls', params.cls);
+  if (params.limit) qs.set('limit', String(params.limit));
+  if (params.offset) qs.set('offset', String(params.offset));
   const res = await fetch(`${API_BASE}/api/dataset/items/?${qs}`);
-  if (!res.ok) throw new Error("Khong the lay items");
+  if (!res.ok) throw new Error('Khong the lay items');
   return res.json();
 }
 
 export async function getDatasetStats() {
   const res = await fetch(`${API_BASE}/api/dataset/stats/`);
-  if (!res.ok) throw new Error("Khong the lay stats");
+  if (!res.ok) throw new Error('Khong the lay stats');
   return res.json();
 }
 
-export async function deleteDatasetItem(category: string, label: string, filename: string) {
-  const res = await fetch(`${API_BASE}/api/dataset/items/${category}/${label}/${filename}/`, {
-    method: "DELETE",
-  });
-  if (!res.ok) throw new Error("Loi xoa item");
+export async function deleteDatasetItem(
+  category: string,
+  label: string,
+  filename: string
+) {
+  const res = await fetch(
+    `${API_BASE}/api/dataset/items/${category}/${label}/${filename}/`,
+    {
+      method: 'DELETE',
+    }
+  );
+  if (!res.ok) throw new Error('Loi xoa item');
 }
 
 export async function exportDatasetZip(category: string): Promise<Blob> {
-  const res = await fetch(`${API_BASE}/api/dataset/export/?category=${category}`);
-  if (!res.ok) throw new Error("Loi export ZIP");
+  const res = await fetch(
+    `${API_BASE}/api/dataset/export/?category=${category}`
+  );
+  if (!res.ok) throw new Error('Loi export ZIP');
   return res.blob();
 }
 
 export async function getDatasetYaml(category: string) {
-  const res = await fetch(`${API_BASE}/api/dataset/data-yaml/?category=${category}`);
-  if (!res.ok) throw new Error("Loi lay yaml");
+  const res = await fetch(
+    `${API_BASE}/api/dataset/data-yaml/?category=${category}`
+  );
+  if (!res.ok) throw new Error('Loi lay yaml');
   return res.json();
 }
 
@@ -321,6 +357,6 @@ export async function getDatasetYaml(category: string) {
 
 export async function getHealth() {
   const res = await fetch(`${API_BASE}/health/`);
-  if (!res.ok) throw new Error("Health check failed");
+  if (!res.ok) throw new Error('Health check failed');
   return res.json();
 }

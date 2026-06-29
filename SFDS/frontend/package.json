@@ -3,11 +3,12 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev",
-    "dev:full": "concurrently \"next dev\" \"bun run bun-ws.ts\"",
+    "dev": "next dev -H 0.0.0.0",
+    "dev:full": "concurrently \"next dev -H 0.0.0.0\" \"bun run bun-ws.ts\"",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "format": "prettier --write ."
   },
   "dependencies": {
     "date-fns": "^3.6.0",
@@ -23,6 +24,7 @@
     "@types/react": "^18",
     "@types/react-dom": "^18",
     "concurrently": "^9.2.1",
+    "prettier": "^3.8.4",
     "typescript": "^5.4.5"
   }
 }

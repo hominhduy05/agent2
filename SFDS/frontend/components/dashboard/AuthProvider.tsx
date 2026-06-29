@@ -1,6 +1,6 @@
-"use client";
+'use client';
 
-import { createContext, useContext, useState, ReactNode } from "react";
+import { createContext, useContext, useState, ReactNode } from 'react';
 
 interface User {
   id: number;
@@ -19,9 +19,9 @@ interface AuthContextValue {
 
 const DEFAULT_USER: User = {
   id: 1,
-  username: "admin",
-  full_name: "Administrator",
-  role: "admin",
+  username: 'admin',
+  full_name: 'Administrator',
+  role: 'admin',
 };
 
 const AuthContext = createContext<AuthContextValue>({
@@ -36,7 +36,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user] = useState<User | null>(DEFAULT_USER);
 
   return (
-    <AuthContext.Provider value={{ user, isLoading: false, isHydrated: true, login: () => {}, logout: () => {} }}>
+    <AuthContext.Provider
+      value={{
+        user,
+        isLoading: false,
+        isHydrated: true,
+        login: () => {},
+        logout: () => {},
+      }}
+    >
       {children}
     </AuthContext.Provider>
   );

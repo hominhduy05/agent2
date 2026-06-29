@@ -1,5 +1,9 @@
-"use client";
+'use client';
 
-export default function ProtectedRoute({ children }: { children: React.ReactNode }) {
+export default function ProtectedRoute({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
   return <>{children}</>;
 }

@@ -1,6 +1,6 @@
-"use client";
+'use client';
 
-import { useTheme } from "@/components/context/ThemeContext";
+import { useTheme } from '@/components/context/ThemeContext';
 
 export const ThemeToggleButton: React.FC = () => {
   const { toggleTheme } = useTheme();
@@ -9,33 +9,36 @@ export const ThemeToggleButton: React.FC = () => {
     <button
       onClick={toggleTheme}
       style={{
-        position: "relative",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
+        position: 'relative',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
         width: 44,
         height: 44,
-        borderRadius: "50%",
-        border: "1px solid var(--border)",
-        background: "var(--surface)",
-        color: "var(--text-muted)",
-        cursor: "pointer",
-        transition: "border-color 0.15s, color 0.15s, background 0.15s",
+        borderRadius: '50%',
+        border: '1px solid var(--border)',
+        background: 'var(--surface)',
+        color: 'var(--text-muted)',
+        cursor: 'pointer',
+        transition: 'border-color 0.15s, color 0.15s, background 0.15s',
         flexShrink: 0,
       }}
       onMouseEnter={(e) => {
-        (e.currentTarget as HTMLButtonElement).style.borderColor = "var(--border-strong)";
-        (e.currentTarget as HTMLButtonElement).style.color = "var(--text)";
+        (e.currentTarget as HTMLButtonElement).style.borderColor =
+          'var(--border-strong)';
+        (e.currentTarget as HTMLButtonElement).style.color = 'var(--text)';
       }}
       onMouseLeave={(e) => {
-        (e.currentTarget as HTMLButtonElement).style.borderColor = "var(--border)";
-        (e.currentTarget as HTMLButtonElement).style.color = "var(--text-muted)";
+        (e.currentTarget as HTMLButtonElement).style.borderColor =
+          'var(--border)';
+        (e.currentTarget as HTMLButtonElement).style.color =
+          'var(--text-muted)';
       }}
       aria-label="Chuyển chế độ sáng/tối"
     >
       {/* Sun icon — shown in dark mode */}
       <svg
-        style={{ display: "none" }}
+        style={{ display: 'none' }}
         className="theme-sun"
         width="20"
         height="20"
@@ -51,7 +54,7 @@ export const ThemeToggleButton: React.FC = () => {
       </svg>
       {/* Moon icon — shown in light mode */}
       <svg
-        style={{ display: "block" }}
+        style={{ display: 'block' }}
         className="theme-moon"
         width="20"
         height="20"

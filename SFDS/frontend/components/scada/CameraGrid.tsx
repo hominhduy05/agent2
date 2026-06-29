@@ -1,8 +1,8 @@
-"use client";
+'use client';
 
-import React from "react";
-import CameraView from "./CameraView";
-import { CameraChannel } from "@/lib/scada-camera";
+import React from 'react';
+import CameraView from './CameraView';
+import { CameraChannel } from '@/lib/scada-camera';
 
 interface CameraGridProps {
   cameras: CameraChannel[];
@@ -22,11 +22,11 @@ export default function CameraGrid({
   return (
     <div
       style={{
-        display: "grid",
-        gridTemplateColumns: "1fr 1fr",
-        gridTemplateRows: "1fr 1fr",
-        gap: "12px",
-        height: "100%",
+        display: 'grid',
+        gridTemplateColumns: '1fr 1fr',
+        gridTemplateRows: '1fr 1fr',
+        gap: '12px',
+        height: '100%',
       }}
     >
       {cameras.map((cam) => (

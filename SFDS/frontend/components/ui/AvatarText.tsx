@@ -1,30 +1,32 @@
-import React from "react";
+import React from 'react';
 
 interface AvatarTextProps {
   name: string;
   className?: string;
 }
 
-const AvatarText: React.FC<AvatarTextProps> = ({ name, className = "" }) => {
+const AvatarText: React.FC<AvatarTextProps> = ({ name, className = '' }) => {
   const initials = name
-    .split(" ")
+    .split(' ')
     .map((word) => word[0])
-    .join("")
+    .join('')
     .toUpperCase()
     .slice(0, 2);
 
   const getColorClass = (n: string) => {
     const colors = [
-      "bg-brand-100 text-brand-600",
-      "bg-pink-100 text-pink-600",
-      "bg-cyan-100 text-cyan-600",
-      "bg-orange-100 text-orange-600",
-      "bg-green-100 text-green-600",
-      "bg-purple-100 text-purple-600",
-      "bg-yellow-100 text-yellow-600",
-      "bg-error-100 text-error-600",
+      'bg-brand-100 text-brand-600',
+      'bg-pink-100 text-pink-600',
+      'bg-cyan-100 text-cyan-600',
+      'bg-orange-100 text-orange-600',
+      'bg-green-100 text-green-600',
+      'bg-purple-100 text-purple-600',
+      'bg-yellow-100 text-yellow-600',
+      'bg-error-100 text-error-600',
     ];
-    const index = n.split("").reduce((acc, char) => acc + char.charCodeAt(0), 0);
+    const index = n
+      .split('')
+      .reduce((acc, char) => acc + char.charCodeAt(0), 0);
     return colors[index % colors.length];
   };
 

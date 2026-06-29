@@ -1,9 +1,21 @@
-import React, { ReactNode } from "react";
+import React, { ReactNode } from 'react';
 
-interface TableProps { children: ReactNode; className?: string; }
-interface TableHeaderProps { children: ReactNode; className?: string; }
-interface TableBodyProps { children: ReactNode; className?: string; }
-interface TableRowProps { children: ReactNode; className?: string; }
+interface TableProps {
+  children: ReactNode;
+  className?: string;
+}
+interface TableHeaderProps {
+  children: ReactNode;
+  className?: string;
+}
+interface TableBodyProps {
+  children: ReactNode;
+  className?: string;
+}
+interface TableRowProps {
+  children: ReactNode;
+  className?: string;
+}
 interface TableCellProps {
   children: ReactNode;
   isHeader?: boolean;
@@ -23,9 +35,11 @@ const TableRow: React.FC<TableRowProps> = ({ children, className }) => (
   <tr className={className}>{children}</tr>
 );
 const TableCell: React.FC<TableCellProps> = ({
-  children, isHeader = false, className,
+  children,
+  isHeader = false,
+  className,
 }) => {
-  const Tag = isHeader ? "th" : "td";
+  const Tag = isHeader ? 'th' : 'td';
   return <Tag className={className}>{children}</Tag>;
 };
 

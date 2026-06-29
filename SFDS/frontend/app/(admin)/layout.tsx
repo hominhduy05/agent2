@@ -1,10 +1,10 @@
-"use client";
+'use client';
 
-import { useSidebar } from "@/components/context/SidebarContext";
-import AppHeader from "@/components/layout/Header";
-import AppSidebar from "@/components/layout/Sidebar";
-import Backdrop from "@/components/layout/Backdrop";
-import { usePathname } from "next/navigation";
+import { useSidebar } from '@/components/context/SidebarContext';
+import AppHeader from '@/components/layout/Header';
+import AppSidebar from '@/components/layout/Sidebar';
+import Backdrop from '@/components/layout/Backdrop';
+import { usePathname } from 'next/navigation';
 
 export default function AdminLayout({
   children,
@@ -13,30 +13,57 @@ export default function AdminLayout({
 }) {
   const { isExpanded, isHovered, isMobileOpen } = useSidebar();
   const pathname = usePathname();
-  const isRealtimeView = pathname.startsWith("/scada") || pathname.startsWith("/detect");
+
+  const isRealtimeView =
+    pathname.startsWith('/scada') || pathname.startsWith('/detect');
 
   const mainContentMargin = isMobileOpen
-    ? "ml-0"
+    ? 'ml-0'
     : isExpanded || isHovered
-    ? "lg:ml-[280px]"
-    : "lg:ml-[80px]";
+      ? 'lg:ml-[280px]'
+      : 'lg:ml-[80px]';
 
   return (
-    <div style={{ minHeight: "100vh", background: "var(--bg)" }}>
+    <div
+      className="min-h-screen flex"
+      style={{
+        background: 'var(--bg)',
+      }}
+    >
+      {/* SIDEBAR */}
       <AppSidebar />
       <Backdrop />
+
+      {/* MAIN WRAPPER */}
       <div
-        className={`flex-1 transition-all duration-300 ease-in-out ${mainContentMargin}`}
-        style={{ background: "var(--bg)" }}
+        className={`
+          flex flex-col
+          flex-1
+          min-w-0
+          h-screen
+          min-h-0
+          overflow-hidden
+          transition-all
+          duration-300
+          ease-in-out
+          ${mainContentMargin}
+        `}
       >
-        <AppHeader />
-        <div style={{
-          padding: isRealtimeView ? "8px 12px" : "20px 24px",
-          maxWidth: isRealtimeView ? "none" : "1440px",
-          margin: "0 auto",
-        }}>
-          {children}
+        {/* HEADER (fixed height) */}
+        <div className="shrink-0 h-16">
+          <AppHeader />
         </div>
+
+        {/* MAIN SCROLL AREA */}
+        <main
+          className={
+            isRealtimeView
+              ? 'flex-1 min-h-0 overflow-y-auto p-0'
+              : 'flex-1 min-h-0 overflow-y-auto p-[20px_24px]'
+          }
+        >
+          {children}
+        </main>
       </div>
     </div>
   );

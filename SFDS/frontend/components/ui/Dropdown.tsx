@@ -1,6 +1,6 @@
-"use client";
-import type React from "react";
-import { useEffect, useRef } from "react";
+'use client';
+import type React from 'react';
+import { useEffect, useRef } from 'react';
 
 interface DropdownProps {
   isOpen: boolean;
@@ -14,7 +14,7 @@ export const Dropdown: React.FC<DropdownProps> = ({
   isOpen,
   onClose,
   children,
-  className = "",
+  className = '',
   style,
 }) => {
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -24,26 +24,26 @@ export const Dropdown: React.FC<DropdownProps> = ({
       if (
         dropdownRef.current &&
         !dropdownRef.current.contains(event.target as Node) &&
-        !(event.target as HTMLElement).closest(".dropdown-toggle")
+        !(event.target as HTMLElement).closest('.dropdown-toggle')
       ) {
         onClose();
       }
     };
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [onClose]);
 
   if (!isOpen) return null;
 
   const baseStyle: React.CSSProperties = {
-    position: "absolute",
+    position: 'absolute',
     zIndex: 40,
     right: 0,
     marginTop: 8,
     borderRadius: 16,
-    background: "var(--bg-elevated)",
-    border: "1px solid var(--border-strong)",
-    boxShadow: "var(--shadow-lg)",
+    background: 'var(--bg-elevated)',
+    border: '1px solid var(--border-strong)',
+    boxShadow: 'var(--shadow-lg)',
     ...style,
   };
 
