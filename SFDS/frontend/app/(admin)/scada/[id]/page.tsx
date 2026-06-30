@@ -35,7 +35,7 @@ export default function ScadaDetailPage() {
 
   const [camera, setCamera] = useState<CameraChannel | null>(null);
 
-  const [threshold, setThreshold] = useState(0.8);
+  const [threshold, setThreshold] = useState(0.25);
 
   const [demoMode, setDemoMode] = useState(false);
 

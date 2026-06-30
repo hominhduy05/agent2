@@ -119,6 +119,27 @@ function normalizeBaseUrl(value: string, fallbackProtocol: 'http' | 'ws') {
   return `${fallbackProtocol}://${raw.replace(/^\/+|\/+$/g, '')}`;
 }
 
+function isLoopbackHostname(hostname: string) {
+  return hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '::1';
+}
+
+function preferBrowserHostForLocalBuild(base: string) {
+  if (typeof window === 'undefined') return base;
+
+  try {
+    const url = new URL(base);
+    const browserHost = window.location.hostname;
+
+    if (browserHost && isLoopbackHostname(url.hostname) && !isLoopbackHostname(browserHost)) {
+      url.hostname = browserHost;
+    }
+
+    return url.toString().replace(/\/+$/, '');
+  } catch {
+    return base;
+  }
+}
+
 function apiBaseToWsBase(apiBase: string) {
   const normalized = normalizeBaseUrl(apiBase, 'http');
   try {
@@ -127,9 +148,9 @@ function apiBaseToWsBase(apiBase: string) {
     url.pathname = '';
     url.search = '';
     url.hash = '';
-    return url.toString().replace(/\/+$/, '');
+    return preferBrowserHostForLocalBuild(url.toString().replace(/\/+$/, ''));
   } catch {
-    return 'ws://localhost:9000';
+    return preferBrowserHostForLocalBuild('ws://localhost:9000');
   }
 }
 
@@ -145,9 +166,9 @@ function getScadaWsBase() {
       !(envUrl.hostname === 'localhost' && envUrl.port === '8080') &&
       !(envUrl.hostname === '127.0.0.1' && envUrl.port === '8080')
     ) {
-      return `${envUrl.protocol}//${envUrl.host}${envUrl.pathname.replace(/\/+$/, '')}`;
+      return preferBrowserHostForLocalBuild(`${envUrl.protocol}//${envUrl.host}${envUrl.pathname.replace(/\/+$/, '')}`);
     }
-    return `${apiUrl.protocol}//${apiUrl.host}`;
+    return preferBrowserHostForLocalBuild(`${apiUrl.protocol}//${apiUrl.host}`);
   } catch {
     return apiWs;
   }
