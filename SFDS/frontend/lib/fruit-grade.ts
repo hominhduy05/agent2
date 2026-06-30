@@ -58,32 +58,23 @@ export function calculateFinalGrade(grades: Grade[]): Grade {
 
   if (valid.includes('D')) return 'D';
 
-  const count: Record<'A' | 'B' | 'C' | 'D', number> = {
+  const count: Record<'A' | 'B' | 'C', number> = {
     A: 0,
 
     B: 0,
 
     C: 0,
-
-    D: 0,
   };
 
   valid.forEach((g) => {
     if (g !== 'D') count[g]++;
   });
 
-  const result = (Object.keys(count) as ('A' | 'B' | 'C')[]).sort((a, b) => {
-    if (count[b] !== count[a]) return count[b] - count[a];
+  const majorityThreshold = Math.floor(valid.length / 2) + 1;
+  const majority = (['A', 'B', 'C'] as const).find(
+    (grade) => count[grade] >= majorityThreshold
+  );
+  if (majority) return majority;
 
-    const priority = {
-      A: 1,
-      B: 2,
-      C: 3,
-      D: 4,
-    };
-
-    return priority[a] - priority[b];
-  })[0];
-
-  return result ?? null;
+  return (['C', 'B', 'A'] as const).find((grade) => count[grade] > 0) ?? null;
 }

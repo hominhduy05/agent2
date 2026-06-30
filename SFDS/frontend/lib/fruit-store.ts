@@ -143,25 +143,14 @@ export class FruitStore {
   // 1. D luôn ưu tiên fail
   if (count.D > 0) return 'D';
 
-  const entries = (['A', 'B', 'C'] as Grade[])
-    .map((g) => [g, count[g]] as const)
-    .sort((a, b) => b[1] - a[1]);
+  const majorityThreshold = Math.floor(grades.length / 2) + 1;
+  const majority = (['A', 'B', 'C'] as Grade[]).find(
+    (grade) => count[grade] >= majorityThreshold
+  );
+  if (majority) return majority;
 
-  const topCount = entries[0][1];
-  const top = entries.filter((x) => x[1] === topCount);
-
-  // 2. majority clear win
-  if (top.length === 1) return top[0][0];
-
-  // 3. tie → lấy grade "xấu nhất"
-  const priority: Record<Grade, number> = {
-    A: 3,
-    B: 2,
-    C: 1,
-    D: 0,
-  };
-
-  return top.sort((a, b) => priority[a[0]] - priority[b[0]])[0][0];
+  // 3. No clear majority: take the strictest/lower-quality grade present.
+  return (['C', 'B', 'A'] as Grade[]).find((grade) => count[grade] > 0) ?? 'C';
 }
 
   /* =========================

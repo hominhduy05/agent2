@@ -107,9 +107,61 @@ const DEMO_ROI = {
 let activeRoi = ROI;
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:9000';
-const WS_PROTOCOL = API_BASE.startsWith('https') ? 'wss' : 'ws';
 const SCADA_SESSION_STORAGE_VERSION = 'display-id-v2';
 const SCADA_SESSION_VERSION_KEY = 'scada:session-storage-version';
+
+function normalizeBaseUrl(value: string, fallbackProtocol: 'http' | 'ws') {
+  const raw = (value || '').trim();
+  if (!raw) return '';
+  if (/^https?:\/\//i.test(raw) || /^wss?:\/\//i.test(raw)) {
+    return raw.replace(/\/+$/, '');
+  }
+  return `${fallbackProtocol}://${raw.replace(/^\/+|\/+$/g, '')}`;
+}
+
+function apiBaseToWsBase(apiBase: string) {
+  const normalized = normalizeBaseUrl(apiBase, 'http');
+  try {
+    const url = new URL(normalized);
+    url.protocol = url.protocol === 'https:' ? 'wss:' : 'ws:';
+    url.pathname = '';
+    url.search = '';
+    url.hash = '';
+    return url.toString().replace(/\/+$/, '');
+  } catch {
+    return 'ws://localhost:9000';
+  }
+}
+
+function getScadaWsBase() {
+  const envWs = normalizeBaseUrl(process.env.NEXT_PUBLIC_WS_URL || '', 'ws');
+  const apiWs = apiBaseToWsBase(API_BASE);
+
+  try {
+    const envUrl = envWs ? new URL(envWs) : null;
+    const apiUrl = new URL(apiWs);
+    if (
+      envUrl &&
+      !(envUrl.hostname === 'localhost' && envUrl.port === '8080') &&
+      !(envUrl.hostname === '127.0.0.1' && envUrl.port === '8080')
+    ) {
+      return `${envUrl.protocol}//${envUrl.host}${envUrl.pathname.replace(/\/+$/, '')}`;
+    }
+    return `${apiUrl.protocol}//${apiUrl.host}`;
+  } catch {
+    return apiWs;
+  }
+}
+
+const SCADA_WS_BASE = getScadaWsBase();
+
+function scadaDetectWsUrl(slot: number) {
+  const base = SCADA_WS_BASE.replace(/\/+$/, '');
+  if (/\/ws\/scada\/detect$/i.test(base)) {
+    return `${base}/${slot}/`;
+  }
+  return `${base}/ws/scada/detect/${slot}/`;
+}
 
 function cropStorageKey(cameraId: number) {
   return `scada:last-durian-crop:${cameraId}`;
@@ -1103,7 +1155,7 @@ export class ScadaCameraManager {
 
     if (!cam.isActive || cam.ws) return;
 
-    const url = `${WS_PROTOCOL}://${new URL(API_BASE).host}/ws/scada/detect/${index}/`;
+    const url = scadaDetectWsUrl(index);
     const ws = new WebSocket(url);
 
     ws.onopen = () => {

@@ -25,6 +25,11 @@ from core.scale_state import (
     update_scale_reading,
 )
 from services.mqtt_publisher import publish_enterprise_event
+from services.sorting_controller import (
+    dispatch_sorting_commands,
+    get_recent_sorting_commands,
+    get_sorting_config,
+)
 from core.demo_label_override import (
     apply_demo_label_override,
     clear_demo_track_labels,
@@ -360,6 +365,7 @@ def _publish_detection_completed(
     track_ids: list[int] | None = None,
     quality: dict | None = None,
     scale: dict | None = None,
+    sorting_commands: list[dict] | None = None,
 ):
     counts = {
         "mature": sum(1 for d in detections if d.get("class_name") == "mature"),
@@ -378,10 +384,23 @@ def _publish_detection_completed(
             "confidence_threshold": conf,
             "quality": quality or {},
             "scale": scale or {},
+            "sorting_commands": sorting_commands or [],
         },
         camera_slot=slot,
         topic="detection/completed",
     )
+
+
+@router.get("/api/scada/sorting/config/")
+async def get_scada_sorting_config() -> dict:
+    return get_sorting_config()
+
+
+@router.get("/api/scada/sorting/commands/")
+async def get_scada_sorting_commands(limit: int = 50) -> dict:
+    return {
+        "commands": get_recent_sorting_commands(limit),
+    }
 
 
 def get_quality_state(slot: int) -> _QualityGateState:
@@ -841,6 +860,17 @@ async def ws_scada_detect(ws: WebSocket, slot: int):
                         "unique_defective": defective,
                         "timestamp": datetime.utcnow().isoformat(),
                     }
+                    sorting_commands = dispatch_sorting_commands(
+                        camera_slot=slot,
+                        detections=final_detections,
+                        image_width=width,
+                        image_height=height,
+                        source="scada_ws",
+                        confidence_threshold=frame_conf,
+                        quality=result["quality"],
+                        scale=scale,
+                    )
+                    result["sorting_commands"] = sorting_commands
 
                     _publish_detection_completed(
                         slot,
@@ -851,6 +881,7 @@ async def ws_scada_detect(ws: WebSocket, slot: int):
                         track_ids=track_ids,
                         quality=result["quality"],
                         scale=scale,
+                        sorting_commands=sorting_commands,
                     )
                     await _DetectionSessionManager.push_result(slot, result)
                 except Exception as e:
@@ -1002,6 +1033,16 @@ async def detect_camera_frame(
         elif cls == "defective":
             unique_defective += 1
 
+    sorting_commands = dispatch_sorting_commands(
+        camera_slot=slot,
+        detections=tracked,
+        image_width=width,
+        image_height=height,
+        source="scada_rtsp_detect",
+        confidence_threshold=conf,
+        scale=scale,
+    )
+
     _publish_detection_completed(
         slot,
         tracked,
@@ -1010,6 +1051,7 @@ async def detect_camera_frame(
         conf,
         track_ids=track_ids,
         scale=scale,
+        sorting_commands=sorting_commands,
     )
 
     return BatchDetectResponse(

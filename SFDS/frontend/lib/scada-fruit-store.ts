@@ -36,13 +36,19 @@ function calculateFinal(grades: (Grade | null)[]): Grade {
   if (!valid.length) return null;
   if (valid.includes('D')) return 'D';
 
-  const count: Record<'A' | 'B' | 'C' | 'D', number> = { A: 0, B: 0, C: 0, D: 0 };
+  const count: Record<'A' | 'B' | 'C', number> = { A: 0, B: 0, C: 0 };
 
-  for (const g of valid) count[g]++;
+  for (const g of valid) {
+    if (g !== 'D') count[g]++;
+  }
 
-  return (['A', 'B', 'C'] as const).reduce((a, b) =>
-    count[a] >= count[b] ? a : b
+  const majorityThreshold = Math.floor(valid.length / 2) + 1;
+  const majority = (['A', 'B', 'C'] as const).find(
+    (grade) => count[grade] >= majorityThreshold
   );
+  if (majority) return majority;
+
+  return (['C', 'B', 'A'] as const).find((grade) => count[grade] > 0) ?? null;
 }
 
 class FruitStore {

@@ -247,7 +247,55 @@ POST /api/scada/cameras/
 GET  /api/scada/frame/{slot}/
 POST /api/scada/detect/{slot}/
 WS   /ws/scada/detect/{slot}/
+GET  /api/scada/sorting/config/
+GET  /api/scada/sorting/commands/
 ```
+
+## Sorting / Relay Commands
+
+After SCADA accepts fruit detections, the backend aggregates camera votes and
+emits one sorting command per fruit. The default vote rule expects 5 camera
+votes:
+
+```text
+3A + 1B + 1C -> final A -> relay 1 -> cylinder_1
+3A + 1B + 1D -> final D -> pass_through, no relay pulse
+2A + 2B + 1C -> final C -> relay 3 -> cylinder_3
+```
+
+Grade D is treated as a defect/safety veto when votes are finalized. Without
+D, A/B/C use clear-majority voting. If no grade reaches majority, the system
+routes to the strictest/lower-quality grade present.
+
+Commands are published as enterprise events on topic `sorting/command`.
+In a production line, a PLC, relay controller, or edge IO service should
+subscribe to this command and handle the physical relay pulse. The inference
+API does not drive GPIO directly.
+
+The default is fail-safe: sorting decisions are generated for audit, but
+physical actuation is disabled unless explicitly enabled.
+
+```bat
+set SORTING_ENABLED=true
+set SORTING_DRY_RUN=false
+set SORTING_GRADE_A_RELAY=1
+set SORTING_GRADE_B_RELAY=2
+set SORTING_GRADE_C_RELAY=3
+set SORTING_VOTE_REQUIRED=5
+set SORTING_CAMERAS_PER_ROOM=5
+set SORTING_DEFECT_VETO=true
+set SORTING_EARLY_DEFECT_VETO=false
+set SORTING_GRADE_A_PULSE_MS=250
+set SORTING_GRADE_B_PULSE_MS=250
+set SORTING_GRADE_C_PULSE_MS=250
+set SORTING_GRADE_A_DELAY_MS=0
+set SORTING_GRADE_B_DELAY_MS=0
+set SORTING_GRADE_C_DELAY_MS=0
+```
+
+Use `*_DELAY_MS` to compensate for the distance from the camera trigger point
+to each cylinder at the current conveyor speed. Keep `SORTING_DRY_RUN=true`
+while commissioning the PLC/relay wiring.
 
 ## Before Pushing
 
