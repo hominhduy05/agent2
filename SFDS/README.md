@@ -20,8 +20,6 @@ frontend/
   components/
   lib/
   package.json
-
-dist/durian_pi_runtime/    optional Raspberry Pi runtime package
 ```
 
 ## Requirements
@@ -250,18 +248,6 @@ GET  /api/scada/frame/{slot}/
 POST /api/scada/detect/{slot}/
 WS   /ws/scada/detect/{slot}/
 ```
-
-## Raspberry Pi Runtime
-
-The optional runtime in `dist/durian_pi_runtime/` is separate from the main
-backend. It expects an ONNX locator model at:
-
-```text
-dist/durian_pi_runtime/models/durian_fruit_locator.onnx
-```
-
-If you only run the FastAPI backend and Next.js frontend on a PC, this Pi
-model is not required.
 
 ## Before Pushing
 

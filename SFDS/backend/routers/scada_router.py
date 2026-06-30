@@ -17,7 +17,6 @@ from fastapi.responses import StreamingResponse
 from PIL import Image
 import numpy as np
 
-from core.pi_feed import get_latest_pi_feed, get_pi_feeds
 from core.scale_state import (
     attach_scale_to_detections,
     get_scale_snapshot,
@@ -146,16 +145,6 @@ def _check_camera_slot(slot: int, url: str, timeout_ms: int = 2500) -> dict:
 
 
 _load_camera_config()
-
-
-@router.get("/api/scada/pi-feed/")
-async def get_pi_feed() -> dict:
-    return get_latest_pi_feed()
-
-
-@router.get("/api/scada/pi-feeds/")
-async def get_pi_feed_list() -> dict:
-    return get_pi_feeds()
 
 
 @router.get("/api/scada/scale/")

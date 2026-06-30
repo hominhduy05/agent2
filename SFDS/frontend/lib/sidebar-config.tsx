@@ -12,7 +12,7 @@ import {
 } from '@/icons';
 
 import { UserRole } from './auth-users';
-import { HistoryIcon, Scan } from 'lucide-react';
+import { HistoryIcon } from 'lucide-react';
 
 export type SidebarItem = {
   name: string;
@@ -39,12 +39,6 @@ export const SIDEBAR_BY_ROLE: Record<UserRole, SidebarItem[]> = {
           path: '/scada/monitor',
         },
       ],
-    },
-
-    {
-      name: 'Detect',
-      icon: <Scan />,
-      path: '/detect',
     },
 
     {
