@@ -39,11 +39,11 @@ export async function POST(req: Request) {
 
   const maxAge = remember === 'on' ? 60 * 60 * 24 * 30 : 60 * 60 * 24;
 
-  let redirectUrl = '/scada/dashboard';
+  let redirectUrl = '/scada/monitor';
 
   switch (user.role) {
     case 'ADMIN':
-      redirectUrl = '/scada/dashboard';
+      redirectUrl = '/scada/monitor';
       break;
 
     case 'OWNER':
@@ -51,7 +51,7 @@ export async function POST(req: Request) {
       break;
 
     case 'MANAGER':
-      redirectUrl = '/scada/dashboard';
+      redirectUrl = '/scada/monitor';
       break;
 
     case 'ACCOUNTANT':

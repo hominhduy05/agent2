@@ -479,6 +479,7 @@ export default function DetectionPanel({
         minHeight: 0,
         gap: '16px',
         overflow: 'hidden',
+        padding: "10px"
       }}
     >
       <div
@@ -500,7 +501,7 @@ export default function DetectionPanel({
             background: activeTab === 'info' ? 'var(--accent)' : 'transparent',
             color: activeTab === 'info' ? '#fff' : 'var(--text-muted)',
             cursor: 'pointer',
-            fontSize: '12px',
+            fontSize: '11px',
             fontWeight: 600,
           }}
         >
@@ -517,7 +518,7 @@ export default function DetectionPanel({
               activeTab === 'detection' ? 'var(--accent)' : 'transparent',
             color: activeTab === 'detection' ? '#fff' : 'var(--text-muted)',
             cursor: 'pointer',
-            fontSize: '12px',
+            fontSize: '11px',
             fontWeight: 600,
           }}
         >
@@ -535,7 +536,7 @@ export default function DetectionPanel({
               activeTab === 'history' ? 'var(--accent)' : 'transparent',
             color: activeTab === 'history' ? '#fff' : 'var(--text-muted)',
             cursor: 'pointer',
-            fontSize: '12px',
+            fontSize: '11px',
             fontWeight: 600,
           }}
         >
@@ -789,7 +790,7 @@ export default function DetectionPanel({
           )}
 
           {/* Last crop */}
-          {/* <div
+          <div
             style={{
               background: 'var(--bg-elevated)',
               borderRadius: '10px',
@@ -851,7 +852,7 @@ export default function DetectionPanel({
                 <span className={styles.emptyCrop}>Chưa có ảnh gần nhất</span>
               )}
             </div>
-          </div> */}
+          </div>
         </div>
       )}
 
