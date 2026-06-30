@@ -165,11 +165,14 @@ export default function ScadaPage() {
     loadDevices();
 
     return () => {
-      const nextPath = window.location.pathname;
-      if (!nextPath.startsWith('/scada')) {
-        console.log('LEAVING SCADA MODULE -> CLEANING UP SOCKETS & CAMERAS');
-        managerRef.current?.cleanup();
-      }
+      const activeManager = managerRef.current;
+      setTimeout(() => {
+        const nextPath = window.location.pathname;
+        if (!nextPath.startsWith('/scada')) {
+          console.log('LEAVING SCADA MODULE -> CLEANING UP SOCKETS & CAMERAS');
+          activeManager?.cleanup();
+        }
+      }, 100);
     };
   }, []);
 
@@ -271,14 +274,10 @@ export default function ScadaPage() {
   const router = useRouter();
 
   const handleTileClick = (id: number) => {
-    const cam = managerRef.current?.cameras[id];
-    if (!cam || !cam.isActive) {
-      console.log('CAMERA NOT ACTIVE, PREVENTING DETAIL VIEW');
-      return;
+    const cam = cameras[id];
+    if (cam && cam.isActive) {
+      setSelectedId(id);
     }
-
-    console.log('BEFORE PUSH', cam);
-    router.push(`/scada/${id}`);
   };
 
   const handleStartWebcam = async (deviceId: string, label: string) => {
@@ -591,6 +590,7 @@ export default function ScadaPage() {
         ${styles.cameraTile}
         ${tileClasses[index]}
         ${selectedId === cam.id ? styles.selected : ''}
+        ${!cam.isActive ? styles.inactive : ''}
       `}
                 onClick={() => handleTileClick(cam.id)}
               >
@@ -773,9 +773,9 @@ export default function ScadaPage() {
                   </div>
                 )}
 
-                {hasResult && (
+                {cam.isActive && (
                   <div className={styles.clickHint}>
-                    <span>Click để xem chi tiết</span>
+                    <span>Click để chọn camera</span>
                   </div>
                 )}
               </div>
@@ -826,6 +826,22 @@ export default function ScadaPage() {
           </div>
         </div>
       </div>
+
+      {/* ── Right: Detection Panel ────────────────────────────────── */}
+      {selectedCam && (
+        <div className={styles.detectPanel}>
+          <DetectionPanel
+            camera={selectedCam}
+            scaleStatus={scaleStatus}
+            threshold={threshold}
+            onThresholdChange={setThreshold}
+            demoMode={demoMode}
+            onToggleAuto={() => selectedId !== null && handleToggle(selectedId)}
+            onCapture={() => selectedId !== null && handleCapture(selectedId)}
+            onReset={() => selectedId !== null && handleReset(selectedId)}
+          />
+        </div>
+      )}
 
       {/* ── Source Picker Modal (webcam vs IP) ───────────────────── */}
       {showDeviceModal && pendingId !== null && (

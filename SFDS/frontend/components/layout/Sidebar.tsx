@@ -122,7 +122,7 @@ const AppSidebar: React.FC = () => {
       <div
         className={`py-8 flex ${!isExpanded && !isHovered ? 'lg:justify-center' : 'justify-start'}`}
       >
-        <Link href="/scada">
+        <Link href="/scada/monitor">
           {showExpanded ? (
             <div className="flex items-center gap-2.5">
               <div
