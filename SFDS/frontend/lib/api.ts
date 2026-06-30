@@ -173,59 +173,6 @@ export async function detectScadaCamera(
   return res.json();
 }
 
-export interface ScadaPiFeed {
-  type: 'pi_feed';
-  online: boolean;
-  channel_id?: string;
-  slot_index: number;
-  pi_id?: string;
-  source_camera_id?: number;
-  timestamp?: string;
-  image_data_url?: string;
-  image_width?: number;
-  image_height?: number;
-  detections?: Array<{
-    x1: number;
-    y1: number;
-    x2: number;
-    y2: number;
-    confidence: number;
-    class_id: number;
-    class_name: string;
-    polygon?: number[][] | null;
-    track_id?: number | null;
-    display_id?: number | null;
-  }>;
-  detection_count?: number;
-  confidence_threshold?: number;
-  model_format?: string;
-  age_seconds?: number;
-  message?: string;
-}
-
-export async function getScadaPiFeed(): Promise<ScadaPiFeed> {
-  const res = await fetch(`${API_BASE}/api/scada/pi-feed/`, {
-    cache: 'no-store',
-  });
-  if (!res.ok) throw new Error('Khong the lay feed Raspberry Pi');
-  return res.json();
-}
-
-export interface ScadaPiFeedList {
-  type: 'pi_feed_list';
-  capacity: number;
-  feeds: ScadaPiFeed[];
-  online_count: number;
-}
-
-export async function getScadaPiFeeds(): Promise<ScadaPiFeedList> {
-  const res = await fetch(`${API_BASE}/api/scada/pi-feeds/`, {
-    cache: 'no-store',
-  });
-  if (!res.ok) throw new Error('Khong the lay danh sach feed Raspberry Pi');
-  return res.json();
-}
-
 export interface WebcamDetectResult {
   detections: Array<{
     x1: number;

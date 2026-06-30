@@ -51,10 +51,6 @@ export function middleware(req: NextRequest) {
     return NextResponse.redirect(new URL('/403', req.url));
   }
 
-  if (path.startsWith('/detect') && user.role !== 'ADMIN') {
-    return NextResponse.redirect(new URL('/403', req.url));
-  }
-
   // =====================
   // MANAGER + ADMIN
   // =====================
@@ -84,7 +80,6 @@ export const config = {
   matcher: [
     '/admin/:path*',
     '/dataset/:path*',
-    '/detect/:path*',
     '/finance/:path*',
     '/camera-manager/:path*',
   ],
