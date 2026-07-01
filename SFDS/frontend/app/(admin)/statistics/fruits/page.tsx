@@ -279,16 +279,58 @@ export default function StatisticsPage() {
     },
   ];
 
+  const gradeColor = (g?: Grade) => {
+  switch (g) {
+    case 'A':
+      return 'var(--success)';
+    case 'B':
+      return 'var(--accent)';
+    case 'C':
+      return 'var(--warning)';
+    case 'D':
+      return 'var(--error)';
+    default:
+      return 'var(--text-muted)';
+  }
+};
+
+  const controlStyle: React.CSSProperties = {
+  background: 'var(--bg-surface)',
+  border: '1px solid var(--border)',
+  color: 'var(--text)',
+  padding: '8px 10px',
+  borderRadius: 10,
+  outline: 'none',
+  fontSize: 13,
+  transition: 'all 0.2s ease',
+};
+
   return (
-    <div className={styles.page}>
+    <div className={styles.page}  style={{
+    background: 'var(--bg)',
+    color: 'var(--text)',
+    minHeight: '100vh',
+    padding: 16,
+  }}>
       <header className={styles.header}>
         <h1>SCADA FRUIT ANALYTICS</h1>
 
         <p>Realtime production monitoring</p>
       </header>
 
-      <section className={styles.filter}>
-        <select value={room} onChange={(e) => setRoom(e.target.value)}>
+      <section
+  className={styles.filter}
+  style={{
+    background: 'var(--scada-panel)',
+    border: '1px solid var(--border)',
+    borderRadius: 12,
+    padding: 12,
+    display: 'flex',
+    gap: 10,
+    flexWrap: 'wrap',
+  }}
+>
+        <select style={controlStyle} value={room} onChange={(e) => setRoom(e.target.value)}>
           <option value="ALL">Tất cả buồng</option>
 
           <option>BUỒNG 1</option>
@@ -298,7 +340,7 @@ export default function StatisticsPage() {
           <option>BUỒNG 3</option>
         </select>
 
-        <select value={grade} onChange={(e) => setGrade(e.target.value)}>
+        <select style={controlStyle} value={grade} onChange={(e) => setGrade(e.target.value)}>
           <option value="ALL">Tất cả grade</option>
 
           <option>A</option>
@@ -320,7 +362,7 @@ export default function StatisticsPage() {
           onChange={(e) => setMaxTon(e.target.value)}
         />
 
-        <select value={time} onChange={(e) => setTime(e.target.value)}>
+        <select style={controlStyle} value={time} onChange={(e) => setTime(e.target.value)}>
           <option value="">Tất cả giờ</option>
 
           {Array.from(
@@ -335,7 +377,7 @@ export default function StatisticsPage() {
           )}
         </select>
 
-        <select value={range} onChange={(e) => setRange(e.target.value)}>
+        <select style={controlStyle} value={range} onChange={(e) => setRange(e.target.value)}>
           <option value="DAY">Cả ngày</option>
 
           <option value="WORK">Giờ hành chính (08:00-17:00)</option>
@@ -348,6 +390,16 @@ export default function StatisticsPage() {
         </select>
 
         <button
+         style={{
+    background: 'var(--error-dim)',
+    color: 'var(--error)',
+    border: '1px solid var(--error)',
+    padding: '8px 12px',
+    borderRadius: 10,
+    fontWeight: 600,
+    cursor: 'pointer',
+  }}
+
           onClick={() => {
             setRoom('ALL');
             setGrade('ALL');
@@ -385,14 +437,33 @@ export default function StatisticsPage() {
 
             <YAxis />
 
-            <Tooltip />
+            <Tooltip
+  contentStyle={{
+    backgroundColor: 'var(--surface)',
+    border: '1px solid var(--border)',
+    borderRadius: 12,
+    color: 'var(--text)',
+  }}
+/>
 
-            <Bar dataKey="value" />
+            <Bar
+  dataKey="value"
+  fill="var(--accent)"
+  radius={[6, 6, 0, 0]}
+/>
           </BarChart>
         </ResponsiveContainer>
       </section>
 
-      <section className={styles.tableBox}>
+      <section
+  className={styles.tableBox}
+  style={{
+    background: 'var(--surface)',
+    border: '1px solid var(--border)',
+    borderRadius: 16,
+    overflow: 'hidden',
+  }}
+>
         <table className={styles.table}>
           <thead>
             <tr>
@@ -422,15 +493,25 @@ export default function StatisticsPage() {
                 {/* <td className={styles.td}>{f.fruitId}</td> */}
                 <td className={styles.td}>
   <Link
-    href={`/statistics/fruits/${f.fruitId}`}
-    style={{
-      color: '#00bfff',
-      fontWeight: 600,
-      textDecoration: 'underline',
-    }}
-  >
-    {f.fruitId}
-  </Link>
+  href={`/statistics/fruits/${f.fruitId}`}
+  style={{
+    color: 'var(--accent)',
+    fontWeight: 500,
+    textDecoration: 'none',
+    borderBottom: '1px solid transparent',
+    transition: 'all 0.2s ease',
+  }}
+  onMouseEnter={(e) => {
+    e.currentTarget.style.borderBottom = '1px solid var(--accent)';
+    e.currentTarget.style.opacity = '0.9';
+  }}
+  onMouseLeave={(e) => {
+    e.currentTarget.style.borderBottom = '1px solid transparent';
+    e.currentTarget.style.opacity = '1';
+  }}
+>
+  {f.fruitId}
+</Link>
 </td>
 
                 <td className={styles.td}>{f.room}</td>
@@ -441,7 +522,10 @@ export default function StatisticsPage() {
                   </td>
                 ))}
 
-                <td className={`${styles.td} ${styles.final}`}>
+                <td className={`${styles.td} ${styles.final}`} style={{
+    color: gradeColor(f.finalGrade),
+    fontWeight: 700,
+  }}>
                   {f.finalGrade || 'WAIT'}
                 </td>
                 <td className={styles.td}>
@@ -457,12 +541,34 @@ export default function StatisticsPage() {
   );
 }
 
-function Card({ title, value }: { title: string; value: any }) {
+function Card({ title, value }: {title: string, value: number|string }) {
   return (
-    <div className={styles.card}>
-      <span>{title}</span>
+    <div
+      className={styles.card}
+      style={{
+        background: 'var(--surface)',
+        border: '1px solid var(--border)',
+        borderRadius: 16,
+        padding: 16,
+        boxShadow: '0 2px 10px rgba(0,0,0,0.04)',
+      }}
+    >
+      <span style={{ color: 'var(--text-muted)', fontSize: 12 }}>
+        {title}
+      </span>
 
-      <strong>{value}</strong>
+      <strong
+        style={{
+          display: 'block',
+          marginTop: 6,
+          fontSize: 20,
+          color: 'var(--text)',
+        }}
+      >
+        {typeof value === 'number'
+    ? value.toLocaleString()
+    : value}
+      </strong>
     </div>
   );
 }

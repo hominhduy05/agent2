@@ -41,18 +41,31 @@ function pushFruitRealtime(
   });
 }
 
-export function getScadaManager(
-  onUpdate?: (camera: CameraChannel) => void
-) {
-  if (!manager) {
-    manager = new ScadaCameraManager(5, onUpdate);
+// export function getScadaManager(
+//   onUpdate?: (camera: CameraChannel) => void
+// ) {
+//   if (!manager) {
+//     manager = new ScadaCameraManager(5, onUpdate);
 
-    exposeDev(manager);
-  } else if (onUpdate) {
-    manager.setOnUpdate(onUpdate);
-  }
+//     exposeDev(manager);
+//   } else if (onUpdate) {
+//     manager.setOnUpdate(onUpdate);
+//   }
 
-  return manager;
+//   return manager;
+// }
+export function getScadaManager() {
+
+    if (!manager) {
+
+        manager = new ScadaCameraManager(5);
+
+        exposeDev(manager);
+
+    }
+
+    return manager;
+
 }
 
 export function pushFrameResult(

@@ -131,14 +131,21 @@
 
 .th {
   background: var(--bg-elevated);
+    color: var(--text-muted);
+    font-weight: 600px;
+    font-size: 12px;
+    text-transform: uppercase;
+    padding: 12,
 }
+
+
 
 .td,
 .th {
   padding: 14px;
 
   border-bottom: 1px solid var(--border);
-
+color: var(--text);
   text-align: center;
 }
 

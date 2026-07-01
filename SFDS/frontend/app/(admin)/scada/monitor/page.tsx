@@ -35,49 +35,110 @@ export default function ScadaPage() {
   const [scaleStatus, setScaleStatus] = useState<ScadaScaleStatus | null>(null);
 
   // const managerRef = useRef<ScadaCameraManager | null>(null);
-  const managerRef = useRef(
-    getScadaManager((cam) => {
-      setCameras((prev) => {
-        const next = [...prev];
-        next[cam.id] = { ...cam };
-        return next;
-      });
-    })
-  );
+  // const managerRef = useRef(
+  //   getScadaManager((cam) => {
+  //     setCameras((prev) => {
+  //       const next = [...prev];
+  //       next[cam.id] = { ...cam };
+  //       return next;
+  //     });
+  //   })
+  // );
+
+  const managerRef = useRef<ScadaCameraManager>(getScadaManager());
+
   const videoRefs = useRef<React.RefObject<HTMLVideoElement | null>[]>([]);
   const canvasRefs = useRef<React.RefObject<HTMLCanvasElement | null>[]>([]);
 
+  // const autoConnectCameras = async (webcams: MediaDevice[]) => {
+  //   const m = managerRef.current;
+
+  //   if (!m) return;
+
+  //   // const max = Math.min(webcams.length, 5);
+
+  //   // for (let i = 0; i < max; i++) {
+  //   //   const dev = webcams[i];
+
+  //   //   try {
+  //   //     const cam = m.cameras[i];
+
+  //   //     if (cam?.isActive && cam.deviceId === dev.deviceId) {
+  //   //       continue;
+  //   //     }
+
+  //   //     await m.startWebcam(i, dev.deviceId, dev.label);
+
+  //   //     m.startAuto(i);
+
+  //   //     console.log(`Camera ${i + 1} connected`);
+  //   //   } catch (err) {
+  //   //     console.error(`Camera ${i + 1} failed`, err);
+  //   //   }
+  //   // }
+    
+
+  //   setCameras([...m.cameras]);
+
+  //   setSelectedId((prev) => (prev === null ? 0 : prev));
+  // };
   const autoConnectCameras = async (webcams: MediaDevice[]) => {
     const m = managerRef.current;
-
     if (!m) return;
 
-    const max = Math.min(webcams.length, 5);
+    // tìm slot còn trống
+    const emptySlots: number[] = [];
 
-    for (let i = 0; i < max; i++) {
-      const dev = webcams[i];
+    for (let i = 0; i < 5; i++) {
+        if (!m.cameras[i].isActive) {
+            emptySlots.push(i);
+        }
+    }
 
-      try {
-        const cam = m.cameras[i];
+    for (const dev of webcams) {
 
-        if (cam?.isActive && cam.deviceId === dev.deviceId) {
-          continue;
+        // camera này đã được dùng chưa?
+        const existed = m.cameras.find(
+            c =>
+                c.isActive &&
+                c.deviceId === dev.deviceId
+        );
+
+        if (existed) {
+            continue;
         }
 
-        await m.startWebcam(i, dev.deviceId, dev.label);
+        const slot = emptySlots.shift();
 
-        m.startAuto(i);
+        if (slot === undefined) {
+            break;
+        }
 
-        console.log(`Camera ${i + 1} connected`);
-      } catch (err) {
-        console.error(`Camera ${i + 1} failed`, err);
-      }
+        try {
+
+            await m.startWebcam(
+                slot,
+                dev.deviceId,
+                dev.label
+            );
+
+            m.startAuto(slot);
+
+            console.log(
+                `Camera ${dev.label} -> slot ${slot}`
+            );
+
+        } catch (err) {
+
+            console.error(err);
+
+        }
     }
 
     setCameras([...m.cameras]);
 
-    setSelectedId((prev) => (prev === null ? 0 : prev));
-  };
+    setSelectedId(prev => prev ?? 0);
+};
 
   const syncDisconnectedCameras = async (webcams: MediaDevice[]) => {
     const m = managerRef.current;
@@ -105,15 +166,26 @@ export default function ScadaPage() {
       canvasRefs.current[i] = { current: null };
     }
 
-    const manager = getScadaManager((cam) => {
-      setCameras((prev) => {
-        const next = [...prev];
-        next[cam.id] = { ...cam };
-        return next;
-      });
-    });
+    // const manager = getScadaManager((cam) => {
+    //   setCameras((prev) => {
+    //     const next = [...prev];
+    //     next[cam.id] = { ...cam };
+    //     return next;
+    //   });
+    // });
 
-    managerRef.current = manager;
+    // managerRef.current = manager;
+    const manager = getScadaManager();
+
+managerRef.current = manager;
+
+const unsubscribe = manager.subscribe((cam) => {
+  setCameras((prev) => {
+    const next = [...prev];
+    next[cam.id] = { ...cam };
+    return next;
+  });
+});
 
     for (let i = 0; i < 5; i++) {
       managerRef.current.setRefs(
@@ -165,6 +237,8 @@ export default function ScadaPage() {
     loadDevices();
 
     return () => {
+      unsubscribe();
+
       const activeManager = managerRef.current;
       setTimeout(() => {
         const nextPath = window.location.pathname;
@@ -198,9 +272,12 @@ export default function ScadaPage() {
       .catch(() => setDemoMode(false));
   }, []);
 
+  const activeCamera = cameras.some(
+    c => c.isActive && c.autoEnabled
+);
   useEffect(() => {
     let cancelled = false;
-    if (!demoMode) {
+     if (!demoMode || !activeCamera) {
       setScaleStatus(null);
       return () => {
         cancelled = true;
@@ -220,7 +297,7 @@ export default function ScadaPage() {
       cancelled = true;
       window.clearInterval(timer);
     };
-  }, [demoMode]);
+  }, [demoMode, activeCamera]);
 
   useEffect(() => {
     if (managerRef.current) {
@@ -385,8 +462,13 @@ export default function ScadaPage() {
     });
   }, [cameras, demoMode, scaleStatus]);
 
+  const reconnecting = useRef(false);
   useEffect(() => {
     const onDeviceChange = async () => {
+      if (reconnecting.current)
+        return;
+
+    reconnecting.current = true;
       try {
         const devs = await navigator.mediaDevices.enumerateDevices();
 

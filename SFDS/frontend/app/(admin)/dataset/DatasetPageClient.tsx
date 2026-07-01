@@ -6,13 +6,14 @@ import styles from './page.module.css';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:9000';
 
-const FACES = ['Trước', 'Trái', 'Phải', 'Sau'] as const;
+const FACES = ['Trước', 'Trái', 'Phải', 'Sau', 'Dưới'] as const;
 
 const FACE_MAP: Record<string, string> = {
   Trước: 'front',
   Trái: 'left',
   Phải: 'right',
   Sau: 'back',
+  Dưới: 'bottom',
 };
 
 type ExportGrade = 'A' | 'B' | 'C' | 'D';
@@ -87,6 +88,7 @@ export default function DatasetPageClient() {
     Trái: freshSlot(),
     Phải: freshSlot(),
     Sau: freshSlot(),
+    Dưới: freshSlot(),
   });
 
   const [threshold, setThreshold] = useState(0.3);
@@ -280,6 +282,7 @@ export default function DatasetPageClient() {
         Trái: freshSlot(),
         Phải: freshSlot(),
         Sau: freshSlot(),
+        Dưới: freshSlot(),
       });
     } catch (e) {
       showToast(`Lỗi: ${e instanceof Error ? e.message : 'Unknown'}`, 'error');

@@ -8,27 +8,6 @@
   color: var(--scada-text-base);
 }
 
-/* =========================
-   HEADER
-========================= */
-.header {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-end;
-  margin-bottom: 22px;
-}
-
-.title {
-  font-size: 20px;
-  font-weight: 700;
-  letter-spacing: 0.2px;
-}
-
-.subtitle {
-  font-size: 12px;
-  color: var(--scada-text-muted);
-  margin-top: 4px;
-}
 
 /* =========================
    BUTTONS
@@ -38,12 +17,13 @@
   align-items: center;
   justify-content: center;
   gap: 6px;
+
   padding: 9px 12px;
   border-radius: 10px;
-  border: 1px solid var(--scada-border-base);
 
-  background: var(--scada-surface);
-  color: var(--scada-text-base);
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
 
   font-size: 12px;
   cursor: pointer;
@@ -52,24 +32,29 @@
 }
 
 .btn:hover {
-  background: var(--scada-surface-2);
+  background: var(--bg-elevated);
   transform: translateY(-1px);
 }
 
 .btnPrimary {
-  background: #38bdf8;
-  color: #07131a;
-  border: 1px solid rgba(56, 189, 248, 0.35);
+  background: var(--accent);
+  color: white;
+  border: 1px solid var(--accent);
 }
 
 .btnPrimary:hover {
-  background: #2faee6;
+  opacity: 0.9;
+  color: var(--text);
 }
 
 .btnDanger {
-  background: rgba(239, 68, 68, 0.08);
-  color: #f87171;
-  border: 1px solid rgba(239, 68, 68, 0.25);
+  background: var(--error-dim);
+  color: var(--error);
+  border: 1px solid var(--error);
+}
+
+.btnDanger:hover {
+  background: rgba(220, 38, 38, 0.15); /* hover stronger */
 }
 
 /* =========================
@@ -82,25 +67,6 @@
   margin-bottom: 18px;
 }
 
-.card {
-  background: var(--scada-panel-base);
-  border: 1px solid var(--scada-border-base);
-  border-radius: 12px;
-  padding: 14px;
-}
-
-.cardLabel {
-  font-size: 11px;
-  color: var(--scada-text-muted);
-  letter-spacing: 0.5px;
-  text-transform: uppercase;
-}
-
-.cardValue {
-  font-size: 20px;
-  font-weight: 700;
-  margin-top: 6px;
-}
 
 /* =========================
    LIST
@@ -120,7 +86,7 @@
   padding: 14px;
   border-radius: 12px;
 
-  background: var(--scada-panel-base);
+  background: var(--surface);
   border: 1px solid var(--scada-border-base);
 
   transition: all 0.15s ease;

@@ -120,7 +120,9 @@ function normalizeBaseUrl(value: string, fallbackProtocol: 'http' | 'ws') {
 }
 
 function isLoopbackHostname(hostname: string) {
-  return hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '::1';
+  return (
+    hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '::1'
+  );
 }
 
 function preferBrowserHostForLocalBuild(base: string) {
@@ -130,7 +132,11 @@ function preferBrowserHostForLocalBuild(base: string) {
     const url = new URL(base);
     const browserHost = window.location.hostname;
 
-    if (browserHost && isLoopbackHostname(url.hostname) && !isLoopbackHostname(browserHost)) {
+    if (
+      browserHost &&
+      isLoopbackHostname(url.hostname) &&
+      !isLoopbackHostname(browserHost)
+    ) {
       url.hostname = browserHost;
     }
 
@@ -166,7 +172,9 @@ function getScadaWsBase() {
       !(envUrl.hostname === 'localhost' && envUrl.port === '8080') &&
       !(envUrl.hostname === '127.0.0.1' && envUrl.port === '8080')
     ) {
-      return preferBrowserHostForLocalBuild(`${envUrl.protocol}//${envUrl.host}${envUrl.pathname.replace(/\/+$/, '')}`);
+      return preferBrowserHostForLocalBuild(
+        `${envUrl.protocol}//${envUrl.host}${envUrl.pathname.replace(/\/+$/, '')}`
+      );
     }
     return preferBrowserHostForLocalBuild(`${apiUrl.protocol}//${apiUrl.host}`);
   } catch {
@@ -578,7 +586,11 @@ export class ScadaCameraManager {
   }
 
   // private onUpdate: (camera: CameraChannel) => void;
-  private onUpdate: (camera: CameraChannel) => void = () => {};
+  // private onUpdate: (camera: CameraChannel) => void = () => {};
+  private listeners = new Set<(camera: CameraChannel) => void>();
+  private notify(camera: CameraChannel) {
+    this.listeners.forEach((cb) => cb(camera));
+  }
 
   private displayIdsByTrack: Map<string, number>[] = [];
   private gradeCounters: Record<string, number>[] = [];
@@ -597,7 +609,8 @@ export class ScadaCameraManager {
 
   constructor(count: number, onUpdate?: (c: CameraChannel) => void) {
     if (onUpdate) {
-      this.onUpdate = onUpdate;
+      // this.onUpdate = onUpdate;
+      this.listeners.add(onUpdate);
     }
 
     clearStaleStoredSessions(count);
@@ -615,8 +628,15 @@ export class ScadaCameraManager {
     }, 1000);
   }
 
-  public setOnUpdate(callback?: (camera: CameraChannel) => void) {
-    this.onUpdate = callback || (() => {});
+  // public setOnUpdate(callback?: (camera: CameraChannel) => void) {
+  //   this.onUpdate = callback || (() => {});
+  // }
+  public subscribe(callback: (camera: CameraChannel) => void) {
+    this.listeners.add(callback);
+
+    return () => {
+      this.listeners.delete(callback);
+    };
   }
 
   // Allow pages/components to attach or replace the update callback
@@ -810,13 +830,13 @@ export class ScadaCameraManager {
     const det = detections[0];
 
     if (det && det.fruit_id && crop.dataUrl) {
-  fruitStore.addCameraResult(
-    String(det.fruit_id),
-    index + 1,
-    getGrade(det),
-    crop.dataUrl
-  );
-}
+      fruitStore.addCameraResult(
+        String(det.fruit_id),
+        index + 1,
+        getGrade(det),
+        crop.dataUrl
+      );
+    }
 
     this.rememberCrop(index, item);
     this.markCapturedTrack(index, fallback);
@@ -964,7 +984,8 @@ export class ScadaCameraManager {
     if (cam.isActive) {
       this.drawGuide(index);
     }
-    this.onUpdate(cam);
+    // this.onUpdate(cam);
+this.notify(cam);
 
     if (shouldResumeAuto) {
       setTimeout(() => this.startAuto(index), 120);
@@ -1002,11 +1023,13 @@ export class ScadaCameraManager {
         cam.videoRef.current.play().catch(() => {});
       }
       this.drawGuide(index);
-      this.onUpdate(cam);
+      // this.onUpdate(cam);
+this.notify(cam);
     } catch (err) {
       cam.error = err instanceof Error ? err.message : 'Loi bat camera';
       console.log(err);
-      this.onUpdate(cam);
+      // this.onUpdate(cam);
+this.notify(cam);
     }
   }
 
@@ -1031,10 +1054,12 @@ export class ScadaCameraManager {
       this.drawGuide(index);
 
       if (cam.autoEnabled) this.startAuto(index);
-      this.onUpdate(cam);
+      // this.onUpdate(cam);
+this.notify(cam);
     } catch (err) {
       cam.error = err instanceof Error ? err.message : 'Loi ket noi IP camera';
-      this.onUpdate(cam);
+      // this.onUpdate(cam);
+this.notify(cam);
     }
   }
 
@@ -1125,7 +1150,8 @@ export class ScadaCameraManager {
     cam.requiredStableFrames = undefined;
     cam.lastRawDetectionCount = 0;
     cam.error = null;
-    this.onUpdate(cam);
+    // this.onUpdate(cam);
+this.notify(cam);
   }
 
   // ── Auto capture ───────────────────────────────────────────────
@@ -1143,7 +1169,8 @@ export class ScadaCameraManager {
         CAPTURE_INTERVAL_MS
       );
     }
-    this.onUpdate(cam);
+    // this.onUpdate(cam);
+this.notify(cam);
   }
 
   stopAuto(index: number) {
@@ -1158,7 +1185,8 @@ export class ScadaCameraManager {
     }
     cam.autoEnabled = false;
     cam.isDetecting = false;
-    this.onUpdate(cam);
+    // this.onUpdate(cam);
+this.notify(cam);
   }
 
   // ── WebSocket real-time detection (via Bun WS proxy on port 8080) ─────
@@ -1181,7 +1209,8 @@ export class ScadaCameraManager {
 
     ws.onopen = () => {
       cam.isDetecting = true;
-      this.onUpdate(cam);
+      // this.onUpdate(cam);
+this.notify(cam);
       this._sendWebSocketFrame(index, ws);
       console.log('[WS OPEN]', index);
     };
@@ -1195,7 +1224,8 @@ export class ScadaCameraManager {
       }
       if (data.type === 'error') {
         cam.error = String(data.message || 'Loi nhan dien');
-        this.onUpdate(cam);
+        // this.onUpdate(cam);
+this.notify(cam);
         return;
       }
       if (data.type === 'quality_status') {
@@ -1223,7 +1253,8 @@ export class ScadaCameraManager {
           (data.image_width as number | undefined) || undefined,
           (data.image_height as number | undefined) || undefined
         );
-        this.onUpdate(cam);
+        // this.onUpdate(cam);
+this.notify(cam);
 
         if (
           cam.isActive &&
@@ -1286,12 +1317,14 @@ export class ScadaCameraManager {
       cam.stableFrames = result.quality?.stableFrames;
       cam.lastRawDetectionCount = result.rawDetectionCount;
       cam.error = null;
-      this.onUpdate(cam);
+      // this.onUpdate(cam);
+this.notify(cam);
 
       if (result.detections.length > 0) {
         const isDemo = isDemoResult(result);
         cam.qualityPhase = isDemo ? 'captured' : 'cooldown';
-        this.onUpdate(cam);
+        // this.onUpdate(cam);
+this.notify(cam);
         if (!isDemo) {
           setTimeout(() => {
             const current = this.cameras[index];
@@ -1319,7 +1352,8 @@ export class ScadaCameraManager {
 
     ws.onerror = () => {
       cam.error = 'Loi ket noi WebSocket';
-      this.onUpdate(cam);
+      // this.onUpdate(cam);
+this.notify(cam);
     };
 
     ws.onclose = (e) => {
@@ -1327,7 +1361,8 @@ export class ScadaCameraManager {
       const intentional = e.code === 1000 || e.code === 1001;
       cam.isDetecting = false;
       cam.ws = undefined;
-      this.onUpdate(cam);
+      // this.onUpdate(cam);
+this.notify(cam);
       if (
         !intentional &&
         cam.isActive &&
@@ -1424,7 +1459,8 @@ export class ScadaCameraManager {
     if (cam.mode === 'webcam' && video.readyState < 2) return;
 
     cam.isDetecting = true;
-    this.onUpdate(cam);
+    // this.onUpdate(cam);
+this.notify(cam);
 
     try {
       if (cam.mode === 'ip') {
@@ -1553,7 +1589,8 @@ export class ScadaCameraManager {
       cam.error = err instanceof Error ? err.message : 'Loi nhan dien';
     } finally {
       cam.isDetecting = false;
-      this.onUpdate(cam);
+      // this.onUpdate(cam);
+this.notify(cam);
     }
   }
 
@@ -1572,6 +1609,8 @@ export class ScadaCameraManager {
       scaleCanvasToElement(canvas, video);
       const ctx = canvas.getContext('2d')!;
       drawDetections(ctx, canvas, result);
+
+      console.log('drawGuide', index, new Date().toISOString());
     }
   }
 
@@ -1589,6 +1628,8 @@ export class ScadaCameraManager {
     if (!ctx) return;
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     drawRoiGuide(ctx, canvas, width, height);
+
+    console.log('drawGuide', index, new Date().toISOString());
   }
 
   private captureCrop(index: number, result: ScadaResult) {

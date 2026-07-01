@@ -314,6 +314,43 @@ const CameraManagerIcon: React.FC<{ className?: string }> = ({ className }) => (
   </svg>
 );
 
+const DatasetIcon: React.FC<{ className?: string }> = ({ className }) => (
+  <svg
+    className={className}
+    width="24"
+    height="24"
+    viewBox="0 0 24 24"
+    fill="none"
+  >
+    <ellipse
+      cx="12"
+      cy="5"
+      rx="7"
+      ry="3"
+      stroke="currentColor"
+      strokeWidth="1.5"
+    />
+
+    <path
+      d="M5 5v5c0 1.66 3.13 3 7 3s7-1.34 7-3V5"
+      stroke="currentColor"
+      strokeWidth="1.5"
+    />
+
+    <path
+      d="M5 10v5c0 1.66 3.13 3 7 3s7-1.34 7-3v-5"
+      stroke="currentColor"
+      strokeWidth="1.5"
+    />
+
+    <path
+      d="M5 15v4c0 1.66 3.13 3 7 3s7-1.34 7-3v-4"
+      stroke="currentColor"
+      strokeWidth="1.5"
+    />
+  </svg>
+);
+
 export {
   GridIcon,
   ChevronDownIcon,
@@ -332,4 +369,5 @@ export {
   AlertIcon,
   DetectIcon,
   CameraManagerIcon,
+  DatasetIcon, 
 };

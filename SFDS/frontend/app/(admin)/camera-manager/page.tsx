@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useReducer, useState } from 'react';
 import styles from './camera.module.css';
 import { useScada } from '@/hooks/use-scada';
 import { getScadaManager } from '@/lib/scada-manager';
@@ -30,7 +30,9 @@ interface MediaDevice {
 
 export default function CameraManagementPage() {
   const { cameras } = useScada();
-  const manager = getScadaManager(() => {});
+  // const manager = getScadaManager(() => {});
+  // const [manager] = useState(() => getScadaManager(() => {}));
+  const [manager] = useState(() => getScadaManager());
 
   const [devices, setDevices] = useState<MediaDevice[]>([]);
   const [showDeviceModal, setShowDeviceModal] = useState(false);
@@ -49,10 +51,20 @@ export default function CameraManagementPage() {
     ipUrl: '',
   });
 
+  const [, force] = useReducer((x) => x + 1, 0);
+
+  useEffect(() => {
+    return manager.subscribe(() => {
+      force();
+    });
+  }, []);
+
   useEffect(() => {
     async function loadDevices() {
       try {
-        const tempStream = await navigator.mediaDevices.getUserMedia({ video: true });
+        const tempStream = await navigator.mediaDevices.getUserMedia({
+          video: true,
+        });
         tempStream.getTracks().forEach((track) => track.stop());
 
         const devs = await navigator.mediaDevices.enumerateDevices();
@@ -101,11 +113,11 @@ export default function CameraManagementPage() {
     };
 
     manager.cameras.push(cam);
-    manager.setOnUpdate(() => {});
+    // manager.setOnUpdate(() => {});
     setShowForm(false);
     setForm({ name: '', type: 'ip', ipUrl: '' });
 
-    manager.setOnUpdate(() => {});
+    // manager.setOnUpdate(() => {});
   };
 
   const toggleCamera = (cam: CameraChannel) => {
@@ -131,6 +143,8 @@ export default function CameraManagementPage() {
 
     await manager.startWebcam(pendingCam.id, deviceId, label);
 
+    manager.startWebSocketDetect(pendingCam.id);
+
     setShowDeviceModal(false);
     setPendingCam(null);
   };
@@ -140,6 +154,8 @@ export default function CameraManagementPage() {
 
     await manager.startIPCamera(pendingCam.id, url, pendingCam.label);
 
+    manager.startWebSocketDetect(pendingCam.id);
+
     setShowDeviceModal(false);
     setPendingCam(null);
     setRtspUrl('');
@@ -147,7 +163,7 @@ export default function CameraManagementPage() {
 
   const testCamera = async (cam: CameraChannel) => {
     cam.error = 'Testing...';
-    manager.setOnUpdate(() => {});
+    // manager.setOnUpdate(() => {});
 
     try {
       const res = await fetch(
@@ -158,29 +174,36 @@ export default function CameraManagementPage() {
       const data = await res.json();
       cam.error = data.ok ? 'OK' : 'FAIL';
 
-      manager.setOnUpdate(() => {});
+      // manager.setOnUpdate(() => {});
     } catch {
       cam.error = 'NETWORK ERROR';
-      manager.setOnUpdate(() => {});
+      // manager.setOnUpdate(() => {});
     }
   };
 
   return (
     <div className={styles.page} data-theme={theme}>
       {/* HEADER */}
-      <div className={styles.header}>
+      <div className="mb-6 flex items-center justify-between">
         <div>
-          <div className={styles.title}>
-            <Camera size={16} style={{ marginRight: 8 }} />
-            CAMERA MANAGEMENT
-          </div>
+          <h1 className="text-2xl font-bold tracking-tight text-[var(--text)]">
+            Camera Management
+          </h1>
 
-          <div className={styles.subtitle}>SCADA Control Plane</div>
+          <p className="text-sm text-[var(--text-muted)]">
+            SCADA Control Plane
+          </p>
         </div>
 
         <button
-          className={`${styles.btn} ${styles.btnPrimary}`}
           onClick={() => setShowForm(true)}
+          className="
+      px-4 py-2 rounded-xl
+      bg-[var(--accent)]
+      text-white
+      hover:opacity-90
+      transition
+    "
         >
           + Add Camera
         </button>
@@ -188,28 +211,74 @@ export default function CameraManagementPage() {
 
       {/* STATS */}
       <div className={styles.stats}>
-        <div className={styles.card}>
-          <div className={styles.cardLabel}>Total</div>
-          <div className={styles.cardValue}>{cameras.length}</div>
+        <div
+          className="
+  rounded-2xl
+  bg-[var(--surface)]
+  border border-[var(--border)]
+  p-5
+  shadow-sm
+"
+        >
+          <div className="text-xs text-[var(--text-muted)] uppercase">
+            Total
+          </div>
+
+          <div className="mt-2 text-2xl font-bold text-[var(--text)]">
+            {cameras.length}
+          </div>
         </div>
 
-        <div className={styles.card}>
-          <div className={styles.cardLabel}>Active</div>
-          <div className={styles.cardValue}>
+        <div
+          className="
+  rounded-2xl
+  bg-[var(--surface)]
+  border border-[var(--border)]
+  p-5
+  shadow-sm
+"
+        >
+          <div className="text-xs text-[var(--text-muted)] uppercase">
+            Active
+          </div>
+
+          <div className="mt-2 text-2xl font-bold text-[var(--text)]">
             {cameras.filter((c) => c.isActive).length}
           </div>
         </div>
 
-        <div className={styles.card}>
-          <div className={styles.cardLabel}>Detecting</div>
-          <div className={styles.cardValue}>
+        <div
+          className="
+  rounded-2xl
+  bg-[var(--surface)]
+  border border-[var(--border)]
+  p-5
+  shadow-sm
+"
+        >
+          <div className="text-xs text-[var(--text-muted)] uppercase">
+            Detecting
+          </div>
+
+          <div className="mt-2 text-2xl font-bold text-[var(--text)]">
             {cameras.filter((c) => c.isDetecting).length}
           </div>
         </div>
 
-        <div className={styles.card}>
-          <div className={styles.cardLabel}>Errors</div>
-          <div className={styles.cardValue}>
+        <div
+          className="
+  rounded-2xl
+  bg-[var(--surface)]
+  border border-[var(--border)]
+  p-5
+  shadow-sm
+"
+        >
+          <div className="text-xs text-[var(--text-muted)] uppercase">
+            Errors
+          </div>
+
+          <div className="mt-2 text-2xl font-bold text-[var(--text)]">
             {cameras.filter((c) => c.error).length}
           </div>
         </div>
@@ -283,10 +352,17 @@ export default function CameraManagementPage() {
       </div>
 
       {/* MODAL */}
-      <Modal isOpen={showForm} onClose={() => setShowForm(false)} className="max-w-md p-6 border border-gray-200 dark:border-gray-800 shadow-2xl overflow-hidden">
+      <Modal
+        isOpen={showForm}
+        onClose={() => setShowForm(false)}
+        className="max-w-md p-6 border border-gray-200 dark:border-gray-800 shadow-2xl overflow-hidden"
+      >
         <div className="space-y-6">
           <div>
-            <h3 className="text-lg font-bold text-gray-900 dark:text-white" style={{ fontFamily: 'Sora, sans-serif' }}>
+            <h3
+              className="text-lg font-bold text-gray-900 dark:text-white"
+              style={{ fontFamily: 'Sora, sans-serif' }}
+            >
               Add Camera
             </h3>
             <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
@@ -295,7 +371,9 @@ export default function CameraManagementPage() {
           </div>
 
           <div className="space-y-1.5">
-            <label className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase">Camera name</label>
+            <label className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase">
+              Camera name
+            </label>
             <input
               className="w-full px-3 py-2.5 text-sm rounded-lg bg-gray-50 dark:bg-gray-950 border border-gray-200 dark:border-gray-800 text-gray-900 dark:text-white focus:outline-none focus:border-brand-500 transition-colors"
               placeholder="Camera name"
@@ -310,7 +388,9 @@ export default function CameraManagementPage() {
           </div>
 
           <div className="space-y-2">
-            <label className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase">Loại Camera</label>
+            <label className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase">
+              Loại Camera
+            </label>
             <div className="grid grid-cols-2 gap-4">
               <button
                 type="button"
@@ -326,7 +406,14 @@ export default function CameraManagementPage() {
                   })
                 }
               >
-                <Camera size={20} className={form.type === 'webcam' ? 'text-brand-500' : 'text-gray-400 group-hover:text-gray-500'} />
+                <Camera
+                  size={20}
+                  className={
+                    form.type === 'webcam'
+                      ? 'text-brand-500'
+                      : 'text-gray-400 group-hover:text-gray-500'
+                  }
+                />
                 <span className="text-xs font-bold">Webcam</span>
               </button>
 
@@ -344,14 +431,25 @@ export default function CameraManagementPage() {
                   })
                 }
               >
-                <Activity size={20} className={form.type === 'ip' ? 'text-brand-500' : 'text-gray-400 group-hover:text-gray-500'} />
+                <Activity
+                  size={20}
+                  className={
+                    form.type === 'ip'
+                      ? 'text-brand-500'
+                      : 'text-gray-400 group-hover:text-gray-500'
+                  }
+                />
                 <span className="text-xs font-bold">IP Camera</span>
               </button>
             </div>
           </div>
 
           <div className="flex justify-end gap-2 pt-4 border-t border-gray-100 dark:border-gray-800">
-            <Button variant="outline" size="sm" onClick={() => setShowForm(false)}>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setShowForm(false)}
+            >
               Cancel
             </Button>
             <Button variant="primary" size="sm" onClick={addCamera}>
