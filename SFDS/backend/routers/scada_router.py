@@ -58,7 +58,7 @@ _tracker_mgr: TrackerManager | None = None
 def get_tracker_mgr() -> TrackerManager:
     global _tracker_mgr
     if _tracker_mgr is None:
-        _tracker_mgr = TrackerManager(num_slots=4, max_age=15, min_hits=1, iou_threshold=0.3)
+        _tracker_mgr = TrackerManager(num_slots=5, max_age=15, min_hits=1, iou_threshold=0.3)
     return _tracker_mgr
 
 
@@ -66,7 +66,7 @@ def get_tracker_mgr() -> TrackerManager:
 # Global RTSP config
 # ---------------------------------------------------------------------------
 CAMERA_CONFIG_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), "scada_cameras.json")
-CAMERA_RTSP_URLS: dict[int, str] = {0: "", 1: "", 2: "", 3: ""}
+CAMERA_RTSP_URLS: dict[int, str] = {0: "", 1: "", 2: "", 3: "", 4: ""}
 _slot_captures: dict[int, "RtspCapture"] = {}
 
 
@@ -77,7 +77,7 @@ def _load_camera_config() -> None:
         with open(CAMERA_CONFIG_PATH, "r", encoding="utf-8") as fh:
             data = json.load(fh)
         cameras = data.get("cameras", data)
-        for slot in range(4):
+        for slot in range(5):
             value = cameras.get(str(slot), cameras.get(slot, ""))
             if isinstance(value, dict):
                 value = value.get("url", "")
@@ -917,7 +917,7 @@ async def get_camera_config() -> dict:
 async def get_camera_health(timeout_ms: int = 2500) -> dict:
     checks = [
         _check_camera_slot(slot, CAMERA_RTSP_URLS.get(slot, ""), timeout_ms=timeout_ms)
-        for slot in range(4)
+        for slot in range(5)
     ]
     return {
         "status": "ok" if all(item["online"] or not item["configured"] for item in checks) else "degraded",
