@@ -59,5 +59,9 @@ app.include_router(dataset_router)
 # Entry point
 # ---------------------------------------------------------------------------
 if __name__ == "__main__":
+    import os
     import uvicorn
-    uvicorn.run("main:app", host="127.0.0.1", port=9000, reload=False)
+
+    host = os.getenv("SFDS_BACKEND_HOST", "0.0.0.0")
+    port = int(os.getenv("SFDS_BACKEND_PORT", "9000"))
+    uvicorn.run("main:app", host=host, port=port, reload=False)

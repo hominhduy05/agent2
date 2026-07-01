@@ -12,6 +12,7 @@ export interface DetBox {
   class_id: number;
   class_name: string;
   color: string;
+  polygon?: number[][] | null;
 }
 
 type ExportGrade = 'A' | 'B' | 'C' | 'D';
@@ -184,7 +185,7 @@ function fitWholeFruitBox(
 function cropBlobToBox(
   blob: Blob,
   box: DetBox
-): Promise<{ file: File; width: number; height: number } | null> {
+): Promise<{ file: File; width: number; height: number; offsetX: number; offsetY: number } | null> {
   return new Promise((resolve) => {
     const img = new window.Image();
     const url = URL.createObjectURL(blob);
@@ -220,6 +221,8 @@ function cropBlobToBox(
             }),
             width: w,
             height: h,
+            offsetX: x,
+            offsetY: y,
           });
         },
         'image/jpeg',
@@ -376,7 +379,18 @@ export default function InteractiveFaceSlot({
 
       ctx.strokeStyle = color;
       ctx.lineWidth = 3;
-      ctx.strokeRect(dx1, dy1, bw, bh);
+      if (box.polygon && box.polygon.length >= 3) {
+        ctx.beginPath();
+        box.polygon.forEach(([px, py], index) => {
+          const { cx, cy } = scaleToDisplay(px, py, dX, dY, dW, dH, natW, natH);
+          if (index === 0) ctx.moveTo(cx, cy);
+          else ctx.lineTo(cx, cy);
+        });
+        ctx.closePath();
+        ctx.stroke();
+      } else {
+        ctx.strokeRect(dx1, dy1, bw, bh);
+      }
     }
   }, [
     face,
@@ -517,6 +531,13 @@ export default function InteractiveFaceSlot({
             frozenFrameUrlRef.current = nextFrozenUrl;
             setFrozenFrameUrl(nextFrozenUrl);
             setPreviewBoxes([accepted.box]);
+            const croppedPolygon =
+              accepted.box.polygon && accepted.box.polygon.length >= 3
+                ? accepted.box.polygon.map(([x, y]) => [
+                    Math.max(0, Math.min(crop.width, x - crop.offsetX)),
+                    Math.max(0, Math.min(crop.height, y - crop.offsetY)),
+                  ])
+                : null;
             onStateRef.current({
               file: crop.file,
               boxes: [
@@ -526,6 +547,7 @@ export default function InteractiveFaceSlot({
                   y1: 0,
                   x2: crop.width,
                   y2: crop.height,
+                  polygon: croppedPolygon,
                 },
               ],
               imgWidth: crop.width,
@@ -1236,6 +1258,7 @@ export async function runDetect(
         class_id: d.class_id,
         class_name: d.class_name,
         color: BOX_COLORS[d.class_name as string] || '#ffffff',
+        polygon: Array.isArray(d.polygon) ? (d.polygon as number[][]) : null,
       })
     );
     const imgWidth = data.image_width || 0;

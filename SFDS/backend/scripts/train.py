@@ -16,6 +16,7 @@ import ultralytics
 from ultralytics import YOLO
 from ultralytics.nn.modules import head as ultralytics_head
 
+from prepare_collected_yolo26_seg_dataset import prepare_collected_dataset
 from prepare_yolo26_seg_dataset import prepare_dataset
 
 
@@ -89,7 +90,19 @@ def parse_args() -> argparse.Namespace:
         "--source-data",
         type=Path,
         default=backend_dir / "Durian Thesis.v3i.yolo26",
-        help="Original Roboflow dataset root.",
+        help="Original Roboflow dataset root or app-collected dataset root.",
+    )
+    parser.add_argument(
+        "--source-kind",
+        choices=("roboflow", "collected"),
+        default="roboflow",
+        help="roboflow expects train/valid/test folders; collected expects backend/dataset layout.",
+    )
+    parser.add_argument(
+        "--category",
+        choices=("export_criteria", "condition"),
+        default="export_criteria",
+        help="Dataset category to train when --source-kind collected is used.",
     )
     parser.add_argument(
         "--prepared-data",
@@ -136,23 +149,44 @@ def main() -> None:
     backend_dir = _backend_dir()
     _check_yolo26_support()
     prepared_data = args.prepared_data or (
-        backend_dir / (
-            "Durian Thesis.v3i.yolo26_prepared_segments_only"
-            if args.label_mode == "segments-only"
-            else "Durian Thesis.v3i.yolo26_prepared_seg"
+        (
+            backend_dir / "dataset_yolo26_seg" / args.category
+            if args.source_kind == "collected"
+            else backend_dir / (
+                "Durian Thesis.v3i.yolo26_prepared_segments_only"
+                if args.label_mode == "segments-only"
+                else "Durian Thesis.v3i.yolo26_prepared_seg"
+            )
         )
     )
 
     if not args.skip_prepare:
-        report = prepare_dataset(
-            args.source_data,
-            prepared_data,
-            include_empty=args.include_empty,
-            label_mode=args.label_mode,
-        )
+        if args.source_kind == "collected":
+            report = prepare_collected_dataset(
+                args.source_data,
+                prepared_data,
+                category=args.category,
+                include_empty=args.include_empty,
+                label_mode=args.label_mode,
+            )
+        else:
+            report = prepare_dataset(
+                args.source_data,
+                prepared_data,
+                include_empty=args.include_empty,
+                label_mode=args.label_mode,
+            )
         print("Prepared dataset:")
         for split, stats in report["splits"].items():
-            print(f"  {split}: kept={stats['kept']} box_labels={stats['box_labels']} skipped_empty={stats['empty_label']} missing={stats['missing_label']} invalid={stats['invalid_label']}")
+            print(
+                "  "
+                f"{split}: kept={stats.get('kept', 0)} "
+                f"box_labels={stats.get('box_labels', 0)} "
+                f"segment_labels={stats.get('segment_labels', 0)} "
+                f"skipped_empty={stats.get('empty_label', 0)} "
+                f"missing={stats.get('missing_label', 0)} "
+                f"invalid={stats.get('invalid_label', 0)}"
+            )
 
     data_yaml = prepared_data / "data.yaml"
     if not data_yaml.exists():

@@ -196,6 +196,7 @@ export default function DatasetPageClient() {
             y1: b.y1,
             x2: b.x2,
             y2: b.y2,
+            polygon: b.polygon ?? null,
           }))
         )
       );
@@ -249,7 +250,13 @@ export default function DatasetPageClient() {
         fd.append(
           'boxes',
           JSON.stringify(
-            s.boxes.map((b) => ({ x1: b.x1, y1: b.y1, x2: b.x2, y2: b.y2 }))
+            s.boxes.map((b) => ({
+              x1: b.x1,
+              y1: b.y1,
+              x2: b.x2,
+              y2: b.y2,
+              polygon: b.polygon ?? null,
+            }))
           )
         );
         fd.append('img_width', String(s.imgWidth));

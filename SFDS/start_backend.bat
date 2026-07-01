@@ -22,7 +22,12 @@ if errorlevel 1 (
 set "YOLO_CONFIG_DIR=%BACKEND_DIR%\.ultralytics"
 set "ULTRALYTICS_SKIP_REQUIREMENTS_CHECKS=1"
 if "%DURIAN_DEVICE%"=="" set "DURIAN_DEVICE=auto"
-if "%SFDS_BACKEND_HOST%"=="" set "SFDS_BACKEND_HOST=127.0.0.1"
+if "%SFDS_BACKEND_HOST%"=="" set "SFDS_BACKEND_HOST=0.0.0.0"
 if "%SFDS_BACKEND_PORT%"=="" set "SFDS_BACKEND_PORT=9000"
+if "%SFDS_BACKEND_RELOAD%"=="" set "SFDS_BACKEND_RELOAD=0"
 
-python -m uvicorn main:app --host "%SFDS_BACKEND_HOST%" --port "%SFDS_BACKEND_PORT%" --reload
+if "%SFDS_BACKEND_RELOAD%"=="1" (
+  python -m uvicorn main:app --host "%SFDS_BACKEND_HOST%" --port "%SFDS_BACKEND_PORT%" --reload
+) else (
+  python -m uvicorn main:app --host "%SFDS_BACKEND_HOST%" --port "%SFDS_BACKEND_PORT%"
+)

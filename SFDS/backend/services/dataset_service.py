@@ -82,11 +82,26 @@ def _write_yolo_label(
     y_center: float = 0.5,
     width: float = 0.9,
     height: float = 0.9,
+    polygon: list[list[float]] | None = None,
 ):
-    """Ghi file label YOLO: class_id x_center y_center width height"""
+    """Write a YOLO segmentation label: class_id x1 y1 x2 y2 ..."""
+    if polygon and len(polygon) >= 3:
+        coords = []
+        for point in polygon:
+            if len(point) < 2:
+                continue
+            coords.extend([float(point[0]), float(point[1])])
+    else:
+        x1 = x_center - width / 2
+        y1 = y_center - height / 2
+        x2 = x_center + width / 2
+        y2 = y_center + height / 2
+        coords = [x1, y1, x2, y1, x2, y2, x1, y2]
+
+    coords = [min(1.0, max(0.0, value)) for value in coords]
     dest.parent.mkdir(parents=True, exist_ok=True)
     with open(dest, "w") as f:
-        f.write(f"{class_id} {x_center:.6f} {y_center:.6f} {width:.6f} {height:.6f}\n")
+        f.write(f"{class_id} {' '.join(f'{value:.6f}' for value in coords)}\n")
 
 
 def _read_yolo_label(src: Path) -> list[dict]:
@@ -99,13 +114,28 @@ def _read_yolo_label(src: Path) -> list[dict]:
             parts = line.strip().split()
             if len(parts) < 5:
                 continue
-            boxes.append({
-                "class_id":   int(parts[0]),
-                "x_center":   float(parts[1]),
-                "y_center":   float(parts[2]),
-                "width":      float(parts[3]),
-                "height":     float(parts[4]),
-            })
+            class_id = int(parts[0])
+            values = [float(part) for part in parts[1:]]
+            if len(parts) == 5:
+                boxes.append({
+                    "class_id":   class_id,
+                    "x_center":   values[0],
+                    "y_center":   values[1],
+                    "width":      values[2],
+                    "height":     values[3],
+                })
+                continue
+            if len(values) >= 6 and len(values) % 2 == 0:
+                xs = values[0::2]
+                ys = values[1::2]
+                boxes.append({
+                    "class_id": class_id,
+                    "polygon": [[xs[i], ys[i]] for i in range(len(xs))],
+                    "x_center": (min(xs) + max(xs)) / 2,
+                    "y_center": (min(ys) + max(ys)) / 2,
+                    "width": max(xs) - min(xs),
+                    "height": max(ys) - min(ys),
+                })
     return boxes
 
 
@@ -181,6 +211,7 @@ def save_item(
                 y_center   = b.get("y_center", 0.5),
                 width      = b.get("width", 0.9),
                 height     = b.get("height", 0.9),
+                polygon    = b.get("polygon"),
             )
         else:
             _write_yolo_label(lbl_dest, default_class_id)

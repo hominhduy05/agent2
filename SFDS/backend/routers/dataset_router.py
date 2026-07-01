@@ -132,21 +132,49 @@ async def save_face(
     except Exception:
         box_list = []
 
-    def pixel_to_yolo(x1, y1, x2, y2):
-        xc = ((x1 + x2) / 2) / w
-        yc = ((y1 + y2) / 2) / h
-        bw = (x2 - x1) / w
-        bh = (y2 - y1) / h
-        return round(xc, 6), round(yc, 6), round(bw, 6), round(bh, 6)
+    def clamp01(value: float) -> float:
+        return max(0.0, min(1.0, value))
 
-    default_yolo = "0.5 0.5 0.9 0.9"
+    def fmt(value: float) -> str:
+        return f"{clamp01(value):.6f}".rstrip("0").rstrip(".")
+
+    def rect_to_segment(x1, y1, x2, y2):
+        x1n = x1 / w
+        y1n = y1 / h
+        x2n = x2 / w
+        y2n = y2 / h
+        return [x1n, y1n, x2n, y1n, x2n, y2n, x1n, y2n]
+
+    def polygon_to_segment(points):
+        segment = []
+        for point in points or []:
+            if not isinstance(point, (list, tuple)) or len(point) < 2:
+                continue
+            try:
+                segment.extend([float(point[0]) / w, float(point[1]) / h])
+            except (TypeError, ValueError):
+                continue
+        return segment if len(segment) >= 6 else []
+
+    default_segment = rect_to_segment(w * 0.05, h * 0.05, w * 0.95, h * 0.95)
 
     def make_yolo_label(box_list, default_class_id):
         if not box_list:
-            return default_yolo
+            return f"{default_class_id} " + " ".join(fmt(v) for v in default_segment)
+
         b = box_list[0]
-        xc, yc, bw, bh = pixel_to_yolo(b["x1"], b["y1"], b["x2"], b["y2"])
-        return f"{default_class_id} {xc} {yc} {bw} {bh}"
+        segment = polygon_to_segment(b.get("polygon"))
+        if not segment:
+            try:
+                segment = rect_to_segment(
+                    float(b["x1"]),
+                    float(b["y1"]),
+                    float(b["x2"]),
+                    float(b["y2"]),
+                )
+            except (KeyError, TypeError, ValueError):
+                segment = default_segment
+        return f"{default_class_id} " + " ".join(fmt(v) for v in segment)
 
     grade_label = make_yolo_label(box_list, CLASS_IDS[grade])
     cond_label  = make_yolo_label(box_list, CLASS_IDS[condition])
