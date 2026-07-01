@@ -268,9 +268,8 @@ D, A/B/C use clear-majority voting. If no grade reaches majority, the system
 routes to the strictest/lower-quality grade present.
 
 Commands are published as enterprise events on topic `sorting/command`.
-In a production line, a PLC, relay controller, or edge IO service should
-subscribe to this command and handle the physical relay pulse. The inference
-API does not drive GPIO directly.
+If `ESP32_RELAY_PORT` is configured, the backend also sends the command to the
+ESP32 `backend/esp32/final2.ino` firmware over USB serial.
 
 The default is fail-safe: sorting decisions are generated for audit, but
 physical actuation is disabled unless explicitly enabled.
@@ -285,17 +284,28 @@ set SORTING_VOTE_REQUIRED=5
 set SORTING_CAMERAS_PER_ROOM=5
 set SORTING_DEFECT_VETO=true
 set SORTING_EARLY_DEFECT_VETO=false
-set SORTING_GRADE_A_PULSE_MS=250
-set SORTING_GRADE_B_PULSE_MS=250
-set SORTING_GRADE_C_PULSE_MS=250
-set SORTING_GRADE_A_DELAY_MS=0
-set SORTING_GRADE_B_DELAY_MS=0
-set SORTING_GRADE_C_DELAY_MS=0
+set SORTING_GRADE_A_PULSE_MS=2000
+set SORTING_GRADE_B_PULSE_MS=2000
+set SORTING_GRADE_C_PULSE_MS=2000
+set SORTING_GRADE_A_DELAY_MS=2000
+set SORTING_GRADE_B_DELAY_MS=2000
+set SORTING_GRADE_C_DELAY_MS=2000
+set ESP32_RELAY_PORT=COM5
+set ESP32_RELAY_BAUD=115200
+set ESP32_RELAY_COMMAND_MODE=arm
 ```
 
 Use `*_DELAY_MS` to compensate for the distance from the camera trigger point
-to each cylinder at the current conveyor speed. Keep `SORTING_DRY_RUN=true`
-while commissioning the PLC/relay wiring.
+to each cylinder at the current conveyor speed. `ESP32_RELAY_COMMAND_MODE=arm`
+waits for the selected E3F sensor before pulsing the relay; use `pulse` only
+when the backend delay alone should trigger the cylinder. Keep
+`SORTING_DRY_RUN=true` while commissioning the PLC/relay wiring.
+
+Check the serial bridge status:
+
+```text
+GET /api/scada/sorting/esp32/
+```
 
 ## Before Pushing
 

@@ -1,45 +1,45 @@
 // ==========================================================
-// ESP32 + 3 E3F qua PC817 + 3 Relay + 3 Xi lanh
-// Arduino IDE - ESP32 Dev Module
-// Relay HW-718 đặt jumper LOW-COM
+// SFDS ESP32 Final2
+// ESP32 + 3 E3F sensors via PC817 + 3 relay/cylinders
+//
+// Serial protocol for backend integration at 115200 baud:
+//   PING
+//   STATUS
+//   MODE BE
+//   MODE AUTO
+//   ARM <channel> <delay_ms> <pulse_ms> <command_id>
+//   PULSE <channel> <delay_ms> <pulse_ms> <command_id>
+//   STOP
+//
+// ARM waits for the selected E3F sensor before delaying and pulsing.
+// PULSE delays and pulses immediately, without waiting for the sensor.
+// channel is 1..3. D/pass_through should not send a relay command.
 // ==========================================================
 
-// ------------------ CHÂN CẢM BIẾN ------------------
-// PC817 kéo GPIO xuống LOW khi E3F phát hiện vật
 #define SENSOR_1_PIN 18
 #define SENSOR_2_PIN 19
 #define SENSOR_3_PIN 21
 
-// ------------------ CHÂN RELAY ------------------
 #define RELAY_1_PIN 25
 #define RELAY_2_PIN 26
 #define RELAY_3_PIN 27
 
-// ------------------ CẤU HÌNH LOGIC ------------------
-// HW-718 ở chế độ LOW trigger:
-// GPIO LOW  -> relay bật
-// GPIO HIGH -> relay tắt
 const bool RELAY_ACTIVE_LOW = true;
-
-// PC817 thường kéo GPIO xuống LOW khi cảm biến phát hiện vật
 const int SENSOR_ACTIVE_LEVEL = LOW;
 
-// ------------------ THỜI GIAN ------------------
 const unsigned long DEBOUNCE_MS = 50;
+const unsigned long DEFAULT_DETECT_TO_PUSH_DELAY_MS = 2000;
+const unsigned long DEFAULT_PUSH_TIME_MS = 2000;
+const unsigned long ARM_TIMEOUT_MS = 10000;
 
-// Sau khi cảm biến nhận trái, chờ 2 giây mới kích xi lanh
-const unsigned long DETECT_TO_PUSH_DELAY_MS = 2000;
-
-// Xi lanh/van hoạt động trong 2 giây
-const unsigned long PUSH_TIME_MS = 2000;
-
-// ------------------ TRẠNG THÁI ------------------
 enum ChannelState {
-  WAIT_OBJECT,       // Chờ vật thể đến
-  DEBOUNCE_OBJECT,   // Xác nhận tín hiệu ổn định
-  WAIT_TO_PUSH,      // Đã nhận vật, chờ đến vị trí xi lanh
-  CYLINDER_PUSHING,  // Đang kích xi lanh
-  WAIT_OBJECT_LEAVE  // Chờ vật đi qua hẳn để không kích lặp
+  IDLE,
+  AUTO_DEBOUNCE,
+  WAIT_TO_PUSH,
+  CYLINDER_PUSHING,
+  WAIT_OBJECT_LEAVE,
+  ARMED_WAIT_OBJECT,
+  ARMED_DEBOUNCE
 };
 
 struct SortChannel {
@@ -47,20 +47,21 @@ struct SortChannel {
   uint8_t relayPin;
   ChannelState state;
   unsigned long stateStartTime;
+  unsigned long delayMs;
+  unsigned long pulseMs;
+  String commandId;
   const char* name;
 };
 
 SortChannel channels[] = {
-  {SENSOR_1_PIN, RELAY_1_PIN, WAIT_OBJECT, 0, "KENH 1"},
-  {SENSOR_2_PIN, RELAY_2_PIN, WAIT_OBJECT, 0, "KENH 2"},
-  {SENSOR_3_PIN, RELAY_3_PIN, WAIT_OBJECT, 0, "KENH 3"}
+  {SENSOR_1_PIN, RELAY_1_PIN, IDLE, 0, DEFAULT_DETECT_TO_PUSH_DELAY_MS, DEFAULT_PUSH_TIME_MS, "", "CH1"},
+  {SENSOR_2_PIN, RELAY_2_PIN, IDLE, 0, DEFAULT_DETECT_TO_PUSH_DELAY_MS, DEFAULT_PUSH_TIME_MS, "", "CH2"},
+  {SENSOR_3_PIN, RELAY_3_PIN, IDLE, 0, DEFAULT_DETECT_TO_PUSH_DELAY_MS, DEFAULT_PUSH_TIME_MS, "", "CH3"}
 };
 
 const int CHANNEL_COUNT = sizeof(channels) / sizeof(channels[0]);
+bool autoMode = false;
 
-// ==========================================================
-// HÀM RELAY
-// ==========================================================
 void setRelay(uint8_t relayPin, bool turnOn) {
   if (RELAY_ACTIVE_LOW) {
     digitalWrite(relayPin, turnOn ? LOW : HIGH);
@@ -79,111 +80,279 @@ void turnOffAllRelays() {
   }
 }
 
-// ==========================================================
-// XỬ LÝ MỖI KÊNH CẢM BIẾN + XI LANH
-// ==========================================================
+void resetChannel(SortChannel &channel) {
+  setRelay(channel.relayPin, false);
+  channel.state = IDLE;
+  channel.stateStartTime = millis();
+  channel.delayMs = DEFAULT_DETECT_TO_PUSH_DELAY_MS;
+  channel.pulseMs = DEFAULT_PUSH_TIME_MS;
+  channel.commandId = "";
+}
+
+void beginPush(SortChannel &channel, unsigned long now) {
+  setRelay(channel.relayPin, true);
+  channel.state = CYLINDER_PUSHING;
+  channel.stateStartTime = now;
+
+  Serial.print("RELAY_ON channel=");
+  Serial.print(channel.name);
+  Serial.print(" command_id=");
+  Serial.println(channel.commandId);
+}
+
+void finishPush(SortChannel &channel, unsigned long now) {
+  setRelay(channel.relayPin, false);
+  channel.state = WAIT_OBJECT_LEAVE;
+  channel.stateStartTime = now;
+
+  Serial.print("DONE channel=");
+  Serial.print(channel.name);
+  Serial.print(" command_id=");
+  Serial.println(channel.commandId);
+}
+
+int channelIndexFromNumber(int channelNumber) {
+  if (channelNumber < 1 || channelNumber > CHANNEL_COUNT) return -1;
+  return channelNumber - 1;
+}
+
+void armChannel(int channelNumber, unsigned long delayMs, unsigned long pulseMs, const String &commandId) {
+  int idx = channelIndexFromNumber(channelNumber);
+  if (idx < 0) {
+    Serial.print("ERR invalid_channel command_id=");
+    Serial.println(commandId);
+    return;
+  }
+
+  SortChannel &channel = channels[idx];
+  if (channel.state != IDLE && channel.state != WAIT_OBJECT_LEAVE) {
+    Serial.print("BUSY channel=");
+    Serial.print(channel.name);
+    Serial.print(" command_id=");
+    Serial.println(commandId);
+    return;
+  }
+
+  channel.delayMs = delayMs;
+  channel.pulseMs = pulseMs;
+  channel.commandId = commandId;
+  channel.state = ARMED_WAIT_OBJECT;
+  channel.stateStartTime = millis();
+
+  Serial.print("ACK ARM channel=");
+  Serial.print(channel.name);
+  Serial.print(" delay_ms=");
+  Serial.print(delayMs);
+  Serial.print(" pulse_ms=");
+  Serial.print(pulseMs);
+  Serial.print(" command_id=");
+  Serial.println(commandId);
+}
+
+void pulseChannel(int channelNumber, unsigned long delayMs, unsigned long pulseMs, const String &commandId) {
+  int idx = channelIndexFromNumber(channelNumber);
+  if (idx < 0) {
+    Serial.print("ERR invalid_channel command_id=");
+    Serial.println(commandId);
+    return;
+  }
+
+  SortChannel &channel = channels[idx];
+  if (channel.state != IDLE && channel.state != WAIT_OBJECT_LEAVE) {
+    Serial.print("BUSY channel=");
+    Serial.print(channel.name);
+    Serial.print(" command_id=");
+    Serial.println(commandId);
+    return;
+  }
+
+  channel.delayMs = delayMs;
+  channel.pulseMs = pulseMs;
+  channel.commandId = commandId;
+  channel.state = WAIT_TO_PUSH;
+  channel.stateStartTime = millis();
+
+  Serial.print("ACK PULSE channel=");
+  Serial.print(channel.name);
+  Serial.print(" delay_ms=");
+  Serial.print(delayMs);
+  Serial.print(" pulse_ms=");
+  Serial.print(pulseMs);
+  Serial.print(" command_id=");
+  Serial.println(commandId);
+}
+
+String readToken(String &line) {
+  line.trim();
+  int space = line.indexOf(' ');
+  if (space < 0) {
+    String token = line;
+    line = "";
+    return token;
+  }
+  String token = line.substring(0, space);
+  line = line.substring(space + 1);
+  return token;
+}
+
+void handleSerialLine(String line) {
+  line.trim();
+  if (line.length() == 0) return;
+
+  String cmd = readToken(line);
+  cmd.toUpperCase();
+
+  if (cmd == "PING") {
+    Serial.println("PONG final2");
+    return;
+  }
+
+  if (cmd == "STATUS") {
+    Serial.print("STATUS mode=");
+    Serial.print(autoMode ? "AUTO" : "BE");
+    for (int i = 0; i < CHANNEL_COUNT; i++) {
+      Serial.print(" ");
+      Serial.print(channels[i].name);
+      Serial.print("_state=");
+      Serial.print((int)channels[i].state);
+      Serial.print(" sensor=");
+      Serial.print(isObjectDetected(channels[i].sensorPin) ? "1" : "0");
+    }
+    Serial.println();
+    return;
+  }
+
+  if (cmd == "MODE") {
+    String mode = readToken(line);
+    mode.toUpperCase();
+    autoMode = mode == "AUTO";
+    Serial.print("ACK MODE ");
+    Serial.println(autoMode ? "AUTO" : "BE");
+    return;
+  }
+
+  if (cmd == "STOP") {
+    for (int i = 0; i < CHANNEL_COUNT; i++) resetChannel(channels[i]);
+    Serial.println("ACK STOP");
+    return;
+  }
+
+  if (cmd == "ARM" || cmd == "PULSE") {
+    int channelNumber = readToken(line).toInt();
+    unsigned long delayMs = (unsigned long)readToken(line).toInt();
+    unsigned long pulseMs = (unsigned long)readToken(line).toInt();
+    String commandId = readToken(line);
+    if (commandId.length() == 0) commandId = "manual";
+
+    if (cmd == "ARM") {
+      armChannel(channelNumber, delayMs, pulseMs, commandId);
+    } else {
+      pulseChannel(channelNumber, delayMs, pulseMs, commandId);
+    }
+    return;
+  }
+
+  Serial.print("ERR unknown_command ");
+  Serial.println(cmd);
+}
+
+void pollSerial() {
+  while (Serial.available() > 0) {
+    String line = Serial.readStringUntil('\n');
+    handleSerialLine(line);
+  }
+}
+
 void processChannel(SortChannel &channel, unsigned long now) {
   bool objectDetected = isObjectDetected(channel.sensorPin);
 
   switch (channel.state) {
-
-    case WAIT_OBJECT:
-      // Chờ vật thể xuất hiện
-      if (objectDetected) {
-        channel.state = DEBOUNCE_OBJECT;
+    case IDLE:
+      if (autoMode && objectDetected) {
+        channel.commandId = "auto";
+        channel.delayMs = DEFAULT_DETECT_TO_PUSH_DELAY_MS;
+        channel.pulseMs = DEFAULT_PUSH_TIME_MS;
+        channel.state = AUTO_DEBOUNCE;
         channel.stateStartTime = now;
-
-        Serial.print("[");
-        Serial.print(channel.name);
-        Serial.println("] Phat hien vat - dang xac nhan...");
       }
       break;
 
-    case DEBOUNCE_OBJECT:
-      // Chống nhiễu tín hiệu cảm biến
+    case AUTO_DEBOUNCE:
       if (!objectDetected) {
-        channel.state = WAIT_OBJECT;
-      }
-      else if (now - channel.stateStartTime >= DEBOUNCE_MS) {
+        resetChannel(channel);
+      } else if (now - channel.stateStartTime >= DEBOUNCE_MS) {
         channel.state = WAIT_TO_PUSH;
         channel.stateStartTime = now;
+      }
+      break;
 
-        Serial.print("[");
+    case ARMED_WAIT_OBJECT:
+      if (now - channel.stateStartTime >= ARM_TIMEOUT_MS) {
+        Serial.print("TIMEOUT channel=");
         Serial.print(channel.name);
-        Serial.println("] Da xac nhan vat - cho 2 giay truoc khi kich xi lanh.");
+        Serial.print(" command_id=");
+        Serial.println(channel.commandId);
+        resetChannel(channel);
+      } else if (objectDetected) {
+        channel.state = ARMED_DEBOUNCE;
+        channel.stateStartTime = now;
+      }
+      break;
+
+    case ARMED_DEBOUNCE:
+      if (!objectDetected) {
+        channel.state = ARMED_WAIT_OBJECT;
+        channel.stateStartTime = now;
+      } else if (now - channel.stateStartTime >= DEBOUNCE_MS) {
+        Serial.print("SENSOR_HIT channel=");
+        Serial.print(channel.name);
+        Serial.print(" command_id=");
+        Serial.println(channel.commandId);
+        channel.state = WAIT_TO_PUSH;
+        channel.stateStartTime = now;
       }
       break;
 
     case WAIT_TO_PUSH:
-      // Đợi trái đi từ vị trí cảm biến đến vị trí xi lanh
-      if (now - channel.stateStartTime >= DETECT_TO_PUSH_DELAY_MS) {
-        setRelay(channel.relayPin, true);
-
-        channel.state = CYLINDER_PUSHING;
-        channel.stateStartTime = now;
-
-        Serial.print("[");
-        Serial.print(channel.name);
-        Serial.println("] BAT relay - xi lanh dang day.");
+      if (now - channel.stateStartTime >= channel.delayMs) {
+        beginPush(channel, now);
       }
       break;
 
     case CYLINDER_PUSHING:
-      // Giữ xi lanh hoạt động trong thời gian quy định
-      if (now - channel.stateStartTime >= PUSH_TIME_MS) {
-        setRelay(channel.relayPin, false);
-
-        channel.state = WAIT_OBJECT_LEAVE;
-        channel.stateStartTime = now;
-
-        Serial.print("[");
-        Serial.print(channel.name);
-        Serial.println("] TAT relay - cho vat roi khoi cam bien.");
+      if (now - channel.stateStartTime >= channel.pulseMs) {
+        finishPush(channel, now);
       }
       break;
 
     case WAIT_OBJECT_LEAVE:
-      // Chống việc một vật đứng tại cảm biến bị kích nhiều lần
       if (!objectDetected) {
-        channel.state = WAIT_OBJECT;
-
-        Serial.print("[");
-        Serial.print(channel.name);
-        Serial.println("] San sang nhan vat tiep theo.");
+        resetChannel(channel);
+        Serial.print("READY channel=");
+        Serial.println(channel.name);
       }
       break;
   }
 }
 
-// ==========================================================
-// SETUP
-// ==========================================================
 void setup() {
   Serial.begin(115200);
+  Serial.setTimeout(25);
   delay(500);
-
-  Serial.println();
-  Serial.println("===== ESP32 - 3 E3F - 3 Relay - 3 Xi lanh =====");
 
   for (int i = 0; i < CHANNEL_COUNT; i++) {
     pinMode(channels[i].sensorPin, INPUT_PULLUP);
-
     pinMode(channels[i].relayPin, OUTPUT);
-    setRelay(channels[i].relayPin, false);
-
-    channels[i].state = WAIT_OBJECT;
-    channels[i].stateStartTime = millis();
+    resetChannel(channels[i]);
   }
 
-  Serial.println("He thong da san sang.");
+  turnOffAllRelays();
+  Serial.println("READY final2 mode=BE baud=115200");
 }
 
-// ==========================================================
-// LOOP
-// ==========================================================
 void loop() {
   unsigned long now = millis();
-
+  pollSerial();
   for (int i = 0; i < CHANNEL_COUNT; i++) {
     processChannel(channels[i], now);
   }

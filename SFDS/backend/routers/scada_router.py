@@ -30,6 +30,7 @@ from services.sorting_controller import (
     get_recent_sorting_commands,
     get_sorting_config,
 )
+from services.esp32_relay_controller import get_esp32_relay_status
 from core.demo_label_override import (
     apply_demo_label_override,
     clear_demo_track_labels,
@@ -401,6 +402,11 @@ async def get_scada_sorting_commands(limit: int = 50) -> dict:
     return {
         "commands": get_recent_sorting_commands(limit),
     }
+
+
+@router.get("/api/scada/sorting/esp32/")
+async def get_scada_sorting_esp32() -> dict:
+    return get_esp32_relay_status()
 
 
 def get_quality_state(slot: int) -> _QualityGateState:

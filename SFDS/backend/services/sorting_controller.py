@@ -18,6 +18,7 @@ import time
 from typing import Any
 from uuid import uuid4
 
+from services.esp32_relay_controller import send_sorting_command
 from services.mqtt_publisher import publish_enterprise_event
 
 
@@ -26,22 +27,22 @@ DEFAULT_GRADE_ROUTES: dict[str, dict[str, Any]] = {
         "route": "lane_a",
         "actuator": "cylinder_1",
         "relay_channel": 1,
-        "pulse_ms": 250,
-        "delay_ms": 0,
+        "pulse_ms": 2000,
+        "delay_ms": 2000,
     },
     "B": {
         "route": "lane_b",
         "actuator": "cylinder_2",
         "relay_channel": 2,
-        "pulse_ms": 250,
-        "delay_ms": 0,
+        "pulse_ms": 2000,
+        "delay_ms": 2000,
     },
     "C": {
         "route": "lane_c",
         "actuator": "cylinder_3",
         "relay_channel": 3,
-        "pulse_ms": 250,
-        "delay_ms": 0,
+        "pulse_ms": 2000,
+        "delay_ms": 2000,
     },
     "D": {
         "route": "pass_through",
@@ -454,6 +455,13 @@ def dispatch_sorting_commands(
             "quality": quality or {},
             "scale": scale or {},
         }
+        if action == "relay_pulse" and not settings.dry_run:
+            command["hardware"] = send_sorting_command(command)
+        elif action == "relay_pulse":
+            command["hardware"] = {
+                "sent": False,
+                "reason": "SORTING_DRY_RUN is enabled",
+            }
         commands.append(command)
         _remember_command(command)
 
