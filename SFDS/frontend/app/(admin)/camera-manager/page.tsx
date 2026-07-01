@@ -143,7 +143,7 @@ export default function CameraManagementPage() {
 
     await manager.startWebcam(pendingCam.id, deviceId, label);
 
-    manager.startWebSocketDetect(pendingCam.id);
+    manager.startAuto(pendingCam.id);
 
     setShowDeviceModal(false);
     setPendingCam(null);
@@ -154,7 +154,7 @@ export default function CameraManagementPage() {
 
     await manager.startIPCamera(pendingCam.id, url, pendingCam.label);
 
-    manager.startWebSocketDetect(pendingCam.id);
+    manager.startAuto(pendingCam.id);
 
     setShowDeviceModal(false);
     setPendingCam(null);

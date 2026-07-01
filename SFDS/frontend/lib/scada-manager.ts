@@ -14,19 +14,12 @@ function randomWeight(min = 0.2, max = 2.5): number {
 }
 
 function exposeDev(instance: ScadaCameraManager | null) {
-  if (
-    process.env.NODE_ENV === 'development' &&
-    typeof window !== 'undefined'
-  ) {
+  if (process.env.NODE_ENV === 'development' && typeof window !== 'undefined') {
     (window as any).__SCADA_MANAGER__ = instance;
   }
 }
 
-
-function pushFruitRealtime(
-  cameraIndex: number,
-  result: any
-) {
+function pushFruitRealtime(cameraIndex: number, result: any) {
   (result.detections || []).forEach((d: any) => {
     if (!d.fruit_id) return;
 
@@ -55,57 +48,40 @@ function pushFruitRealtime(
 //   return manager;
 // }
 export function getScadaManager() {
+  if (!manager) {
+    manager = new ScadaCameraManager(5);
 
-    if (!manager) {
+    exposeDev(manager);
+  }
 
-        manager = new ScadaCameraManager(5);
-
-        exposeDev(manager);
-
-    }
-
-    return manager;
-
+  return manager;
 }
 
-export function pushFrameResult(
-  cam: any,
-  result: any
-) {
+export function pushFrameResult(cam: any, result: any) {
   const manager = getScadaManager();
 
   result.camera_id = cam.id;
 
-  result.detections = (result.detections || []).map(
-    (d: any) => {
-      let weight = d.weight_kg;
+  result.detections = (result.detections || []).map((d: any) => {
+    let weight = d.weight_kg;
 
-      // Nếu AI chưa trả weight
-      if (
-        weight === undefined ||
-        weight === null ||
-        Number.isNaN(weight)
-      ) {
-        // Ưu tiên lấy từ manager
+    // Nếu AI chưa trả weight
+    if (weight === undefined || weight === null || Number.isNaN(weight)) {
+      // Ưu tiên lấy từ manager
+      weight = randomWeight();
+
+      // Nếu manager cũng chưa có thì random
+      if (weight === undefined || weight === null || Number.isNaN(weight)) {
         weight = randomWeight();
-
-        // Nếu manager cũng chưa có thì random
-        if (
-          weight === undefined ||
-          weight === null ||
-          Number.isNaN(weight)
-        ) {
-          weight = randomWeight();
-        }
       }
-
-      return {
-        ...d,
-        camera_id: cam.id,
-        weight_kg: weight,
-      };
     }
-  );
+
+    return {
+      ...d,
+      camera_id: cam.id,
+      weight_kg: weight,
+    };
+  });
 
   cam.result = result;
 
@@ -113,10 +89,7 @@ export function pushFrameResult(
   pushFruitRealtime(cam.id - 1, result);
 
   // Analytics
-  const event = toAnalyticsEvent(
-    cam.id,
-    result
-  );
+  const event = toAnalyticsEvent(cam.id, result);
 
   if (!cam.analytics) {
     cam.analytics = {
@@ -130,7 +103,5 @@ export function pushFrameResult(
     cam.analytics.events.shift();
   }
 
-  cam.analytics.stats = computeStats(
-    cam.analytics.events
-  );
+  cam.analytics.stats = computeStats(cam.analytics.events);
 }

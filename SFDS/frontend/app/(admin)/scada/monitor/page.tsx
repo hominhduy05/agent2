@@ -76,7 +76,6 @@ export default function ScadaPage() {
   //   //     console.error(`Camera ${i + 1} failed`, err);
   //   //   }
   //   // }
-    
 
   //   setCameras([...m.cameras]);
 
@@ -90,62 +89,58 @@ export default function ScadaPage() {
     const emptySlots: number[] = [];
 
     for (let i = 0; i < 5; i++) {
-        if (!m.cameras[i].isActive) {
-            emptySlots.push(i);
-        }
+      if (!m.cameras[i].isActive) {
+        emptySlots.push(i);
+      }
     }
 
     for (const dev of webcams) {
+      // camera này đã được dùng chưa?
+      const existed = m.cameras.find(
+        (c) => c.isActive && c.deviceId === dev.deviceId
+      );
 
-        // camera này đã được dùng chưa?
-        const existed = m.cameras.find(
-            c =>
-                c.isActive &&
-                c.deviceId === dev.deviceId
-        );
-
-        if (existed) {
-            continue;
+      if (existed) {
+        if (!existed.autoEnabled) {
+          m.startAuto(existed.id);
         }
+        continue;
+      }
 
-        const slot = emptySlots.shift();
+      const slot = emptySlots.shift();
 
-        if (slot === undefined) {
-            break;
-        }
+      if (slot === undefined) {
+        break;
+      }
 
-        try {
+      try {
+        await m.startWebcam(slot, dev.deviceId, dev.label);
 
-            await m.startWebcam(
-                slot,
-                dev.deviceId,
-                dev.label
-            );
+        m.startAuto(slot);
 
-            m.startAuto(slot);
-
-            console.log(
-                `Camera ${dev.label} -> slot ${slot}`
-            );
-
-        } catch (err) {
-
-            console.error(err);
-
-        }
+        console.log(`Camera ${dev.label} -> slot ${slot}`);
+      } catch (err) {
+        console.error(err);
+      }
     }
 
     setCameras([...m.cameras]);
 
-    setSelectedId(prev => prev ?? 0);
-};
+    setSelectedId((prev) => prev ?? 0);
+  };
 
   const syncDisconnectedCameras = async (webcams: MediaDevice[]) => {
     const m = managerRef.current;
 
     if (!m) return;
 
-    const deviceIds = webcams.map((x) => x.deviceId);
+    const deviceIds = webcams.map((x) => x.deviceId).filter(Boolean);
+
+    // Tránh ngắt camera đang chạy khi danh sách thiết bị tạm thời rỗng
+    // (ví dụ đang chuyển route, browser đổi quyền, hoặc refresh permission).
+    if (deviceIds.length === 0) {
+      return;
+    }
 
     for (let i = 0; i < 5; i++) {
       const cam = m.cameras[i];
@@ -177,15 +172,15 @@ export default function ScadaPage() {
     // managerRef.current = manager;
     const manager = getScadaManager();
 
-managerRef.current = manager;
+    managerRef.current = manager;
 
-const unsubscribe = manager.subscribe((cam) => {
-  setCameras((prev) => {
-    const next = [...prev];
-    next[cam.id] = { ...cam };
-    return next;
-  });
-});
+    const unsubscribe = manager.subscribe((cam) => {
+      setCameras((prev) => {
+        const next = [...prev];
+        next[cam.id] = { ...cam };
+        return next;
+      });
+    });
 
     for (let i = 0; i < 5; i++) {
       managerRef.current.setRefs(
@@ -239,14 +234,14 @@ const unsubscribe = manager.subscribe((cam) => {
     return () => {
       unsubscribe();
 
-      const activeManager = managerRef.current;
-      setTimeout(() => {
-        const nextPath = window.location.pathname;
-        if (!nextPath.startsWith('/scada')) {
-          console.log('LEAVING SCADA MODULE -> CLEANING UP SOCKETS & CAMERAS');
-          activeManager?.cleanup();
-        }
-      }, 100);
+      // const activeManager = managerRef.current;
+      // setTimeout(() => {
+      //   const nextPath = window.location.pathname;
+      //   if (!nextPath.startsWith('/scada')) {
+      //     console.log('LEAVING SCADA MODULE -> CLEANING UP SOCKETS & CAMERAS');
+      //     activeManager?.cleanup();
+      //   }
+      // }, 100);
     };
   }, []);
 
@@ -272,12 +267,10 @@ const unsubscribe = manager.subscribe((cam) => {
       .catch(() => setDemoMode(false));
   }, []);
 
-  const activeCamera = cameras.some(
-    c => c.isActive && c.autoEnabled
-);
+  const activeCamera = cameras.some((c) => c.isActive && c.autoEnabled);
   useEffect(() => {
     let cancelled = false;
-     if (!demoMode || !activeCamera) {
+    if (!demoMode || !activeCamera) {
       setScaleStatus(null);
       return () => {
         cancelled = true;
@@ -465,10 +458,9 @@ const unsubscribe = manager.subscribe((cam) => {
   const reconnecting = useRef(false);
   useEffect(() => {
     const onDeviceChange = async () => {
-      if (reconnecting.current)
-        return;
+      if (reconnecting.current) return;
 
-    reconnecting.current = true;
+      reconnecting.current = true;
       try {
         const devs = await navigator.mediaDevices.enumerateDevices();
 
