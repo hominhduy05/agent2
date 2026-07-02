@@ -35,7 +35,16 @@ frontend/
 On Windows, double-click this file from the project root:
 
 ```text
-run_all.bat
+sfds.bat
+```
+
+That starts PostgreSQL in Docker first, waits for the database to become
+healthy, then runs backend and frontend on the factory LAN.
+
+For local/demo startup without Docker PostgreSQL, run:
+
+```text
+sfds.bat dev
 ```
 
 The script checks for Conda, Node.js, npm, and Bun. It uses the Conda
@@ -62,7 +71,7 @@ and backend ports. Without Administrator permission, allow those printed TCP
 ports manually if another computer cannot connect.
 
 Browser webcam access only works on secure origins. On the server machine,
-use the local URL that `run_all.bat` opens automatically:
+use the local URL that `sfds.bat` opens automatically:
 
 ```text
 http://127.0.0.1:FRONTEND_PORT
@@ -82,14 +91,14 @@ available, and CPU is used as a fallback. To force a device:
 
 ```bat
 set DURIAN_DEVICE=cpu
-run_all.bat
+sfds.bat
 ```
 
 or:
 
 ```bat
 set DURIAN_DEVICE=cuda
-run_all.bat
+sfds.bat
 ```
 
 If you want to use a different Conda environment name, set `SFDS_CONDA_ENV`
@@ -97,16 +106,16 @@ before running the script:
 
 ```bat
 set SFDS_CONDA_ENV=your_env_name
-run_all.bat
+sfds.bat
 ```
 
 On Windows Server, Anaconda may be installed outside the usual PATH. If
-`run_all.bat` says Conda is missing even though it is installed, point the
+`sfds.bat` says Conda is missing even though it is installed, point the
 launcher directly to Conda:
 
 ```bat
 set "SFDS_CONDA_BAT=C:\ProgramData\anaconda3\condabin\conda.bat"
-run_all.bat
+sfds.bat
 ```
 
 Use the real path to `conda.bat` on that machine.
@@ -147,15 +156,15 @@ so the app does not depend on a user-specific Windows `AppData` path.
 
 ## Camera Health Check
 
-`run_all.bat` does not auto-open camera checks. To debug RTSP/IP camera
+`sfds.bat` does not auto-open camera checks. To debug RTSP/IP camera
 connections manually after the backend starts, run:
 
 ```text
-check_cameras.bat
+sfds.bat camera-check
 ```
 
 The script waits for `http://127.0.0.1:9000/health/`, prints the active
-inference device, then checks camera slots `0` to `3` through:
+inference device, then checks camera slots `0` to `4` through:
 
 ```text
 http://127.0.0.1:9000/api/scada/cameras/health/
@@ -178,7 +187,7 @@ http://localhost:3000/webcam-check
 or run:
 
 ```text
-check_webcams.bat
+sfds.bat webcam-check
 ```
 
 Browser webcam checks must run inside the browser because Windows/browser
@@ -204,6 +213,45 @@ http://127.0.0.1:9000/docs
 
 The health endpoint should return `"model_loaded": true` before camera
 detection will work.
+
+## Offline PostgreSQL Mode
+
+By default, SFDS uses local SQLite for demo runs. For factory/offline
+deployments, run PostgreSQL in Docker on the same factory server and keep the
+backend, YOLO, cameras, USB serial, scale, and relay flows native on Windows.
+Use `sfds.bat` for the normal server startup.
+
+See:
+
+```text
+docs/offline-postgresql.md
+docker-compose.postgres.yml
+docker/postgres.env.example
+backend/.env.postgres.offline.example
+sfds.bat
+scripts/sfds.ps1
+```
+
+Useful server commands:
+
+```text
+sfds.bat                 Start factory server mode
+sfds.bat dev             Start without Docker PostgreSQL
+sfds.bat db-status       Show PostgreSQL Docker status
+sfds.bat db-logs         Show PostgreSQL logs
+sfds.bat backup          Backup PostgreSQL
+sfds.bat restore -BackupFile D:\sfds_backups\sfds_offline.dump -Force
+sfds.bat image-save      Save postgres image for USB transfer
+sfds.bat image-load      Load postgres image from USB transfer
+sfds.bat native-setup    Optional native PostgreSQL setup without Docker
+sfds.bat camera-check    Check backend and RTSP camera health
+sfds.bat webcam-check    Open browser webcam diagnostic page
+```
+
+This mode does not require Internet at runtime. PostgreSQL stores employees,
+KPI/shift/alarm data, detection audit events, sorting command logs, camera
+metadata, and dataset metadata. Images, labels, model weights, and exports stay
+on local disk.
 
 ## Frontend Setup
 
@@ -235,7 +283,7 @@ NEXT_PUBLIC_WS_URL=ws://BACKEND_IP:9000
 SFDS_BACKEND_HOST=0.0.0.0
 ```
 
-`run_all.bat` sets those values automatically for the current machine.
+`sfds.bat` sets those values automatically for the current machine.
 
 ## Useful Endpoints
 
@@ -249,6 +297,9 @@ POST /api/scada/detect/{slot}/
 WS   /ws/scada/detect/{slot}/
 GET  /api/scada/sorting/config/
 GET  /api/scada/sorting/commands/
+GET  /api/audit/detections/
+GET  /api/audit/sorting-commands/
+GET  /api/audit/summary/
 ```
 
 ## Sorting / Relay Commands

@@ -299,6 +299,91 @@ export async function getDatasetYaml(category: string) {
 }
 
 // ---------------------------------------------------------------------------
+// Audit / offline DB
+// ---------------------------------------------------------------------------
+
+export interface AuditDetectionEvent {
+  id: number;
+  event_id: string;
+  timestamp: string | null;
+  source: string;
+  line_id?: string | null;
+  camera_slot?: number | null;
+  batch_id?: string | null;
+  fruit_id?: string | null;
+  track_id?: number | null;
+  class_name?: string | null;
+  visual_grade?: string | null;
+  weight_grade?: string | null;
+  final_grade?: string | null;
+  confidence?: number | null;
+  weight_kg?: number | null;
+  detection_count: number;
+  raw_detection_count: number;
+  image_width?: number | null;
+  image_height?: number | null;
+  image_path?: string | null;
+  quality: Record<string, unknown>;
+  scale: Record<string, unknown>;
+  detections: Array<{
+    x1: number;
+    y1: number;
+    x2: number;
+    y2: number;
+    confidence: number;
+    class_name: string;
+    track_id?: number | null;
+  }>;
+  sorting_commands: Array<Record<string, unknown>>;
+}
+
+export interface AuditListResponse<T> {
+  items: T[];
+  total: number;
+  limit: number;
+  offset: number;
+}
+
+export interface AuditSummary {
+  window_hours: number;
+  total_detections: number;
+  total_sorting_commands: number;
+  avg_confidence: number;
+  grade_counts: Record<string, number>;
+  camera_counts: Record<string, number>;
+}
+
+export async function listAuditDetections(params: {
+  limit?: number;
+  offset?: number;
+  camera_slot?: number;
+  grade?: string;
+  date?: string;
+} = {}): Promise<AuditListResponse<AuditDetectionEvent>> {
+  const qs = new URLSearchParams();
+  if (params.limit) qs.set('limit', String(params.limit));
+  if (params.offset) qs.set('offset', String(params.offset));
+  if (params.camera_slot !== undefined)
+    qs.set('camera_slot', String(params.camera_slot));
+  if (params.grade) qs.set('grade', params.grade);
+  if (params.date) qs.set('date', params.date);
+  const suffix = qs.toString() ? `?${qs}` : '';
+  const res = await fetch(`${API_BASE}/api/audit/detections/${suffix}`, {
+    cache: 'no-store',
+  });
+  if (!res.ok) throw new Error('Khong the lay lich su nhan dien');
+  return res.json();
+}
+
+export async function getAuditSummary(hours = 24): Promise<AuditSummary> {
+  const res = await fetch(`${API_BASE}/api/audit/summary/?hours=${hours}`, {
+    cache: 'no-store',
+  });
+  if (!res.ok) throw new Error('Khong the lay tong hop audit');
+  return res.json();
+}
+
+// ---------------------------------------------------------------------------
 // Health check
 // ---------------------------------------------------------------------------
 

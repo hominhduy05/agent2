@@ -24,6 +24,13 @@ from core.scale_state import (
     reset_scale_reading,
     update_scale_reading,
 )
+from db.repositories import (
+    list_camera_configs,
+    save_detection_event,
+    save_sorting_command,
+    update_camera_health_status,
+    upsert_camera_config,
+)
 from services.mqtt_publisher import publish_enterprise_event
 from services.sorting_controller import (
     dispatch_sorting_commands,
@@ -48,6 +55,12 @@ from core.shared import (
 )
 
 router = APIRouter(prefix="", tags=["SCADA"])
+SCADA_CAMERA_COUNT = max(1, int(os.getenv("SCADA_CAMERA_COUNT", "5")))
+VALID_SLOT_MESSAGE = f"slot must be 0-{SCADA_CAMERA_COUNT - 1}"
+
+
+def _is_valid_slot(slot: int) -> bool:
+    return 0 <= slot < SCADA_CAMERA_COUNT
 
 
 # ---------------------------------------------------------------------------
@@ -59,7 +72,7 @@ _tracker_mgr: TrackerManager | None = None
 def get_tracker_mgr() -> TrackerManager:
     global _tracker_mgr
     if _tracker_mgr is None:
-        _tracker_mgr = TrackerManager(num_slots=4, max_age=15, min_hits=1, iou_threshold=0.3)
+        _tracker_mgr = TrackerManager(num_slots=SCADA_CAMERA_COUNT, max_age=15, min_hits=1, iou_threshold=0.3)
     return _tracker_mgr
 
 
@@ -67,7 +80,7 @@ def get_tracker_mgr() -> TrackerManager:
 # Global RTSP config
 # ---------------------------------------------------------------------------
 CAMERA_CONFIG_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), "scada_cameras.json")
-CAMERA_RTSP_URLS: dict[int, str] = {0: "", 1: "", 2: "", 3: ""}
+CAMERA_RTSP_URLS: dict[int, str] = {slot: "" for slot in range(SCADA_CAMERA_COUNT)}
 _slot_captures: dict[int, "RtspCapture"] = {}
 
 
@@ -78,7 +91,7 @@ def _load_camera_config() -> None:
         with open(CAMERA_CONFIG_PATH, "r", encoding="utf-8") as fh:
             data = json.load(fh)
         cameras = data.get("cameras", data)
-        for slot in range(4):
+        for slot in range(SCADA_CAMERA_COUNT):
             value = cameras.get(str(slot), cameras.get(slot, ""))
             if isinstance(value, dict):
                 value = value.get("url", "")
@@ -97,6 +110,15 @@ def _save_camera_config() -> None:
             )
     except Exception as exc:
         print(f"[WARN] Could not save camera config: {exc}")
+
+
+def _sync_camera_config_from_db() -> None:
+    try:
+        for slot, url in list_camera_configs().items():
+            if _is_valid_slot(slot):
+                CAMERA_RTSP_URLS[slot] = url
+    except Exception as exc:
+        print(f"[WARN] Could not load camera config from database: {exc}")
 
 
 def _check_camera_slot(slot: int, url: str, timeout_ms: int = 2500) -> dict:
@@ -367,6 +389,7 @@ def _publish_detection_completed(
     quality: dict | None = None,
     scale: dict | None = None,
     sorting_commands: list[dict] | None = None,
+    raw_detection_count: int | None = None,
 ):
     counts = {
         "mature": sum(1 for d in detections if d.get("class_name") == "mature"),
@@ -390,6 +413,28 @@ def _publish_detection_completed(
         camera_slot=slot,
         topic="detection/completed",
     )
+    try:
+        save_detection_event(
+            slot=slot,
+            detections=detections,
+            width=width,
+            height=height,
+            confidence_threshold=conf,
+            raw_detection_count=raw_detection_count,
+            quality=quality,
+            scale=scale,
+            sorting_commands=sorting_commands,
+        )
+    except Exception as exc:
+        print(f"[WARN] Could not persist detection event: {exc}")
+
+
+def _persist_sorting_commands(commands: list[dict]) -> None:
+    for command in commands:
+        try:
+            save_sorting_command(command)
+        except Exception as exc:
+            print(f"[WARN] Could not persist sorting command: {exc}")
 
 
 @router.get("/api/scada/sorting/config/")
@@ -737,8 +782,8 @@ def _quality_gate(slot: int, raw: list[dict], image: Image.Image, width: int, he
 
 @router.websocket("/ws/scada/detect/{slot}/")
 async def ws_scada_detect(ws: WebSocket, slot: int):
-    if not (0 <= slot <= 3):
-        await ws.close(code=1008, reason="slot must be 0-3")
+    if not _is_valid_slot(slot):
+        await ws.close(code=1008, reason=VALID_SLOT_MESSAGE)
         return
 
     await ws.accept()
@@ -876,6 +921,7 @@ async def ws_scada_detect(ws: WebSocket, slot: int):
                         quality=result["quality"],
                         scale=scale,
                     )
+                    _persist_sorting_commands(sorting_commands)
                     result["sorting_commands"] = sorting_commands
 
                     _publish_detection_completed(
@@ -888,6 +934,7 @@ async def ws_scada_detect(ws: WebSocket, slot: int):
                         quality=result["quality"],
                         scale=scale,
                         sorting_commands=sorting_commands,
+                        raw_detection_count=len(raw),
                     )
                     await _DetectionSessionManager.push_result(slot, result)
                 except Exception as e:
@@ -908,6 +955,7 @@ async def ws_scada_detect(ws: WebSocket, slot: int):
 # ---------------------------------------------------------------------------
 @router.get("/api/scada/cameras/")
 async def get_camera_config() -> dict:
+    _sync_camera_config_from_db()
     return {
         "cameras": {
             str(slot): {
@@ -921,10 +969,16 @@ async def get_camera_config() -> dict:
 
 @router.get("/api/scada/cameras/health/")
 async def get_camera_health(timeout_ms: int = 2500) -> dict:
+    _sync_camera_config_from_db()
     checks = [
         _check_camera_slot(slot, CAMERA_RTSP_URLS.get(slot, ""), timeout_ms=timeout_ms)
-        for slot in range(4)
+        for slot in range(SCADA_CAMERA_COUNT)
     ]
+    for item in checks:
+        try:
+            update_camera_health_status(item["slot"], item["online"])
+        except Exception as exc:
+            print(f"[WARN] Could not persist camera health: {exc}")
     return {
         "status": "ok" if all(item["online"] or not item["configured"] for item in checks) else "degraded",
         "configured_count": sum(1 for item in checks if item["configured"]),
@@ -938,12 +992,16 @@ async def update_camera_config(body: CameraConfigRequest) -> dict:
     global _slot_captures
     for slot_str, url in body.cameras.items():
         slot = int(slot_str)
-        if slot not in CAMERA_RTSP_URLS:
+        if not _is_valid_slot(slot):
             raise HTTPException(status_code=400, detail=f"Invalid slot: {slot}")
         CAMERA_RTSP_URLS[slot] = url
         if slot in _slot_captures:
             _slot_captures[slot].stop()
             del _slot_captures[slot]
+        try:
+            upsert_camera_config(slot, url)
+        except Exception as exc:
+            print(f"[WARN] Could not persist camera config: {exc}")
     _save_camera_config()
     return {"status": "ok", "cameras": CAMERA_RTSP_URLS}
 
@@ -953,9 +1011,10 @@ async def update_camera_config(body: CameraConfigRequest) -> dict:
 # ---------------------------------------------------------------------------
 @router.get("/api/scada/frame/{slot}/")
 async def get_camera_frame(slot: int) -> StreamingResponse:
-    if not (0 <= slot <= 3):
-        raise HTTPException(status_code=400, detail="slot must be 0-3")
+    if not _is_valid_slot(slot):
+        raise HTTPException(status_code=400, detail=VALID_SLOT_MESSAGE)
 
+    _sync_camera_config_from_db()
     rtsp_url = CAMERA_RTSP_URLS.get(slot, "")
     if not rtsp_url:
         raise HTTPException(status_code=404, detail="Camera not configured for this slot")
@@ -988,12 +1047,13 @@ async def detect_camera_frame(
     slot: int,
     conf: float = Form(0.25),
 ) -> BatchDetectResponse:
-    if not (0 <= slot <= 3):
-        raise HTTPException(status_code=400, detail="slot must be 0-3")
+    if not _is_valid_slot(slot):
+        raise HTTPException(status_code=400, detail=VALID_SLOT_MESSAGE)
 
     if engine_obj is None:
         raise HTTPException(status_code=503, detail="Model not loaded.")
 
+    _sync_camera_config_from_db()
     rtsp_url = CAMERA_RTSP_URLS.get(slot, "")
     if not rtsp_url:
         raise HTTPException(status_code=404, detail="Camera not configured for this slot")
@@ -1048,6 +1108,7 @@ async def detect_camera_frame(
         confidence_threshold=conf,
         scale=scale,
     )
+    _persist_sorting_commands(sorting_commands)
 
     _publish_detection_completed(
         slot,
@@ -1058,6 +1119,7 @@ async def detect_camera_frame(
         track_ids=track_ids,
         scale=scale,
         sorting_commands=sorting_commands,
+        raw_detection_count=len(raw),
     )
 
     return BatchDetectResponse(
@@ -1105,10 +1167,11 @@ async def detect_camera_frame(
 # ---------------------------------------------------------------------------
 @router.post("/api/scada/cameras/{slot}/start/")
 async def start_camera(slot: int) -> dict:
-    if not (0 <= slot <= 3):
-        raise HTTPException(status_code=400, detail="slot must be 0-3")
+    if not _is_valid_slot(slot):
+        raise HTTPException(status_code=400, detail=VALID_SLOT_MESSAGE)
 
     global _slot_captures
+    _sync_camera_config_from_db()
     rtsp_url = CAMERA_RTSP_URLS.get(slot, "")
     if not rtsp_url:
         raise HTTPException(status_code=404, detail="Camera not configured for this slot")
@@ -1122,6 +1185,9 @@ async def start_camera(slot: int) -> dict:
 
 @router.post("/api/scada/cameras/{slot}/stop/")
 async def stop_camera(slot: int) -> dict:
+    if not _is_valid_slot(slot):
+        raise HTTPException(status_code=400, detail=VALID_SLOT_MESSAGE)
+
     global _slot_captures
     if slot in _slot_captures:
         _slot_captures[slot].stop()

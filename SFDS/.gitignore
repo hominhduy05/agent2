@@ -7,9 +7,12 @@
 /runs/
 *.vott
 *.zip
+*.tar
 *.tar.gz
 *.rar
 *.7z
+*.dump
+*.backup
 
 # ============================================================
 # Trained model files (binary, too large for git)
@@ -34,6 +37,7 @@ backend/*.log
 backend/scada_cameras.json
 backend/.sfds_requirements.sha256
 sfds_launch_info.txt
+.sfds_postgres.local.env
 backend/.venv/
 backend/.ultralytics/
 backend/env/

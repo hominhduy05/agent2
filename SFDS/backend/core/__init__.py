@@ -1,8 +1,10 @@
 ﻿# Core module — shared models, database, auth
-from core.database import (
+from db import (
     Base, Employee, InspectionLog, KPITarget, SessionLocal,
-    engine, get_db, get_date_range_inspections, get_today_inspections, init_db,
-    Shift, AlarmLog, TraceLog,
+    engine, get_database_info, get_db, get_date_range_inspections,
+    get_today_inspections, init_db,
+    Shift, AlarmLog, TraceLog, CameraConfig, DetectionEvent,
+    SortingCommandLog, DatasetAsset,
 )
 from core.auth import (
     create_access_token, get_current_user, hash_password,

@@ -14,13 +14,18 @@ interface CameraConfigProps {
   onSaved?: () => void;
 }
 
+const SCADA_CAMERA_COUNT = 5;
+const DEFAULT_CAMERA_SLOTS = Array.from(
+  { length: SCADA_CAMERA_COUNT },
+  (_, index) => ({
+    slot: index,
+    url: '',
+    label: `Camera ${index + 1}`,
+  })
+);
+
 export default function CameraConfig({ onClose, onSaved }: CameraConfigProps) {
-  const [slots, setSlots] = useState<CameraSlotConfig[]>([
-    { slot: 0, url: '', label: 'Camera 1' },
-    { slot: 1, url: '', label: 'Camera 2' },
-    { slot: 2, url: '', label: 'Camera 3' },
-    { slot: 3, url: '', label: 'Camera 4' },
-  ]);
+  const [slots, setSlots] = useState<CameraSlotConfig[]>(DEFAULT_CAMERA_SLOTS);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -32,7 +37,7 @@ export default function CameraConfig({ onClose, onSaved }: CameraConfigProps) {
           return {
             ...s,
             url: cfg?.url || '',
-            label: cfg?.url || s.label,
+            label: s.label,
           };
         });
         setSlots(updated);

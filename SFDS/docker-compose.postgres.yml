@@ -1,0 +1,42 @@
+name: sfds-offline
+
+services:
+  postgres:
+    image: ${SFDS_POSTGRES_IMAGE:-postgres:16-alpine}
+    container_name: ${SFDS_POSTGRES_CONTAINER:-sfds_postgres}
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${SFDS_POSTGRES_DB:-sfds_offline}
+      POSTGRES_USER: ${SFDS_POSTGRES_USER:-sfds_app}
+      POSTGRES_PASSWORD: ${SFDS_POSTGRES_PASSWORD:-change_this_password}
+      PGDATA: /var/lib/postgresql/data/pgdata
+      TZ: ${SFDS_TIMEZONE:-Asia/Bangkok}
+    ports:
+      - "${SFDS_POSTGRES_BIND:-127.0.0.1}:${SFDS_POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - sfds_postgres_data:/var/lib/postgresql/data
+      - ./docker/postgres/init:/docker-entrypoint-initdb.d:ro
+    command:
+      - postgres
+      - -c
+      - max_connections=${SFDS_POSTGRES_MAX_CONNECTIONS:-100}
+      - -c
+      - shared_buffers=${SFDS_POSTGRES_SHARED_BUFFERS:-256MB}
+      - -c
+      - work_mem=${SFDS_POSTGRES_WORK_MEM:-8MB}
+      - -c
+      - maintenance_work_mem=${SFDS_POSTGRES_MAINTENANCE_WORK_MEM:-128MB}
+      - -c
+      - effective_cache_size=${SFDS_POSTGRES_EFFECTIVE_CACHE_SIZE:-1GB}
+      - -c
+      - shared_preload_libraries=pg_stat_statements
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U \"${SFDS_POSTGRES_USER:-sfds_app}\" -d \"${SFDS_POSTGRES_DB:-sfds_offline}\""]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+
+volumes:
+  sfds_postgres_data:
+    name: ${SFDS_POSTGRES_VOLUME:-sfds_postgres_data}

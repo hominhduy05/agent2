@@ -340,7 +340,7 @@ class SortTracker:
 class TrackerManager:
     """Manages one SortTracker per slot so each camera/upload slot has its own track space."""
 
-    def __init__(self, num_slots: int = 4, **kwargs):
+    def __init__(self, num_slots: int = 5, **kwargs):
         self.trackers: List[SortTracker] = [
             SortTracker(**kwargs) for _ in range(num_slots)
         ]

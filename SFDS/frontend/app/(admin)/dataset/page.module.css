@@ -196,7 +196,7 @@
   transform: translateY(-1px);
 }
 
-/* ── 4-slot grid ───────────────────────────────── */
+/* ── Multi-slot grid ───────────────────────────────── */
 .grid {
   display: grid;
   grid-template-columns: repeat(2, 1fr);

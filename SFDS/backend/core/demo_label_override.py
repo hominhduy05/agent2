@@ -5,7 +5,7 @@ Purpose:
 - Keep the trained model and normal detection pipeline running.
 - For demo runs, replace accepted detections with a fixed visible grade order:
   first fruit -> C, second fruit -> B, third fruit -> A, fourth fruit -> D.
-- All 4 camera slots share one fruit label. A new label is assigned only when
+- All 5 camera slots share one fruit label. A new label is assigned only when
   the same camera slot sees the next fruit after the same-fruit time window.
 
 Enable by default after backend restart by setting:
@@ -18,7 +18,7 @@ Tune the maximum time to wait for other camera slots in the same fruit event:
   DURIAN_DEMO_EVENT_MAX_SECONDS=10
 
 Tune how many camera slots share one fruit label:
-  DURIAN_DEMO_CAMERA_GROUP_SIZE=4
+  DURIAN_DEMO_CAMERA_GROUP_SIZE=5
 
 This module is intentionally separate from the model code so the override can be
 removed by deleting the import/use sites marked "DEMO ONLY" in scada_router.py.
@@ -41,7 +41,7 @@ DEMO_SAME_FRUIT_WINDOW_SECONDS = float(
     os.getenv("DURIAN_DEMO_SAME_FRUIT_WINDOW_SECONDS", "2")
 )
 DEMO_EVENT_MAX_SECONDS = float(os.getenv("DURIAN_DEMO_EVENT_MAX_SECONDS", "10"))
-DEMO_CAMERA_GROUP_SIZE = max(1, int(os.getenv("DURIAN_DEMO_CAMERA_GROUP_SIZE", "4")))
+DEMO_CAMERA_GROUP_SIZE = max(1, int(os.getenv("DURIAN_DEMO_CAMERA_GROUP_SIZE", "5")))
 
 _lock = threading.Lock()
 _demo_enabled = os.getenv("DURIAN_DEMO_LABEL_OVERRIDE", "0").strip().lower() in {

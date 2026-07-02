@@ -26,7 +26,11 @@ interface SlotContext {
   imgHeight: number;
 }
 
-const SLOT_LABELS = ['Khung 1', 'Khung 2', 'Khung 3', 'Khung 4'];
+const SLOT_COUNT = 5;
+const SLOT_LABELS = Array.from(
+  { length: SLOT_COUNT },
+  (_, index) => `Khung ${index + 1}`
+);
 
 function freshSlot(): SlotContext {
   return {
@@ -53,32 +57,20 @@ function slotToState(s: SlotContext): SlotState {
 export default function MultiSlotCanvas({
   onStatsUpdate,
 }: MultiSlotCanvasProps) {
-  const [slots, setSlots] = useState<SlotContext[]>([
-    freshSlot(),
-    freshSlot(),
-    freshSlot(),
-    freshSlot(),
-  ]);
+  const [slots, setSlots] = useState<SlotContext[]>(
+    Array.from({ length: SLOT_COUNT }, () => freshSlot())
+  );
   const [activeSlot, setActiveSlot] = useState<number | null>(null);
   const [selectedSlot, setSelectedSlot] = useState<number | null>(null);
-  const fileInputRefs = useRef<(HTMLInputElement | null)[]>([
-    null,
-    null,
-    null,
-    null,
-  ]);
-  const videoRefs = useRef<(HTMLVideoElement | null)[]>([
-    null,
-    null,
-    null,
-    null,
-  ]);
-  const canvasRefs = useRef<(HTMLCanvasElement | null)[]>([
-    null,
-    null,
-    null,
-    null,
-  ]);
+  const fileInputRefs = useRef<(HTMLInputElement | null)[]>(
+    Array.from({ length: SLOT_COUNT }, () => null)
+  );
+  const videoRefs = useRef<(HTMLVideoElement | null)[]>(
+    Array.from({ length: SLOT_COUNT }, () => null)
+  );
+  const canvasRefs = useRef<(HTMLCanvasElement | null)[]>(
+    Array.from({ length: SLOT_COUNT }, () => null)
+  );
 
   const updateSlot = useCallback(
     (idx: number, upd: Partial<SlotContext>) => {
@@ -395,7 +387,7 @@ export default function MultiSlotCanvas({
         </div>
       )}
 
-      {/* 4-slot grid */}
+      {/* Multi-slot grid */}
       <div className="grid grid-cols-2 gap-4">
         {slots.map((slot, idx) => {
           const isActive = activeSlot === idx;

@@ -1,12 +1,13 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from core.database import init_db
+from db import get_database_info, init_db
 from core.shared import engine_obj, model_loaded, device_name, model_format
 from services.serial_scale_reader import get_serial_scale_status, start_serial_scale_reader
 
 from routers.scada_router import router as scada_router
 from routers.dataset_router import router as dataset_router
+from routers.audit_router import router as audit_router
 
 # ---------------------------------------------------------------------------
 # FastAPI app
@@ -46,6 +47,7 @@ def health_check():
         "device": getattr(engine_obj, "device", device_name),
         "model_format": model_format,
         "service": "scada",
+        "database": get_database_info(),
         "serial_scale": get_serial_scale_status(),
     }
 
@@ -53,6 +55,7 @@ def health_check():
 # Mount routers
 app.include_router(scada_router)
 app.include_router(dataset_router)
+app.include_router(audit_router)
 
 
 # ---------------------------------------------------------------------------

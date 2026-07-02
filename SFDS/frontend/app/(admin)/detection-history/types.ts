@@ -29,6 +29,10 @@ export const CLASS_COLORS: Record<string, string> = {
   "B": "#059669",
   "C": "#d97706",
   "D": "#ef4444",
+  "mature": "#10b981",
+  "immature": "#f59e0b",
+  "defective": "#ef4444",
+  "unknown": "#64748b",
 };
 
 export const CLASS_BADGE_COLORS: Record<string, 'primary' | 'warning' | 'success' | 'error' | 'info' | 'light' | 'dark'> = {
@@ -41,6 +45,10 @@ export const CLASS_BADGE_COLORS: Record<string, 'primary' | 'warning' | 'success
   "B": "success",
   "C": "warning",
   "D": "error",
+  "mature": "success",
+  "immature": "warning",
+  "defective": "error",
+  "unknown": "light",
 };
 
 export const MOCK_HISTORY_DATA: DetectionHistoryItem[] = [
