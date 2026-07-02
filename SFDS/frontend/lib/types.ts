@@ -19,6 +19,8 @@ export interface BoundingBox {
   scale_stable?: boolean | null;
   visual_grade?: string | null;
   weight_grade?: string | null;
+  display_grade?: string | null;
+  
   final_grade?: string | null;
   classification_source?: string | null;
 }
