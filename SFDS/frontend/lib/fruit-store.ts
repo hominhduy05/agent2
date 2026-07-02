@@ -19,6 +19,9 @@ type Listener = () => void;
 
 export class FruitStore {
   private fruits = new Map<string, FruitDetail>();
+
+  private currentFruitId: string | null = null;
+
   private listeners = new Set<Listener>();
 
   constructor() {
@@ -88,6 +91,8 @@ export class FruitStore {
     grade: Grade,
     image: string
   ) {
+    this.currentFruitId = fruitId;
+
     let fruit = this.fruits.get(fruitId);
 
     if (!fruit) {
@@ -100,9 +105,7 @@ export class FruitStore {
       this.fruits.set(fruitId, fruit);
     }
 
-    const cam = fruit.cameras.find(
-      (x) => x.cameraId === cameraId
-    );
+    const cam = fruit.cameras.find((x) => x.cameraId === cameraId);
 
     if (cam) {
       cam.grade = grade;
@@ -115,11 +118,15 @@ export class FruitStore {
       });
     }
 
-    if (fruit.cameras.length >= 5) {
-      fruit.finalGrade = this.aggregateGrade(
-        fruit.cameras.map((x) => x.grade)
-      );
-    }
+    // if (fruit.cameras.length >= 5) {
+    //   fruit.finalGrade = this.aggregateGrade(fruit.cameras.map((x) => x.grade));
+    // }
+
+    if (fruit.cameras.length > 0) {
+  fruit.finalGrade = this.aggregateGrade(
+    fruit.cameras.map((x)=>x.grade)
+  );
+}
 
     this.save();
     this.emit(); // 🔥 realtime update
@@ -129,29 +136,65 @@ export class FruitStore {
      GRADE AGGREGATION
   ==========================*/
   private aggregateGrade(grades: Grade[]): Grade {
-  const count: Record<Grade, number> = {
-    A: 0,
-    B: 0,
-    C: 0,
-    D: 0,
-  };
+    const count: Record<Grade, number> = {
+      A: 0,
+      B: 0,
+      C: 0,
+      D: 0,
+    };
 
-  for (const g of grades) {
-    count[g]++;
+    for (const g of grades) {
+      count[g]++;
+    }
+
+    // 1. D luôn ưu tiên fail
+    if (count.D > 0) return 'D';
+
+    const majorityThreshold = Math.floor(grades.length / 2) + 1;
+    const majority = (['A', 'B', 'C'] as Grade[]).find(
+      (grade) => count[grade] >= majorityThreshold
+    );
+    if (majority) return majority;
+
+    // 3. No clear majority: take the strictest/lower-quality grade present.
+    return (
+      (['C', 'B', 'A'] as Grade[]).find((grade) => count[grade] > 0) ?? 'C'
+    );
   }
 
-  // 1. D luôn ưu tiên fail
-  if (count.D > 0) return 'D';
+  /* =========================
+   FINISH CURRENT FRUIT
+=========================*/
+  finishCurrentFruit(): FruitDetail | null {
+    if (!this.currentFruitId) {
+      return null;
+    }
 
-  const majorityThreshold = Math.floor(grades.length / 2) + 1;
-  const majority = (['A', 'B', 'C'] as Grade[]).find(
-    (grade) => count[grade] >= majorityThreshold
-  );
-  if (majority) return majority;
+    const fruit = this.fruits.get(this.currentFruitId);
 
-  // 3. No clear majority: take the strictest/lower-quality grade present.
-  return (['C', 'B', 'A'] as Grade[]).find((grade) => count[grade] > 0) ?? 'C';
-}
+    if (!fruit) {
+      this.currentFruitId = null;
+      return null;
+    }
+
+    // lấy grade những camera đã OK
+    const grades = fruit.cameras.map((c) => c.grade).filter(Boolean);
+
+    if (grades.length > 0) {
+      fruit.finalGrade = this.aggregateGrade(grades);
+    }
+
+    this.save();
+
+    this.emit();
+
+    const result = fruit;
+
+    // reset chờ trái mới
+    this.currentFruitId = null;
+
+    return result;
+  }
 
   /* =========================
      DEV HELP

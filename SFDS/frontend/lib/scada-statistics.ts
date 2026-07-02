@@ -23,6 +23,11 @@ export type FruitStatistics = {
 export interface FruitSession {
   fruitId: string;
 
+  status:
+    | 'WAITING_CAM'
+    | 'PROCESSING'
+    | 'COMPLETED';
+
   roomId: number;
 
   createdAt: number;

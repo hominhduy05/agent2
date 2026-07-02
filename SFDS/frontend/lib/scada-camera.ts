@@ -24,6 +24,7 @@ export interface ScadaResult {
   imageHeight: number;
   imageDataUrl: string;
   timestamp: number;
+  sessionCoverage?: number;
   cropDataUrl?: string;
   rawDetectionCount?: number;
   trackedDetectionCount?: number;
@@ -511,8 +512,12 @@ export class ScadaCameraManager {
   private threshold = 0.25;
 
   private fruitCounter = 0;
-  private currentFruitId: string | null = null;
-  private lastFruitSeenAt = 0;
+  private fruitSessionTimeoutMs = 8000;
+  private activeFruitSession: {
+    fruitId: string;
+    lastSeenAt: number;
+    cameraIndices: Set<number>;
+  } | null = null;
   // private assignFruitId(detections: BoundingBox[]) {
   //   if (!detections.length) return;
 
@@ -543,13 +548,22 @@ export class ScadaCameraManager {
   ) {
     if (!detections.length) return;
 
-    if (!this.currentFruitId) {
+    const now = Date.now();
+
+    if (
+      !this.activeFruitSession ||
+      now - this.activeFruitSession.lastSeenAt > this.fruitSessionTimeoutMs
+    ) {
       this.fruitCounter += 1;
-      this.currentFruitId = `F${this.fruitCounter}`;
+      this.activeFruitSession = {
+        fruitId: `F${this.fruitCounter}`,
+        lastSeenAt: now,
+        cameraIndices: new Set<number>(),
+      };
 
       console.log(
         '[NEW FRUIT]',
-        this.currentFruitId,
+        this.activeFruitSession.fruitId,
         'cam=',
         cameraIndex,
         'source=',
@@ -557,31 +571,44 @@ export class ScadaCameraManager {
       );
     }
 
-    this.lastFruitSeenAt = Date.now();
+    const session = this.activeFruitSession;
+    session.lastSeenAt = now;
+    session.cameraIndices.add(cameraIndex);
+
+    const coverage = Math.min(5, session.cameraIndices.size);
+    const confidenceMultiplier = Math.max(0.9, 1 - (5 - coverage) * 0.02);
 
     detections.forEach((det) => {
-      det.fruit_id = this.currentFruitId!;
+      (det as any).fruit_id = session.fruitId;
+      (det as any).camera_count = coverage;
+      (det as any).sessionCoverage = coverage;
+
+      if (typeof (det as any).confidence === 'number') {
+        (det as any).confidence = Number(
+          ((det as any).confidence * confidenceMultiplier).toFixed(4)
+        );
+      }
     });
 
     console.log(
       '[ASSIGN]',
-      this.currentFruitId,
+      session.fruitId,
       'cam=',
       cameraIndex,
       'source=',
-      source
+      source,
+      'coverage=',
+      coverage
     );
   }
+
   private checkFruitGone() {
-    if (!this.currentFruitId) return;
+    if (!this.activeFruitSession) return;
 
     const now = Date.now();
 
-    // if (now - this.lastFruitSeenAt > 3000) {
-    //   this.currentFruitId = null;
-    // }
-    if (now - this.lastFruitSeenAt > 3000) {
-      this.currentFruitId = null;
+    if (now - this.activeFruitSession.lastSeenAt > this.fruitSessionTimeoutMs) {
+      this.activeFruitSession = null;
     }
   }
 

@@ -465,7 +465,12 @@ export default function DetectionPanel({
   }, {});
   const total = displayDetections.length;
   const avgConf = displayDetections.length
-    ? (displayDetections.reduce((sum, d) => sum + d.confidence, 0) /
+    ? (displayDetections.reduce((sum, d: any) => {
+        const rawConfidence = Number(d.confidence ?? 0);
+        const coverage = Math.max(1, Number(d.sessionCoverage ?? d.camera_count ?? 5));
+        const multiplier = Math.max(0.9, 1 - (5 - coverage) * 0.02);
+        return sum + rawConfidence * multiplier;
+      }, 0) /
         displayDetections.length) *
       100
     : 0;
