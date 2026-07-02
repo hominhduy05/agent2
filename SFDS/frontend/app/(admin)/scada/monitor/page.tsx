@@ -22,6 +22,8 @@ interface MediaDevice {
 }
 
 export default function ScadaPage() {
+  const [demoState, setDemoState] = useState<'on' | 'off' | 'pending'>('off');
+
   const [cameras, setCameras] = useState<CameraChannel[]>([]);
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [threshold, setThreshold] = useState(0.25);
@@ -258,14 +260,10 @@ export default function ScadaPage() {
   ).filter(Boolean) as CameraChannel[];
 
   useEffect(() => {
-    getScadaDemoMode()
-      .then((status) => {
-        const enabled = Boolean(status.enabled);
-        setDemoMode(enabled);
-        managerRef.current?.setDemoMode(enabled);
-      })
-      .catch(() => setDemoMode(false));
-  }, []);
+  setDemoMode(true);
+  setDemoState('on');
+  managerRef.current?.setDemoMode(true);
+}, []);
 
   const activeCamera = cameras.some((c) => c.isActive && c.autoEnabled);
   useEffect(() => {
@@ -383,16 +381,23 @@ export default function ScadaPage() {
   };
 
   const handleDemoModeToggle = async () => {
-    if (demoBusy) return;
-    setDemoBusy(true);
+    if (demoState === 'pending') return;
+
+    setDemoState('pending');
+
     try {
-      const status = await setScadaDemoMode(!demoMode);
+      const next = demoState !== 'on';
+      const status = await setScadaDemoMode(next);
+
       const enabled = Boolean(status.enabled);
+
+      setDemoState(enabled ? 'on' : 'off');
       setDemoMode(enabled);
-      if (!enabled) setScaleStatus(null);
+
       managerRef.current?.setDemoMode(enabled);
-    } finally {
-      setDemoBusy(false);
+    } catch {
+      // rollback nếu fail
+      setDemoState(demoState);
     }
   };
 
@@ -491,6 +496,21 @@ export default function ScadaPage() {
     };
   }, []);
 
+  useEffect(() => {
+  const t = setInterval(async () => {
+    const status = await getScadaDemoMode();
+
+    const enabled = Boolean(status.enabled);
+
+    setDemoMode(enabled);
+    setDemoState(enabled ? 'on' : 'off');
+
+    managerRef.current?.setDemoMode(enabled);
+  }, 2000);
+
+  return () => clearInterval(t);
+}, []);
+
   return (
     <div className={styles.wrapper}>
       {/* ── Left: Camera Grid ─────────────────────────────────────── */}
@@ -544,27 +564,28 @@ export default function ScadaPage() {
                 opacity: demoBusy ? 0.7 : 1,
               }}
             >
-              {demoBusy ? (
-                <span className="pendingWrap">
-                  <span className="spinner" />
-                  PENDING
-                </span>
-              ) : (
-                <>
-                  <span
-                    style={{
-                      width: 7,
-                      height: 7,
-                      borderRadius: '50%',
-                      background: demoMode ? '#22c55e' : 'var(--text-faint)',
-                      boxShadow: demoMode
-                        ? '0 0 8px rgba(34,197,94,0.8)'
-                        : 'none',
-                    }}
-                  />
-                  {demoMode ? 'ON' : 'OFF'}
-                </>
-              )}
+              {demoState === 'pending' ? (
+  <span className="pendingWrap">
+    <span className="spinner" />
+    PENDING
+  </span>
+) : (
+  <>
+    <span
+      style={{
+        width: 7,
+        height: 7,
+        borderRadius: '50%',
+        background: demoState === 'on' ? '#22c55e' : 'var(--text-faint)',
+        boxShadow:
+          demoState === 'on'
+            ? '0 0 8px rgba(34,197,94,0.8)'
+            : 'none',
+      }}
+    />
+    {demoState === 'on' ? 'ON' : 'OFF'}
+  </>
+)}
             </button>
             {/* Config gear button */}
             <button

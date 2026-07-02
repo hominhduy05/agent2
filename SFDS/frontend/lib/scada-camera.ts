@@ -1133,54 +1133,124 @@ this.notify(cam);
 
   // ── Stop ───────────────────────────────────────────────────────
 
-  stopCamera(index: number) {
-    const cam = this.cameras[index];
-    this.stopAuto(index);
-    this.stopFrameLoop(index);
+//   stopCamera(index: number) {
+//     const cam = this.cameras[index];
+//     this.stopAuto(index);
+//     this.stopFrameLoop(index);
 
-    if (cam.mode === 'ip') {
-      stopScadaCamera(index).catch(() => {});
-    }
+//     if (cam.mode === 'ip') {
+//       stopScadaCamera(index).catch(() => {});
+//     }
 
-    if (cam.stream) {
-      cam.stream.getTracks().forEach((t) => t.stop());
-      cam.stream = null;
-    }
-    if (cam.ws) {
-      cam.ws.close();
-      cam.ws = undefined;
-    }
-    if (cam.videoRef?.current) cam.videoRef.current.srcObject = null;
-    if (cam.canvasRef?.current) {
-      const ctx = cam.canvasRef.current.getContext('2d');
-      ctx?.clearRect(
-        0,
-        0,
-        cam.canvasRef.current.width,
-        cam.canvasRef.current.height
-      );
-    }
+//     if (cam.stream) {
+//       cam.stream.getTracks().forEach((t) => t.stop());
+//       cam.stream = null;
+//     }
+//     if (cam.ws) {
+//       cam.ws.close();
+//       cam.ws = undefined;
+//     }
+//     if (cam.videoRef?.current) cam.videoRef.current.srcObject = null;
+//     if (cam.canvasRef?.current) {
+//       const ctx = cam.canvasRef.current.getContext('2d');
+//       ctx?.clearRect(
+//         0,
+//         0,
+//         cam.canvasRef.current.width,
+//         cam.canvasRef.current.height
+//       );
+//     }
 
-    cam.isActive = false;
-    // cam.deviceId = null;
-    // cam.deviceLabel = null;
-    cam.rtspUrl = '';
-    cam.result = null;
-    cam.resultHistory = [];
-    cam.croppedTrackIds = new Set<number>();
-    cam.cropLockedUntilEmpty = false;
-    cam.frameCount = 0;
-    cam.qualityPhase = 'idle';
-    cam.qualityReason = 'waiting_for_fruit';
-    cam.blurScore = undefined;
-    cam.stableFrames = 0;
-    cam.requiredStableFrames = undefined;
-    cam.lastRawDetectionCount = 0;
-    cam.error = null;
-    // this.onUpdate(cam);
-this.notify(cam);
+//     cam.isActive = false;
+//     // cam.deviceId = null;
+//     // cam.deviceLabel = null;
+//     cam.rtspUrl = '';
+//     cam.result = null;
+//     cam.resultHistory = [];
+//     cam.croppedTrackIds = new Set<number>();
+//     cam.cropLockedUntilEmpty = false;
+//     cam.frameCount = 0;
+//     cam.qualityPhase = 'idle';
+//     cam.qualityReason = 'waiting_for_fruit';
+//     cam.blurScore = undefined;
+//     cam.stableFrames = 0;
+//     cam.requiredStableFrames = undefined;
+//     cam.lastRawDetectionCount = 0;
+//     cam.error = null;
+//     // this.onUpdate(cam);
+// this.notify(cam);
+//   }
+stopCamera(index: number) {
+  const cam = this.cameras[index];
+
+  this.stopAuto(index);
+  this.stopFrameLoop(index);
+
+  // 1. stop IP backend trước
+  if (cam.mode === 'ip') {
+    stopScadaCamera(index).catch(() => {});
   }
 
+  // 2. stop WS FIRST
+  if (cam.ws) {
+    try {
+      cam.ws.onmessage = null;
+      cam.ws.onerror = null;
+      cam.ws.close();
+    } catch {}
+    cam.ws = undefined;
+  }
+
+  // 3. stop stream
+  if (cam.stream) {
+    cam.stream.getTracks().forEach(t => t.stop());
+    cam.stream = null;
+  }
+
+  // 4. SAFE detach video (QUAN TRỌNG)
+  const video = cam.videoRef?.current;
+  if (video) {
+    video.pause();
+    video.srcObject = null;
+    video.load(); // 🔥 fix stuck frame Chrome bug
+  }
+
+  // 5. clear canvas
+  const canvas = cam.canvasRef?.current;
+  if (canvas) {
+    const ctx = canvas.getContext('2d');
+    ctx?.clearRect(0, 0, canvas.width, canvas.height);
+  }
+
+  // 6. reset state FULL
+  cam.isActive = false;
+  cam.autoEnabled = false; // 🔥 BẮT BUỘC (bạn đang thiếu)
+
+  cam.stream = null;
+  cam.ws = undefined;
+
+  cam.rtspUrl = '';
+  cam.result = null;
+  cam.resultHistory = [];
+
+  cam.croppedTrackIds = new Set<number>();
+  cam.cropLockedUntilEmpty = false;
+
+  cam.frameCount = 0;
+  cam.qualityPhase = 'idle';
+  cam.qualityReason = 'waiting_for_fruit';
+  cam.blurScore = undefined;
+  cam.stableFrames = 0;
+  cam.requiredStableFrames = undefined;
+  cam.lastRawDetectionCount = 0;
+
+  cam.error = null;
+
+  // 7. notify AFTER cleanup xong
+  queueMicrotask(() => {
+    this.notify(cam);
+  });
+}
   // ── Auto capture ───────────────────────────────────────────────
 
   startAuto(index: number) {
