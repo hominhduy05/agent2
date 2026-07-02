@@ -27,6 +27,7 @@ $BackendDepsMarker = Join-Path $BackendDir ".sfds_requirements.sha256"
 $FrontendDepsMarker = Join-Path $FrontendDir ".sfds_frontend_deps.sha256"
 $LaunchInfoPath = Join-Path $ProjectRoot "sfds_launch_info.txt"
 $PostgresStatePath = Join-Path $ProjectRoot ".sfds_postgres.local.env"
+$PostgresNeedsRecreate = $false
 
 function Import-SfdsEnvFile {
   param(
@@ -310,6 +311,29 @@ function Get-PostgresPublishedPort {
   return $null
 }
 
+function Get-PostgresConfiguredPort {
+  try {
+    $portBindingsJson = docker inspect --format "{{json .HostConfig.PortBindings}}" $script:DbContainer 2>$null
+    if ($LASTEXITCODE -ne 0 -or -not $portBindingsJson) {
+      return $null
+    }
+
+    $portBindings = $portBindingsJson | ConvertFrom-Json
+    if (-not $portBindings) {
+      return $null
+    }
+
+    $binding = $portBindings.'5432/tcp' | Select-Object -First 1
+    if (-not $binding -or -not $binding.HostPort) {
+      return $null
+    }
+
+    return [int]$binding.HostPort
+  } catch {
+    return $null
+  }
+}
+
 function Set-ResolvedPostgresPort {
   param(
     [string]$BindAddress,
@@ -343,20 +367,70 @@ function Save-PostgresPortState {
   Set-Content -LiteralPath $PostgresStatePath -Value $lines
 }
 
+function Get-SavedPostgresPort {
+  if (-not (Test-Path $PostgresStatePath)) {
+    return $null
+  }
+
+  foreach ($line in Get-Content $PostgresStatePath) {
+    $trimmed = $line.Trim()
+    if ($trimmed -match "^SFDS_POSTGRES_PORT=(\d+)$") {
+      return [int]$Matches[1]
+    }
+  }
+
+  return $null
+}
+
 function Resolve-PostgresPort {
+  $script:PostgresNeedsRecreate = $false
   $bind = if ($env:SFDS_POSTGRES_BIND) { $env:SFDS_POSTGRES_BIND } else { "127.0.0.1" }
   $startPort = [int]$script:DbPort
+  $savedPort = Get-SavedPostgresPort
 
   $publishedPort = Get-PostgresPublishedPort
   if ($null -ne $publishedPort) {
+    if ($null -ne $savedPort -and $publishedPort -ne $savedPort) {
+      if (-not (Test-HostPortAvailable -BindAddress $bind -Port $savedPort)) {
+        throw "PostgreSQL is currently published on port $publishedPort, but the saved SFDS port is $savedPort and that saved port is not available. Free port $savedPort first, or delete $PostgresStatePath if you intentionally want to keep using $publishedPort."
+      }
+
+      Write-Host "[SFDS] PostgreSQL container is on port $publishedPort, but saved port is $savedPort. Recreating container on $savedPort while keeping the data volume."
+      Set-ResolvedPostgresPort -BindAddress $bind -Port $savedPort -Persist
+      $script:PostgresNeedsRecreate = $true
+      return
+    }
+
     Write-Host "[SFDS] Reusing running PostgreSQL container on port $publishedPort."
     Set-ResolvedPostgresPort -BindAddress $bind -Port $publishedPort -Persist
+    return
+  }
+
+  $configuredPort = Get-PostgresConfiguredPort
+  if ($null -ne $configuredPort) {
+    if ($null -ne $savedPort -and $configuredPort -ne $savedPort) {
+      if (-not (Test-HostPortAvailable -BindAddress $bind -Port $savedPort)) {
+        throw "PostgreSQL container is configured on port $configuredPort, but the saved SFDS port is $savedPort and that saved port is not available. Free port $savedPort first, or delete $PostgresStatePath if you intentionally want to keep using $configuredPort."
+      }
+
+      Write-Host "[SFDS] PostgreSQL container is configured on port $configuredPort, but saved port is $savedPort. Recreating container on $savedPort while keeping the data volume."
+      Set-ResolvedPostgresPort -BindAddress $bind -Port $savedPort -Persist
+      $script:PostgresNeedsRecreate = $true
+      return
+    }
+
+    Write-Host "[SFDS] Reusing existing PostgreSQL container configuration on port $configuredPort."
+    Set-ResolvedPostgresPort -BindAddress $bind -Port $configuredPort -Persist
     return
   }
 
   if (Test-HostPortAvailable -BindAddress $bind -Port $startPort) {
     Set-ResolvedPostgresPort -BindAddress $bind -Port $startPort -Persist
     return
+  }
+
+  if ($null -ne $savedPort -and $startPort -eq $savedPort -and -not $Force) {
+    throw "Saved PostgreSQL port $savedPort is busy, but no existing Docker container port could be confirmed. SFDS will not auto-switch ports because that can look like a new database. Start Docker Desktop and rerun, free port $savedPort, or run with -Force if you intentionally want SFDS to pick a new port."
   }
 
   for ($port = 5433; $port -le 5499; $port++) {
@@ -736,7 +810,11 @@ function Start-FactoryServer {
 
   Write-Host "[1/3] Starting PostgreSQL Docker..."
   Resolve-PostgresPort
-  Invoke-Compose -ComposeCommandArgs ((Get-ComposeArgs) + @("up", "-d"))
+  $upArgs = (Get-ComposeArgs) + @("up", "-d")
+  if ($script:PostgresNeedsRecreate) {
+    $upArgs += "--force-recreate"
+  }
+  Invoke-Compose -ComposeCommandArgs $upArgs
 
   Write-Host "[2/3] Waiting for PostgreSQL..."
   Wait-PostgresHealthy
@@ -931,7 +1009,11 @@ switch ($Action) {
   "dev" { Start-AppServices }
   "db-up" {
     Resolve-PostgresPort
-    Invoke-Compose -ComposeCommandArgs ($composeArgs + @("up", "-d"))
+    $upArgs = $composeArgs + @("up", "-d")
+    if ($script:PostgresNeedsRecreate) {
+      $upArgs += "--force-recreate"
+    }
+    Invoke-Compose -ComposeCommandArgs $upArgs
   }
   "db-down" { Invoke-Compose -ComposeCommandArgs ($composeArgs + @("down")) }
   "db-restart" { Invoke-Compose -ComposeCommandArgs ($composeArgs + @("restart", "postgres")) }
