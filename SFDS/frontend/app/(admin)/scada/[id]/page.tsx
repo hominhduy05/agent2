@@ -31,8 +31,6 @@ export default function ScadaDetailPage() {
 
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
-  const weightMapRef = useRef<Map<string, number>>(new Map());
-
   const [camera, setCamera] = useState<CameraChannel | null>(null);
 
   const [threshold, setThreshold] = useState(0.25);
@@ -42,26 +40,6 @@ export default function ScadaDetailPage() {
   const [scaleStatus, setScaleStatus] = useState<ScadaScaleStatus | null>(null);
 
   const [, force] = useState(0);
-
-  
-  const getRandomWeight = (id: string) => {
-  if (!id) {
-    return Number((2 + Math.random() * 3).toFixed(2));
-  }
-
-  const cache = weightMapRef.current;
-
-  if (cache.has(id)) {
-    return cache.get(id)!;
-  }
-
-  // Random từ 2kg -> 5kg
-  const weight = Number((2 + Math.random() * 3).toFixed(2));
-
-  cache.set(id, weight);
-
-  return weight;
-};
 
   /**
    * LOAD CAMERA + LISTENER
@@ -272,8 +250,6 @@ export default function ScadaDetailPage() {
 
       if (!key) return;
 
-      const fruitKey = String(key);
-
       map.set(key, {
         fruit_id: detection.fruit_id,
         display_id: detection.display_id,
@@ -283,8 +259,7 @@ export default function ScadaDetailPage() {
         final_grade:
           detection.final_grade || detection.class_name,
 
-        // LUÔN RANDOM
-        weight_kg: getRandomWeight(fruitKey),
+        weight_kg: detection.weight_kg ?? null,
 
         confidence: detection.confidence,
 
@@ -422,7 +397,6 @@ export default function ScadaDetailPage() {
             <div className={styles.historyGrid}>
               {historyItems.map((item) => {
                 const grade = getGrade(item);
-                console.log (historyItems)
 
                 return (
                   <div
@@ -481,7 +455,10 @@ export default function ScadaDetailPage() {
                       </div>
 
                       <div className={styles.historyWeight}>
-                        ⚖ {Number(item.weight_kg).toFixed(2)} kg
+                        ⚖{' '}
+                        {item.weight_kg !== null && item.weight_kg !== undefined
+                          ? `${Number(item.weight_kg).toFixed(2)} kg`
+                          : '- kg'}
                       </div>
 
                       <div className={styles.historyTime}>

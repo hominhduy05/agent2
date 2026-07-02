@@ -1,173 +1,178 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import styles from './camera.module.css';
-import { useScada } from '@/hooks/use-scada';
-import { getScadaManager } from '@/lib/scada-manager';
-import { CameraChannel } from '@/lib/scada-camera';
-import { Modal } from '@/components/ui/Modal';
-import Button from '@/components/ui/Button';
-
+import { useEffect, useMemo, useState } from 'react';
 import {
-  Camera,
   Activity,
-  Play,
-  Square,
   AlertTriangle,
-  Settings,
-  Zap,
-  Lock,
-  Video,
-  Monitor,
+  Camera,
+  Play,
+  RefreshCw,
+  Save,
+  Square,
   Wifi,
+  WifiOff,
 } from 'lucide-react';
 
-type CameraType = 'webcam' | 'ip';
-interface MediaDevice {
-  deviceId: string;
+import {
+  configScadaCameras,
+  getScadaCameraHealth,
+  getScadaCameras,
+  ScadaCameraHealthItem,
+  startScadaCamera,
+  stopScadaCamera,
+} from '@/lib/api';
+
+import styles from './camera.module.css';
+
+type CameraConfigView = {
+  slot: number;
   label: string;
+  url: string;
+  configured: boolean;
+  online: boolean;
+  message: string;
+  width?: number;
+  height?: number;
+  latency_ms?: number;
+};
+
+const CAMERA_COUNT = 5;
+
+function emptyCameras(): CameraConfigView[] {
+  return Array.from({ length: CAMERA_COUNT }, (_, slot) => ({
+    slot,
+    label: `Camera ${slot + 1}`,
+    url: '',
+    configured: false,
+    online: false,
+    message: 'not_loaded',
+  }));
 }
 
 export default function CameraManagementPage() {
-  const { cameras } = useScada();
-  const manager = getScadaManager(() => {});
+  const [cameras, setCameras] = useState<CameraConfigView[]>(emptyCameras);
+  const [loading, setLoading] = useState(true);
+  const [savingSlot, setSavingSlot] = useState<number | null>(null);
+  const [actionSlot, setActionSlot] = useState<number | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
 
-  const [devices, setDevices] = useState<MediaDevice[]>([]);
-  const [showDeviceModal, setShowDeviceModal] = useState(false);
-  const [pendingCam, setPendingCam] = useState<CameraChannel | null>(null);
-  // const [showIpModal, setShowIpModal] = useState(false);
-  const [sourceTab, setSourceTab] = useState<'webcam' | 'ip'>('webcam');
+  async function loadCameras() {
+    try {
+      setLoading(true);
+      const config = await getScadaCameras();
 
-  const [rtspUrl, setRtspUrl] = useState('');
+      let healthCameras: Record<string, ScadaCameraHealthItem> = {};
+      try {
+        const health = await getScadaCameraHealth(1500);
+        healthCameras = health.cameras;
+      } catch {
+        healthCameras = {};
+      }
 
-  const [theme] = useState<'dark' | 'light'>('dark');
-  const [showForm, setShowForm] = useState(false);
+      setCameras(
+        Array.from({ length: CAMERA_COUNT }, (_, slot) => {
+          const key = String(slot);
+          const configItem = config.cameras[key] as
+            | { url?: string; online?: boolean }
+            | undefined;
+          const healthItem = healthCameras[key];
+          const url = healthItem?.url ?? configItem?.url ?? '';
 
-  const [form, setForm] = useState({
-    name: '',
-    type: 'ip' as CameraType,
-    ipUrl: '',
-  });
+          return {
+            slot,
+            label: `Camera ${slot + 1}`,
+            url,
+            configured: healthItem?.configured ?? Boolean(url),
+            online: healthItem?.online ?? Boolean(configItem?.online),
+            message: healthItem?.message ?? 'unknown',
+            width: healthItem?.width,
+            height: healthItem?.height,
+            latency_ms: healthItem?.latency_ms,
+          };
+        })
+      );
+      setError(null);
+    } catch (err) {
+      setError(
+        err instanceof Error ? err.message : 'Không thể tải cấu hình camera'
+      );
+    } finally {
+      setLoading(false);
+    }
+  }
 
   useEffect(() => {
-    async function loadDevices() {
-      try {
-        const tempStream = await navigator.mediaDevices.getUserMedia({ video: true });
-        tempStream.getTracks().forEach((track) => track.stop());
+    loadCameras();
+    const timer = setInterval(loadCameras, 10000);
 
-        const devs = await navigator.mediaDevices.enumerateDevices();
-
-        setDevices(
-          devs
-            .filter((d) => d.kind === 'videoinput')
-            .map((d) => ({
-              deviceId: d.deviceId,
-              label: d.label,
-            }))
-        );
-      } catch (err) {
-        console.error(err);
-      }
-    }
-
-    loadDevices();
+    return () => clearInterval(timer);
   }, []);
 
-  const addCamera = () => {
-    if (!form.name.trim()) return;
-
-    const id = manager.cameras.length;
-
-    const cam: CameraChannel = {
-      id,
-      label: form.name,
-      mode: form.type,
-      stream: null,
-      result: null,
-      resultHistory: [],
-      isActive: false,
-      isDetecting: false,
-      error: null,
-      deviceId: null,
-      deviceLabel: form.name,
-      rtspUrl: form.ipUrl || '',
-      frameCount: 0,
-      autoEnabled: false,
-      captureTimer: null,
-      frameTimer: null,
-      ws: undefined,
-      videoRef: { current: null } as any,
-      canvasRef: { current: null } as any,
+  const stats = useMemo(() => {
+    return {
+      total: cameras.length,
+      configured: cameras.filter((camera) => camera.configured).length,
+      online: cameras.filter((camera) => camera.online).length,
+      errors: cameras.filter((camera) => camera.configured && !camera.online)
+        .length,
     };
+  }, [cameras]);
 
-    manager.cameras.push(cam);
-    manager.setOnUpdate(() => {});
-    setShowForm(false);
-    setForm({ name: '', type: 'ip', ipUrl: '' });
+  function updateUrl(slot: number, url: string) {
+    setCameras((current) =>
+      current.map((camera) =>
+        camera.slot === slot ? { ...camera, url } : camera
+      )
+    );
+  }
 
-    manager.setOnUpdate(() => {});
-  };
-
-  const toggleCamera = (cam: CameraChannel) => {
-    if (cam.isActive) {
-      manager.stopCamera(cam.id);
-      return;
-    }
-
-    setPendingCam(cam);
-
-    if (cam.mode === 'ip') {
-      setSourceTab('ip');
-      setRtspUrl(cam.rtspUrl || '');
-    } else {
-      setSourceTab('webcam');
-    }
-
-    setShowDeviceModal(true);
-  };
-
-  const handleStartWebcam = async (deviceId: string, label: string) => {
-    if (!pendingCam) return;
-
-    await manager.startWebcam(pendingCam.id, deviceId, label);
-
-    setShowDeviceModal(false);
-    setPendingCam(null);
-  };
-
-  const handleStartIPCamera = async (url: string) => {
-    if (!pendingCam || !url.trim()) return;
-
-    await manager.startIPCamera(pendingCam.id, url, pendingCam.label);
-
-    setShowDeviceModal(false);
-    setPendingCam(null);
-    setRtspUrl('');
-  };
-
-  const testCamera = async (cam: CameraChannel) => {
-    cam.error = 'Testing...';
-    manager.setOnUpdate(() => {});
+  async function saveCamera(slot: number) {
+    setSavingSlot(slot);
+    setNotice(null);
+    setError(null);
 
     try {
-      const res = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/camera/health`,
-        { method: 'POST' }
+      const payload = Object.fromEntries(
+        cameras.map((camera) => [String(camera.slot), camera.url.trim()])
       );
-
-      const data = await res.json();
-      cam.error = data.ok ? 'OK' : 'FAIL';
-
-      manager.setOnUpdate(() => {});
-    } catch {
-      cam.error = 'NETWORK ERROR';
-      manager.setOnUpdate(() => {});
+      await configScadaCameras(payload);
+      setNotice(`Đã lưu cấu hình Camera ${slot + 1} vào PostgreSQL`);
+      await loadCameras();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Không thể lưu camera');
+    } finally {
+      setSavingSlot(null);
     }
-  };
+  }
+
+  async function toggleCamera(camera: CameraConfigView) {
+    setActionSlot(camera.slot);
+    setNotice(null);
+    setError(null);
+
+    try {
+      if (camera.online) {
+        await stopScadaCamera(camera.slot);
+        setNotice(`Đã dừng Camera ${camera.slot + 1}`);
+      } else {
+        await startScadaCamera(camera.slot);
+        setNotice(`Đã start Camera ${camera.slot + 1}`);
+      }
+      await loadCameras();
+    } catch (err) {
+      setError(
+        err instanceof Error
+          ? err.message
+          : `Không thể đổi trạng thái Camera ${camera.slot + 1}`
+      );
+    } finally {
+      setActionSlot(null);
+    }
+  }
 
   return (
-    <div className={styles.page} data-theme={theme}>
-      {/* HEADER */}
+    <div className={styles.page} data-theme="dark">
       <div className={styles.header}>
         <div>
           <div className={styles.title}>
@@ -175,306 +180,131 @@ export default function CameraManagementPage() {
             CAMERA MANAGEMENT
           </div>
 
-          <div className={styles.subtitle}>SCADA Control Plane</div>
+          <div className={styles.subtitle}>
+            Cấu hình 5 camera được đọc và lưu trong PostgreSQL offline
+          </div>
         </div>
 
-        <button
-          className={`${styles.btn} ${styles.btnPrimary}`}
-          onClick={() => setShowForm(true)}
-        >
-          + Add Camera
+        <button className={styles.btn} onClick={loadCameras} disabled={loading}>
+          <RefreshCw size={14} />
+          {loading ? 'Đang tải' : 'Refresh'}
         </button>
       </div>
 
-      {/* STATS */}
+      {(error || notice) && (
+        <div
+          className={styles.card}
+          style={{
+            marginBottom: 18,
+            color: error ? '#f87171' : '#22c55e',
+          }}
+        >
+          {error || notice}
+        </div>
+      )}
+
       <div className={styles.stats}>
-        <div className={styles.card}>
-          <div className={styles.cardLabel}>Total</div>
-          <div className={styles.cardValue}>{cameras.length}</div>
-        </div>
-
-        <div className={styles.card}>
-          <div className={styles.cardLabel}>Active</div>
-          <div className={styles.cardValue}>
-            {cameras.filter((c) => c.isActive).length}
-          </div>
-        </div>
-
-        <div className={styles.card}>
-          <div className={styles.cardLabel}>Detecting</div>
-          <div className={styles.cardValue}>
-            {cameras.filter((c) => c.isDetecting).length}
-          </div>
-        </div>
-
-        <div className={styles.card}>
-          <div className={styles.cardLabel}>Errors</div>
-          <div className={styles.cardValue}>
-            {cameras.filter((c) => c.error).length}
-          </div>
-        </div>
+        <StatCard label="Total" value={stats.total} />
+        <StatCard label="Configured" value={stats.configured} />
+        <StatCard label="Online" value={stats.online} />
+        <StatCard label="Errors" value={stats.errors} />
       </div>
 
-      {/* LIST */}
       <div className={styles.list}>
-        {cameras.map((cam) => (
-          <div key={cam.id} className={styles.item}>
-            {/* LEFT */}
-            <div className={styles.left}>
+        {cameras.map((camera) => (
+          <div key={camera.slot} className={styles.item}>
+            <div className={styles.left} style={{ flex: 1 }}>
               <div className={styles.titleRow}>
-                <span className={styles.icon}>
-                  <Camera size={14} />
-                </span>
-
-                <span className={styles.titleText}>{cam.label}</span>
-
-                <span className={styles.badge}>#{cam.id}</span>
+                <Camera size={14} />
+                <span>{camera.label}</span>
+                <span className={styles.status}>Slot #{camera.slot}</span>
               </div>
 
               <div className={styles.metaRow}>
-                <span className={styles.meta}>{cam.mode.toUpperCase()}</span>
+                <input
+                  className={styles.input}
+                  value={camera.url}
+                  onChange={(event) =>
+                    updateUrl(camera.slot, event.target.value)
+                  }
+                  placeholder="rtsp://admin:password@192.168.1.10:554/stream1"
+                  style={{ marginBottom: 0 }}
+                />
               </div>
 
               <div className={styles.statusRow}>
                 <span
-                  className={`${styles.status} ${cam.isActive ? styles.online : styles.offline}`}
+                  className={`${styles.status} ${
+                    camera.online ? styles.online : styles.offline
+                  }`}
                 >
-                  <Activity size={12} />
-                  {cam.isActive ? 'ONLINE' : 'OFFLINE'}
+                  {camera.online ? <Wifi size={12} /> : <WifiOff size={12} />}
+                  {camera.online ? 'ONLINE' : 'OFFLINE'}
                 </span>
 
-                {cam.isDetecting && (
-                  <span className={`${styles.status} ${styles.ai}`}>
-                    <Zap size={12} />
-                    RUNNING
+                <span className={styles.status}>
+                  <Activity size={12} />
+                  {camera.configured ? 'ĐÃ CẤU HÌNH' : 'CHƯA CẤU HÌNH'}
+                </span>
+
+                {camera.latency_ms !== undefined && (
+                  <span className={styles.status}>
+                    {camera.latency_ms} ms
+                  </span>
+                )}
+
+                {camera.width && camera.height && (
+                  <span className={styles.status}>
+                    {camera.width}x{camera.height}
+                  </span>
+                )}
+
+                {camera.configured && !camera.online && (
+                  <span className={`${styles.status} ${styles.btnDanger}`}>
+                    <AlertTriangle size={12} />
+                    {camera.message}
                   </span>
                 )}
               </div>
             </div>
 
-            {/* RIGHT ACTIONS */}
             <div className={styles.actions}>
-              <button className={styles.btn} onClick={() => testCamera(cam)}>
-                <AlertTriangle size={14} />
-                Test
+              <button
+                className={`${styles.btn} ${styles.btnPrimary}`}
+                onClick={() => saveCamera(camera.slot)}
+                disabled={savingSlot === camera.slot}
+              >
+                <Save size={14} />
+                {savingSlot === camera.slot ? 'Saving' : 'Save'}
               </button>
 
               <button
                 className={`${styles.btn} ${
-                  cam.isActive ? styles.btnDanger : styles.btnPrimary
+                  camera.online ? styles.btnDanger : styles.btnPrimary
                 }`}
-                onClick={() => toggleCamera(cam)}
+                onClick={() => toggleCamera(camera)}
+                disabled={!camera.url.trim() || actionSlot === camera.slot}
               >
-                {cam.isActive ? (
-                  <>
-                    <Square size={14} />
-                    Stop
-                  </>
-                ) : (
-                  <>
-                    <Play size={14} />
-                    Start
-                  </>
-                )}
+                {camera.online ? <Square size={14} /> : <Play size={14} />}
+                {actionSlot === camera.slot
+                  ? 'Working'
+                  : camera.online
+                    ? 'Stop'
+                    : 'Start'}
               </button>
             </div>
           </div>
         ))}
       </div>
+    </div>
+  );
+}
 
-      {/* MODAL */}
-      <Modal isOpen={showForm} onClose={() => setShowForm(false)} className="max-w-md p-6 border border-gray-200 dark:border-gray-800 shadow-2xl overflow-hidden">
-        <div className="space-y-6">
-          <div>
-            <h3 className="text-lg font-bold text-gray-900 dark:text-white" style={{ fontFamily: 'Sora, sans-serif' }}>
-              Add Camera
-            </h3>
-            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-              Create a new camera channel
-            </p>
-          </div>
-
-          <div className="space-y-1.5">
-            <label className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase">Camera name</label>
-            <input
-              className="w-full px-3 py-2.5 text-sm rounded-lg bg-gray-50 dark:bg-gray-950 border border-gray-200 dark:border-gray-800 text-gray-900 dark:text-white focus:outline-none focus:border-brand-500 transition-colors"
-              placeholder="Camera name"
-              value={form.name}
-              onChange={(e) =>
-                setForm({
-                  ...form,
-                  name: e.target.value,
-                })
-              }
-            />
-          </div>
-
-          <div className="space-y-2">
-            <label className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase">Loại Camera</label>
-            <div className="grid grid-cols-2 gap-4">
-              <button
-                type="button"
-                className={`flex flex-col items-center justify-center p-4 rounded-xl border transition-all gap-2 group ${
-                  form.type === 'webcam'
-                    ? 'border-brand-500 bg-brand-500/10 text-brand-500'
-                    : 'border-gray-200 dark:border-gray-800 bg-gray-50/50 dark:bg-gray-950/40 hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-600 dark:text-gray-400'
-                }`}
-                onClick={() =>
-                  setForm({
-                    ...form,
-                    type: 'webcam',
-                  })
-                }
-              >
-                <Camera size={20} className={form.type === 'webcam' ? 'text-brand-500' : 'text-gray-400 group-hover:text-gray-500'} />
-                <span className="text-xs font-bold">Webcam</span>
-              </button>
-
-              <button
-                type="button"
-                className={`flex flex-col items-center justify-center p-4 rounded-xl border transition-all gap-2 group ${
-                  form.type === 'ip'
-                    ? 'border-brand-500 bg-brand-500/10 text-brand-500'
-                    : 'border-gray-200 dark:border-gray-800 bg-gray-50/50 dark:bg-gray-950/40 hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-600 dark:text-gray-400'
-                }`}
-                onClick={() =>
-                  setForm({
-                    ...form,
-                    type: 'ip',
-                  })
-                }
-              >
-                <Activity size={20} className={form.type === 'ip' ? 'text-brand-500' : 'text-gray-400 group-hover:text-gray-500'} />
-                <span className="text-xs font-bold">IP Camera</span>
-              </button>
-            </div>
-          </div>
-
-          <div className="flex justify-end gap-2 pt-4 border-t border-gray-100 dark:border-gray-800">
-            <Button variant="outline" size="sm" onClick={() => setShowForm(false)}>
-              Cancel
-            </Button>
-            <Button variant="primary" size="sm" onClick={addCamera}>
-              Add Camera
-            </Button>
-          </div>
-        </div>
-      </Modal>
-
-      {showDeviceModal && pendingCam && (
-        <div className={styles.modalOverlay}>
-          <div className={styles.cameraPicker}>
-            <div className={styles.cameraPickerHeader}>
-              <div>
-                <h2>Connect Camera</h2>
-                <p>Select source for {pendingCam.label}</p>
-              </div>
-              <div className={styles.cameraBadge}>
-                #{pendingCam.id} • {pendingCam.label}
-              </div>
-            </div>
-
-            <div className={styles.sourceTabs}>
-              <button
-                className={
-                  sourceTab === 'webcam' ? styles.activeTab : styles.tab
-                }
-                onClick={() => setSourceTab('webcam')}
-              >
-                <Camera size={15} />
-                <span>Local Webcam</span>
-              </button>
-
-              <button
-                className={sourceTab === 'ip' ? styles.activeTab : styles.tab}
-                onClick={() => setSourceTab('ip')}
-              >
-                <Wifi size={16} />
-                <span>RTSP Camera</span>
-              </button>
-            </div>
-
-            {sourceTab === 'webcam' && (
-              <div className={styles.deviceGrid}>
-                {devices.map((dev) => {
-                  const used = cameras.some(
-                    (c) => c.deviceId === dev.deviceId && c.isActive
-                  );
-
-                  return (
-                    <div
-                      key={dev.deviceId}
-                      className={`${styles.deviceCard} ${
-                        used ? styles.disabled : ''
-                      }`}
-                    >
-                      <div className={styles.deviceIcon}>
-                        {used ? <Lock size={18} /> : <Camera size={18} />}
-                      </div>
-
-                      <div className={styles.deviceInfo}>
-                        <div className={styles.deviceName}>
-                          {dev.label || 'USB Camera'}
-                        </div>
-
-                        <small>
-                          {used ? 'Already connected' : 'Available'}
-                        </small>
-                      </div>
-
-                      <button
-                        disabled={used}
-                        className={styles.connectBtn}
-                        onClick={() =>
-                          handleStartWebcam(dev.deviceId, dev.label)
-                        }
-                      >
-                        Connect
-                      </button>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-
-            {sourceTab === 'ip' && (
-              <div className={styles.ipSection}>
-                <div className={styles.sectionLabel}>Network Stream</div>
-
-                <input
-                  value={rtspUrl}
-                  onChange={(e) => setRtspUrl(e.target.value)}
-                  className={styles.ipInput}
-                  placeholder="rtsp://admin:123456@192.168.1.10:554/stream1"
-                />
-
-                <button
-                  className={styles.connectBtnLarge}
-                  disabled={!rtspUrl.trim()}
-                  onClick={() => handleStartIPCamera(rtspUrl)}
-                >
-                  <Wifi size={16} />
-                  Connect Stream
-                </button>
-              </div>
-            )}
-
-            <div className={styles.footer}>
-              <button
-                className={styles.cancelBtn}
-                onClick={() => {
-                  setShowDeviceModal(false);
-                  setPendingCam(null);
-                  setRtspUrl('');
-                  setSourceTab('webcam');
-                }}
-              >
-                Cancel
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+function StatCard({ label, value }: { label: string; value: number }) {
+  return (
+    <div className={styles.card}>
+      <div className={styles.cardLabel}>{label}</div>
+      <div className={styles.cardValue}>{value}</div>
     </div>
   );
 }

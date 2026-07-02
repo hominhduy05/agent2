@@ -2,146 +2,175 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import {
-  Camera,
   Activity,
   AlertTriangle,
+  Camera,
+  Search,
   Wifi,
   WifiOff,
-  Search,
 } from 'lucide-react';
 
-import { getScadaManager } from '@/lib/scada-manager';
+import {
+  getScadaCameraHealth,
+  getScadaCameras,
+  ScadaCameraHealthItem,
+} from '@/lib/api';
+
+type CameraView = {
+  id: number;
+  label: string;
+  url: string;
+  configured: boolean;
+  online: boolean;
+  message: string;
+  width?: number;
+  height?: number;
+  latency_ms?: number;
+};
+
+const CAMERA_COUNT = 5;
+
+function buildEmptyCameras(): CameraView[] {
+  return Array.from({ length: CAMERA_COUNT }, (_, slot) => ({
+    id: slot,
+    label: `Camera ${slot + 1}`,
+    url: '',
+    configured: false,
+    online: false,
+    message: 'not_loaded',
+  }));
+}
 
 export default function CameraManagerPage() {
-  const [tick, setTick] = useState(0);
+  const [cameras, setCameras] = useState<CameraView[]>(() =>
+    buildEmptyCameras()
+  );
   const [selectedRoom, setSelectedRoom] = useState<number | null>(null);
-
-  const manager = getScadaManager();
+  const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    const timer = setInterval(() => {
-      setTick((v) => v + 1);
-    }, 1000);
+    let cancelled = false;
 
-    return () => clearInterval(timer);
+    async function loadCameras() {
+      try {
+        const [config, health] = await Promise.all([
+          getScadaCameras(),
+          getScadaCameraHealth(1500),
+        ]);
+
+        if (cancelled) return;
+
+        setCameras(
+          Array.from({ length: CAMERA_COUNT }, (_, slot) => {
+            const configItem = config.cameras[String(slot)] as
+              | { url?: string; online?: boolean }
+              | undefined;
+            const healthItem = health.cameras[
+              String(slot)
+            ] as ScadaCameraHealthItem | undefined;
+
+            return {
+              id: slot,
+              label: `Camera ${slot + 1}`,
+              url: healthItem?.url ?? configItem?.url ?? '',
+              configured:
+                healthItem?.configured ?? Boolean(configItem?.url ?? ''),
+              online: healthItem?.online ?? Boolean(configItem?.online),
+              message: healthItem?.message ?? 'unknown',
+              width: healthItem?.width,
+              height: healthItem?.height,
+              latency_ms: healthItem?.latency_ms,
+            };
+          })
+        );
+        setLastUpdated(new Date());
+        setError(null);
+      } catch (err) {
+        if (cancelled) return;
+        setError(
+          err instanceof Error ? err.message : 'Không thể tải trạng thái camera'
+        );
+      }
+    }
+
+    loadCameras();
+    const timer = setInterval(loadCameras, 10000);
+
+    return () => {
+      cancelled = true;
+      clearInterval(timer);
+    };
   }, []);
 
   const rooms = useMemo(() => {
     const result = [];
 
-    for (let i = 0; i < manager.cameras.length; i += 5) {
+    for (let index = 0; index < cameras.length; index += CAMERA_COUNT) {
       result.push({
-        id: i / 5,
-        name: `Buồng ${i / 5 + 1}`,
-        cameras: manager.cameras.slice(i, i + 5),
+        id: index / CAMERA_COUNT,
+        name: `Buồng ${index / CAMERA_COUNT + 1}`,
+        cameras: cameras.slice(index, index + CAMERA_COUNT),
       });
     }
 
     return result;
-  }, [manager.cameras, tick]);
-
-  const cameras = manager.cameras;
+  }, [cameras]);
 
   const stats = useMemo(() => {
     return {
       total: cameras.length,
-
-      online: cameras.filter(
-        (c) => c.isActive && !c.error
-      ).length,
-
-      offline: cameras.filter(
-        (c) => !c.isActive
-      ).length,
-
-      detecting: cameras.filter(
-        (c) => c.isDetecting
-      ).length,
-
+      online: cameras.filter((camera) => camera.online).length,
+      offline: cameras.filter((camera) => !camera.online).length,
+      detecting: 0,
       errors: cameras.filter(
-        (c) => !!c.error
+        (camera) => camera.configured && !camera.online
       ).length,
     };
-  }, [cameras, tick]);
+  }, [cameras]);
 
   const visibleRooms =
     selectedRoom === null
       ? rooms
-      : rooms.filter((r) => r.id === selectedRoom);
+      : rooms.filter((room) => room.id === selectedRoom);
 
   return (
     <div className="min-h-screen bg-slate-100 p-6">
-      {/* Header */}
-
       <div className="mb-6 flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold">
-            Camera Management Center
-          </h1>
-
+          <h1 className="text-3xl font-bold">Camera Management Center</h1>
           <p className="text-slate-500">
-            Quản lý toàn bộ camera SCADA
+            Trạng thái 5 camera đọc từ PostgreSQL offline
           </p>
         </div>
 
         <div className="rounded-xl bg-white px-5 py-3 shadow">
-          <div className="text-xs text-slate-500">
-            Last Update
-          </div>
-
+          <div className="text-xs text-slate-500">Cập nhật lần cuối</div>
           <div className="font-semibold">
-            {new Date().toLocaleTimeString()}
+            {lastUpdated ? lastUpdated.toLocaleTimeString() : 'Đang tải...'}
           </div>
         </div>
       </div>
 
-      {/* KPI */}
+      {error && (
+        <div className="mb-6 rounded-xl bg-red-50 px-4 py-3 text-sm text-red-700">
+          {error}
+        </div>
+      )}
 
       <div className="mb-6 grid grid-cols-5 gap-4">
-        <StatCard
-          title="Tổng Camera"
-          value={stats.total}
-          icon={<Camera size={20} />}
-        />
-
-        <StatCard
-          title="Online"
-          value={stats.online}
-          icon={<Wifi size={20} />}
-          color="green"
-        />
-
-        <StatCard
-          title="Offline"
-          value={stats.offline}
-          icon={<WifiOff size={20} />}
-          color="gray"
-        />
-
-        <StatCard
-          title="Detecting"
-          value={stats.detecting}
-          icon={<Search size={20} />}
-          color="blue"
-        />
-
-        <StatCard
-          title="Lỗi"
-          value={stats.errors}
-          icon={<AlertTriangle size={20} />}
-          color="red"
-        />
+        <StatCard title="Tổng Camera" value={stats.total} icon={<Camera size={20} />} />
+        <StatCard title="Online" value={stats.online} icon={<Wifi size={20} />} color="green" />
+        <StatCard title="Offline" value={stats.offline} icon={<WifiOff size={20} />} color="gray" />
+        <StatCard title="Đang nhận diện" value={stats.detecting} icon={<Search size={20} />} color="blue" />
+        <StatCard title="Lỗi" value={stats.errors} icon={<AlertTriangle size={20} />} color="red" />
       </div>
-
-      {/* Room Selector */}
 
       <div className="mb-6 flex flex-wrap gap-3">
         <button
           onClick={() => setSelectedRoom(null)}
           className={`rounded-xl px-4 py-2 font-medium ${
-            selectedRoom === null
-              ? 'bg-blue-600 text-white'
-              : 'bg-white'
+            selectedRoom === null ? 'bg-blue-600 text-white' : 'bg-white'
           }`}
         >
           Tất cả
@@ -152,9 +181,7 @@ export default function CameraManagerPage() {
             key={room.id}
             onClick={() => setSelectedRoom(room.id)}
             className={`rounded-xl px-4 py-2 font-medium ${
-              selectedRoom === room.id
-                ? 'bg-blue-600 text-white'
-                : 'bg-white'
+              selectedRoom === room.id ? 'bg-blue-600 text-white' : 'bg-white'
             }`}
           >
             {room.name}
@@ -162,42 +189,27 @@ export default function CameraManagerPage() {
         ))}
       </div>
 
-      {/* Rooms */}
-
       <div className="space-y-6">
         {visibleRooms.map((room) => (
-          <div
-            key={room.id}
-            className="rounded-2xl bg-white p-5 shadow"
-          >
+          <div key={room.id} className="rounded-2xl bg-white p-5 shadow">
             <div className="mb-5 flex items-center justify-between">
               <div>
-                <h2 className="text-xl font-bold">
-                  {room.name}
-                </h2>
-
+                <h2 className="text-xl font-bold">{room.name}</h2>
                 <div className="text-sm text-slate-500">
-                  {
-                    room.cameras.filter(
-                      (c) => c.isActive
-                    ).length
-                  }
-                  /{room.cameras.length} camera hoạt động
+                  {room.cameras.filter((camera) => camera.online).length}/
+                  {room.cameras.length} camera online
                 </div>
               </div>
 
               <div className="flex items-center gap-2 rounded-full bg-green-50 px-4 py-2 text-green-600">
                 <Activity size={16} />
-                LIVE
+                DB LIVE
               </div>
             </div>
 
             <div className="grid grid-cols-5 gap-4">
               {room.cameras.map((camera) => (
-                <CameraCard
-                  key={camera.id}
-                  camera={camera}
-                />
+                <CameraCard key={camera.id} camera={camera} />
               ))}
             </div>
           </div>
@@ -207,88 +219,63 @@ export default function CameraManagerPage() {
   );
 }
 
-function CameraCard({ camera }: any) {
-  const status = !camera.isActive
-    ? 'offline'
-    : camera.error
-      ? 'error'
-      : camera.isDetecting
-        ? 'detecting'
-        : 'online';
+function CameraCard({ camera }: { camera: CameraView }) {
+  const status = !camera.configured
+    ? 'chưa cấu hình'
+    : camera.online
+      ? 'online'
+      : 'offline';
 
-  const statusColor =
-    status === 'online'
-      ? 'bg-green-500'
-      : status === 'detecting'
-        ? 'bg-blue-500'
-        : status === 'error'
-          ? 'bg-red-500'
-          : 'bg-slate-400';
+  const statusColor = camera.online
+    ? 'bg-green-500'
+    : camera.configured
+      ? 'bg-red-500'
+      : 'bg-slate-400';
 
   return (
     <div className="overflow-hidden rounded-2xl border bg-white">
-      {/* Preview */}
-
       <div className="relative aspect-video bg-slate-900">
-        {camera.videoRef?.current ? (
-          <video
-            ref={camera.videoRef}
-            autoPlay
-            muted
-            playsInline
-            className="h-full w-full object-cover"
-          />
-        ) : (
-          <div className="flex h-full items-center justify-center text-slate-500">
-            No Signal
-          </div>
-        )}
+        <div className="flex h-full items-center justify-center text-center text-sm text-slate-400">
+          {camera.configured ? 'RTSP Camera' : 'Chưa cấu hình'}
+        </div>
 
         <div className="absolute right-2 top-2">
-          <div
-            className={`h-3 w-3 rounded-full ${statusColor}`}
-          />
+          <div className={`h-3 w-3 rounded-full ${statusColor}`} />
         </div>
       </div>
 
-      {/* Info */}
-
       <div className="space-y-2 p-4">
-        <div className="font-semibold">
-          {camera.label}
-        </div>
+        <div className="font-semibold">{camera.label}</div>
 
         <div className="text-sm text-slate-600">
           Trạng thái:
-          <span className="ml-2 font-semibold capitalize">
-            {status}
+          <span className="ml-2 font-semibold">{status}</span>
+        </div>
+
+        <div className="text-sm text-slate-600">
+          Độ trễ:
+          <span className="ml-2 font-semibold">
+            {camera.latency_ms !== undefined ? `${camera.latency_ms} ms` : '-'}
           </span>
         </div>
 
         <div className="text-sm text-slate-600">
-          Frames:
+          Kích thước:
           <span className="ml-2 font-semibold">
-            {camera.frameCount}
+            {camera.width && camera.height
+              ? `${camera.width}x${camera.height}`
+              : '-'}
           </span>
         </div>
 
-        <div className="text-sm text-slate-600">
-          Detect:
-          <span className="ml-2 font-semibold">
-            {camera.result?.detections?.length || 0}
-          </span>
+        <div className="truncate text-sm text-slate-600">
+          URL:
+          <span className="ml-2">{camera.url || '-'}</span>
         </div>
 
-        <div className="text-sm text-slate-600 truncate">
-          Device:
-          <span className="ml-2">
-            {camera.deviceLabel || '-'}
-          </span>
-        </div>
-
-        {camera.error && (
+        {camera.configured && !camera.online && (
           <div className="rounded-lg bg-red-50 p-2 text-xs text-red-600">
-            {camera.error}
+            {camera.message}
           </div>
         )}
       </div>
@@ -301,8 +288,13 @@ function StatCard({
   value,
   icon,
   color = 'slate',
-}: any) {
-  const colors: any = {
+}: {
+  title: string;
+  value: number;
+  icon: React.ReactNode;
+  color?: 'green' | 'red' | 'blue' | 'gray' | 'slate';
+}) {
+  const colors = {
     green: 'text-green-600 bg-green-50',
     red: 'text-red-600 bg-red-50',
     blue: 'text-blue-600 bg-blue-50',
@@ -314,22 +306,11 @@ function StatCard({
     <div className="rounded-2xl bg-white p-5 shadow">
       <div className="flex items-center justify-between">
         <div>
-          <div className="text-sm text-slate-500">
-            {title}
-          </div>
-
-          <div className="mt-2 text-3xl font-bold">
-            {value}
-          </div>
+          <div className="text-sm text-slate-500">{title}</div>
+          <div className="mt-2 text-3xl font-bold">{value}</div>
         </div>
 
-        <div
-          className={`rounded-xl p-3 ${
-            colors[color]
-          }`}
-        >
-          {icon}
-        </div>
+        <div className={`rounded-xl p-3 ${colors[color]}`}>{icon}</div>
       </div>
     </div>
   );

@@ -29,9 +29,38 @@ export interface ScadaCameraConfig {
   cameras: Record<string, ScadaCameraSlot>;
 }
 
+export interface ScadaCameraHealthItem {
+  slot: number;
+  configured: boolean;
+  url: string;
+  online: boolean;
+  message: string;
+  width?: number;
+  height?: number;
+  latency_ms?: number;
+}
+
+export interface ScadaCameraHealthResponse {
+  status: string;
+  configured_count: number;
+  online_count: number;
+  cameras: Record<string, ScadaCameraHealthItem>;
+}
+
 export async function getScadaCameras(): Promise<ScadaCameraConfig> {
   const res = await fetch(`${API_BASE}/api/scada/cameras/`);
   if (!res.ok) throw new Error('Khong the lay cau hinh camera');
+  return res.json();
+}
+
+export async function getScadaCameraHealth(
+  timeoutMs = 2500
+): Promise<ScadaCameraHealthResponse> {
+  const res = await fetch(
+    `${API_BASE}/api/scada/cameras/health/?timeout_ms=${timeoutMs}`,
+    { cache: 'no-store' }
+  );
+  if (!res.ok) throw new Error('Khong the lay trang thai camera');
   return res.json();
 }
 

@@ -71,23 +71,10 @@ function WeightPanel({
   scaleStatus: ScadaScaleStatus | null;
   demoMode: boolean;
 }) {
-  const lastOkTime = React.useRef<number>(Date.now());
-
   const hasData = scaleStatus?.online === true && scaleStatus?.latest;
+  const online = Boolean(hasData);
 
-  // update timestamp khi có data OK
-  if (hasData) {
-    lastOkTime.current = Date.now();
-  }
-
-  // giữ trạng thái ONLINE giả trong 3 giây nếu mất API
-  const isAlive = Date.now() - lastOkTime.current < 3000;
-
-  const online = Boolean(hasData || isAlive);
-
-  const weight =
-    scaleStatus?.latest?.weight_kg ??
-    Number((2 + Math.random() * 4).toFixed(2));
+  const weight = scaleStatus?.latest?.weight_kg;
 
   return (
     <div
@@ -141,7 +128,7 @@ function WeightPanel({
           color: online ? '#22c55e' : 'var(--text-faint)',
         }}
       >
-        {weight.toFixed(2)} kg
+        {weight !== undefined ? `${weight.toFixed(2)} kg` : '-- kg'}
       </div>
 
       {/* Footer */}

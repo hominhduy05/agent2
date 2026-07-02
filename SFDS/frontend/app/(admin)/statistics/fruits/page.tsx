@@ -1,306 +1,158 @@
 'use client';
 
-import { useEffect, useMemo, useRef, useState } from 'react';
-
-import { getSystemStatistics } from '@/lib/scada-statistics';
-
+import Link from 'next/link';
+import { useEffect, useMemo, useState } from 'react';
 import {
-  BarChart,
   Bar,
+  BarChart,
+  ResponsiveContainer,
+  Tooltip,
   XAxis,
   YAxis,
-  Tooltip,
-  ResponsiveContainer,
 } from 'recharts';
 
+import { listAuditDetections } from '@/lib/api';
+import {
+  FruitStatistics,
+  mapAuditEventsToFruitStatistics,
+} from '@/lib/scada-statistics';
+
 import styles from './page.module.css';
-import Link from 'next/link';
-
-type Grade = 'A' | 'B' | 'C' | 'D' | null;
-
-type CameraResult = {
-  cameraId: number;
-
-  grade: Grade;
-
-  weight: number | null;
-};
-
-type FruitRecord = {
-  fruitId: string;
-
-  room: string;
-
-  createdAt: string;
-
-  finalGrade: Grade;
-
-  weight: number | null;
-
-  cameras: CameraResult[];
-};
 
 const ROOM_CAMERA_MAP: Record<string, number[]> = {
   'BUỒNG 1': [1, 2, 3, 4, 5],
-  'BUỒNG 2': [6, 7, 8, 9, 10],
-  'BUỒNG 3': [11, 12, 13, 14, 15],
 };
 
 export default function StatisticsPage() {
-  const weightMapRef = useRef<Map<string, number>>(new Map());
-
-  const [fruits, setFruits] = useState<FruitRecord[]>([]);
-
+  const [fruits, setFruits] = useState<FruitStatistics[]>([]);
   const [room, setRoom] = useState('ALL');
-
   const [grade, setGrade] = useState('ALL');
-
   const [date, setDate] = useState('');
-
   const [time, setTime] = useState('');
-
   const [range, setRange] = useState('DAY');
   const [maxTon, setMaxTon] = useState('');
-
-  const [cameraId, setCameraId] = useState('ALL');
-
-  const getWeight = (id: string, weight: number | null | undefined) => {
-    // API có cân thật
-    if (weight && weight > 0) {
-      return Number(weight.toFixed(2));
-    }
-
-    if (!id) return 0;
-
-    const cache = weightMapRef.current;
-
-    if (cache.has(id)) {
-      return cache.get(id)!;
-    }
-
-    const random = Number((2 + Math.random() * 3).toFixed(2));
-
-    cache.set(id, random);
-
-    return random;
-  };
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    const update = () => {
-      const data = getSystemStatistics() as any[];
+    let cancelled = false;
 
-      const map = new Map<string, FruitRecord>();
-
-      for (const item of data) {
-        const id = item.fruitId;
-
-        if (!map.has(id)) {
-          map.set(id, {
-            ...item,
-            cameras: [...(item.cameras || [])],
-            weight: getWeight(String(id), item.weight),
-          });
-        } else {
-          const existing = map.get(id)!;
-
-          // merge cameras (KHÔNG overwrite)
-          const mergedCameras = [
-            ...(existing.cameras || []),
-            ...(item.cameras || []),
-          ];
-
-          // deduplicate camera theo cameraId
-          const unique = new Map<number, any>();
-          for (const c of mergedCameras) {
-            const cid = c.cameraId ?? c.camera_id;
-            unique.set(cid, c);
-          }
-
-          existing.cameras = Array.from(unique.values());
-        }
+    async function loadFruits() {
+      try {
+        const response = await listAuditDetections({ limit: 200 });
+        if (cancelled) return;
+        setFruits(mapAuditEventsToFruitStatistics(response.items));
+        setError(null);
+      } catch (err) {
+        if (cancelled) return;
+        setFruits([]);
+        setError(
+          err instanceof Error ? err.message : 'Không thể tải dữ liệu PostgreSQL'
+        );
       }
+    }
 
-      setFruits(Array.from(map.values()));
-    };
-    update();
-
-    const timer = setInterval(update, 1000);
+    loadFruits();
+    const timer = setInterval(loadFruits, 5000);
 
     return () => {
+      cancelled = true;
       clearInterval(timer);
     };
   }, []);
 
   const filtered = useMemo(() => {
-    return fruits.filter((f) => {
+    return fruits.filter((fruit) => {
       if (room !== 'ALL') {
-        const allowedCams = ROOM_CAMERA_MAP[room] || [];
-
-        const hasCam = f.cameras?.some((c: any) => {
-          const id = c.cameraId ?? c.camera_id;
-          return allowedCams.includes(Number(id));
-        });
-
-        if (!hasCam) return false;
-      }
-      // if (room !== 'ALL' && f.room !== room) return false;
-
-      if (grade !== 'ALL' && f.finalGrade !== grade) return false;
-
-      const created = new Date(f.createdAt);
-
-      // lọc ngày
-      if (date) {
-        const d = created.toISOString().slice(0, 10);
-
-        if (d !== date) return false;
+        const allowedCameras = ROOM_CAMERA_MAP[room] || [];
+        const hasCamera = fruit.cameras.some((camera) =>
+          allowedCameras.includes(camera.cameraId)
+        );
+        if (!hasCamera) return false;
       }
 
-      // ======================
-      // LỌC GIỜ
-      // ======================
+      if (grade !== 'ALL' && fruit.finalGrade !== grade) return false;
 
-      if (time) {
-        const hour = created.getHours();
+      const created = new Date(fruit.createdAt);
 
-        if (hour !== Number(time)) return false;
+      if (date && created.toISOString().slice(0, 10) !== date) {
+        return false;
       }
 
-      // ======================
-      // KHOẢNG THỜI GIAN
-      // ======================
+      if (time && created.getHours() !== Number(time)) {
+        return false;
+      }
 
       if (range !== 'DAY') {
-        const now = Date.now();
-
-        const diff = now - created.getTime();
-
-        // 5 phút gần nhất
+        const diff = Date.now() - created.getTime();
 
         if (range === '5M' && diff > 5 * 60 * 1000) return false;
-
-        // 30 phút gần nhất
-
         if (range === '30M' && diff > 30 * 60 * 1000) return false;
-
-        // 1 giờ gần nhất
-
         if (range === '1H' && diff > 60 * 60 * 1000) return false;
-
-        // ======================
-        // GIỜ HÀNH CHÍNH
-        // ======================
 
         if (range === 'WORK') {
           const hour = created.getHours();
-
-          /**
-           * giờ hành chính:
-           * 08:00 -> 17:00
-           */
-
           if (hour < 8 || hour >= 17) return false;
         }
       }
 
-      // ======================
-      // LỌC SẢN LƯỢNG TẤN / NGÀY
-      // ======================
-
-      // if (maxTon) {
-      //   const totalKg = fruits
-      //     .filter((x) => {
-      //       if (!date) return true;
-
-      //       const d = new Date(x.createdAt).toISOString().slice(0, 10);
-
-      //       return d === date;
-      //     })
-      //     .reduce((sum, x) => {
-      //       return sum + Number(x.weight ?? getRandomWeight(x.fruitId));
-      //     }, 0);
-
-      //   const totalTon = totalKg / 1000;
-
-      //   if (totalTon > Number(maxTon)) {
-      //     return false;
-      //   }
-      // }
+      if (maxTon) {
+        const maxKg = Number(maxTon) * 1000;
+        if (Number.isFinite(maxKg) && fruit.weight > maxKg) return false;
+      }
 
       return true;
     });
-  }, [fruits, room, grade, date, time, range]);
+  }, [fruits, room, grade, date, time, range, maxTon]);
 
   const summary = useMemo(() => {
-  const s = {
-    total: filtered.length,
-    kg: 0,
-    ton: 0,
-    A: 0,
-    B: 0,
-    C: 0,
-    D: 0,
-  };
+    const result = {
+      total: filtered.length,
+      kg: 0,
+      ton: 0,
+      A: 0,
+      B: 0,
+      C: 0,
+      D: 0,
+    };
 
-  filtered.forEach((fruit) => {
-    s.kg += fruit.weight || 0;
-
-    fruit.cameras.forEach((cam) => {
-      if (cam.grade) {
-        s[cam.grade]++;
-      }
+    filtered.forEach((fruit) => {
+      result.kg += fruit.weight || 0;
+      fruit.cameras.forEach((camera) => {
+        if (camera.grade) result[camera.grade]++;
+      });
     });
-  });
 
-  s.ton = s.kg / 1000;
-
-  return s;
-}, [filtered]);
+    result.ton = result.kg / 1000;
+    return result;
+  }, [filtered]);
 
   const chart = [
-    {
-      name: 'A',
-      value: summary.A,
-    },
-
-    {
-      name: 'B',
-      value: summary.B,
-    },
-
-    {
-      name: 'C',
-      value: summary.C,
-    },
-
-    {
-      name: 'D',
-      value: summary.D,
-    },
+    { name: 'A', value: summary.A },
+    { name: 'B', value: summary.B },
+    { name: 'C', value: summary.C },
+    { name: 'D', value: summary.D },
   ];
 
   return (
     <div className={styles.page}>
       <header className={styles.header}>
         <h1>SCADA FRUIT ANALYTICS</h1>
-
-        <p>Realtime production monitoring</p>
+        <p>Dữ liệu lấy trực tiếp từ PostgreSQL offline</p>
       </header>
 
+      {error && <section className={styles.card}>{error}</section>}
+
       <section className={styles.filter}>
-        <select value={room} onChange={(e) => setRoom(e.target.value)}>
+        <select value={room} onChange={(event) => setRoom(event.target.value)}>
           <option value="ALL">Tất cả buồng</option>
-
           <option>BUỒNG 1</option>
-
-          <option>BUỒNG 2</option>
-
-          <option>BUỒNG 3</option>
         </select>
 
-        <select value={grade} onChange={(e) => setGrade(e.target.value)}>
+        <select
+          value={grade}
+          onChange={(event) => setGrade(event.target.value)}
+        >
           <option value="ALL">Tất cả grade</option>
-
           <option>A</option>
           <option>B</option>
           <option>C</option>
@@ -310,40 +162,33 @@ export default function StatisticsPage() {
         <input
           type="date"
           value={date}
-          onChange={(e) => setDate(e.target.value)}
+          onChange={(event) => setDate(event.target.value)}
         />
 
         <input
           type="number"
           placeholder="Tấn/ngày tối đa"
           value={maxTon}
-          onChange={(e) => setMaxTon(e.target.value)}
+          onChange={(event) => setMaxTon(event.target.value)}
         />
 
-        <select value={time} onChange={(e) => setTime(e.target.value)}>
+        <select value={time} onChange={(event) => setTime(event.target.value)}>
           <option value="">Tất cả giờ</option>
-
-          {Array.from(
-            {
-              length: 24,
-            },
-            (_, i) => (
-              <option key={i} value={String(i).padStart(2, '0')}>
-                {i}:00
-              </option>
-            )
-          )}
+          {Array.from({ length: 24 }, (_, hour) => (
+            <option key={hour} value={String(hour).padStart(2, '0')}>
+              {hour}:00
+            </option>
+          ))}
         </select>
 
-        <select value={range} onChange={(e) => setRange(e.target.value)}>
+        <select
+          value={range}
+          onChange={(event) => setRange(event.target.value)}
+        >
           <option value="DAY">Cả ngày</option>
-
           <option value="WORK">Giờ hành chính (08:00-17:00)</option>
-
           <option value="5M">5 phút gần nhất</option>
-
           <option value="30M">30 phút gần nhất</option>
-
           <option value="1H">1 giờ gần nhất</option>
         </select>
 
@@ -363,18 +208,10 @@ export default function StatisticsPage() {
 
       <section className={styles.cards}>
         <Card title="Tổng quả" value={summary.total} />
-
-        <Card
-          title="Khối lượng"
-          value={(summary.kg / 1000).toFixed(3) + ' Tấn'}
-        />
-
+        <Card title="Khối lượng" value={`${summary.ton.toFixed(3)} Tấn`} />
         <Card title="Grade A" value={summary.A} />
-
         <Card title="Grade B" value={summary.B} />
-
         <Card title="Grade C" value={summary.C} />
-
         <Card title="Grade D" value={summary.D} />
       </section>
 
@@ -382,11 +219,8 @@ export default function StatisticsPage() {
         <ResponsiveContainer width="100%" height={300}>
           <BarChart data={chart}>
             <XAxis dataKey="name" />
-
             <YAxis />
-
             <Tooltip />
-
             <Bar dataKey="value" />
           </BarChart>
         </ResponsiveContainer>
@@ -397,57 +231,45 @@ export default function StatisticsPage() {
           <thead>
             <tr>
               <th className={styles.th}>ID</th>
-
               <th className={styles.th}>BUỒNG</th>
-
               <th className={styles.th}>CAM1</th>
-
               <th className={styles.th}>CAM2</th>
-
               <th className={styles.th}>CAM3</th>
-
               <th className={styles.th}>CAM4</th>
-
               <th className={styles.th}>CAM5</th>
-
               <th className={styles.th}>FINAL</th>
-
               <th className={styles.th}>KG</th>
             </tr>
           </thead>
 
           <tbody>
-            {filtered.map((f) => (
-              <tr key={f.fruitId}>
-                {/* <td className={styles.td}>{f.fruitId}</td> */}
+            {filtered.map((fruit) => (
+              <tr key={fruit.fruitId}>
                 <td className={styles.td}>
-  <Link
-    href={`/statistics/fruits/${f.fruitId}`}
-    style={{
-      color: '#00bfff',
-      fontWeight: 600,
-      textDecoration: 'underline',
-    }}
-  >
-    {f.fruitId}
-  </Link>
-</td>
+                  <Link
+                    href={`/statistics/fruits/${fruit.fruitId}`}
+                    style={{
+                      color: '#00bfff',
+                      fontWeight: 600,
+                      textDecoration: 'underline',
+                    }}
+                  >
+                    {fruit.fruitId}
+                  </Link>
+                </td>
 
-                <td className={styles.td}>{f.room}</td>
+                <td className={styles.td}>{fruit.room}</td>
 
-                {[0, 1, 2, 3, 4].map((i) => (
-                  <td className={styles.td} key={i}>
-                    {f.cameras[i]?.grade || 'NULL'}
+                {[0, 1, 2, 3, 4].map((index) => (
+                  <td className={styles.td} key={index}>
+                    {fruit.cameras[index]?.grade || 'NULL'}
                   </td>
                 ))}
 
                 <td className={`${styles.td} ${styles.final}`}>
-                  {f.finalGrade || 'WAIT'}
+                  {fruit.finalGrade || 'WAIT'}
                 </td>
-                <td className={styles.td}>
-                  {getWeight(f.fruitId, f.weight).toFixed(2)}
-                  kg
-                </td>
+                <td className={styles.td}>{fruit.weight.toFixed(2)} kg</td>
               </tr>
             ))}
           </tbody>
@@ -457,11 +279,10 @@ export default function StatisticsPage() {
   );
 }
 
-function Card({ title, value }: { title: string; value: any }) {
+function Card({ title, value }: { title: string; value: string | number }) {
   return (
     <div className={styles.card}>
       <span>{title}</span>
-
       <strong>{value}</strong>
     </div>
   );

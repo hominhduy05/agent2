@@ -48,7 +48,6 @@ export default function DashboardPage() {
     { key: 'year', label: 'Năm' },
   ] as const;
 
-  console.log('visibleCameras', visibleCameras);
   const selectedTrendLabel =
     rangeOptions.find((option) => option.key === selectedRange)?.label ??
     'Ngày';

@@ -6,13 +6,6 @@ import { getRoomIdByCameraIndex } from './scada-room-session';
 
 let manager: ScadaCameraManager | null = null;
 
-/**
- * Random weight từ 0.2kg -> 2.5kg
- */
-function randomWeight(min = 0.2, max = 2.5): number {
-  return Number((Math.random() * (max - min) + min).toFixed(2));
-}
-
 function exposeDev(instance: ScadaCameraManager | null) {
   if (
     process.env.NODE_ENV === 'development' &&
@@ -65,27 +58,10 @@ export function pushFrameResult(
 
   result.detections = (result.detections || []).map(
     (d: any) => {
-      let weight = d.weight_kg;
-
-      // Nếu AI chưa trả weight
-      if (
-        weight === undefined ||
-        weight === null ||
-        Number.isNaN(weight)
-      ) {
-        // Ưu tiên lấy từ manager
-        weight = randomWeight();
-
-        // Nếu manager cũng chưa có thì random
-        if (
-          weight === undefined ||
-          weight === null ||
-          Number.isNaN(weight)
-        ) {
-          weight = randomWeight();
-        }
-      }
-
+      const weight =
+        d.weight_kg === undefined || Number.isNaN(d.weight_kg)
+          ? null
+          : d.weight_kg;
       return {
         ...d,
         camera_id: cam.id,
