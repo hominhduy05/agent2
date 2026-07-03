@@ -6,7 +6,9 @@ import {
   configScadaCameras,
   detectScadaCamera,
   detectWebcamFrame,
+  finalizeScadaBatch,
   fetchScadaFrame,
+  ScadaBatchStatus,
   ScadaScaleSnapshot,
   startScadaCamera,
   stopScadaCamera,
@@ -24,6 +26,7 @@ export interface ScadaResult {
   imageHeight: number;
   imageDataUrl: string;
   timestamp: number;
+  batchId?: string;
   cropDataUrl?: string;
   rawDetectionCount?: number;
   trackedDetectionCount?: number;
@@ -81,6 +84,9 @@ export interface CameraChannel {
   inspectionHistory?: InspectionHistoryItem[];
   croppedTrackIds?: Set<number>;
   cropLockedUntilEmpty?: boolean;
+  waitingForFruitExit?: boolean;
+  emptyFrameCount?: number;
+  batchStatus?: ScadaBatchStatus | null;
 
   health?: CameraHealth;
   analytics?: {
@@ -88,9 +94,14 @@ export interface CameraChannel {
   };
 }
 
-const CAPTURE_INTERVAL_MS = 2000;
-const FRAME_FETCH_INTERVAL_MS = 500;
+const FRAME_FETCH_INTERVAL_MS = 2500;
 const WS_FRAME_INTERVAL_MS = 300;
+const ACTIVE_CAPTURE_STAGGER_MS = 250;
+const AUTO_CAPTURE_INTERVAL_MS = Math.max(
+  1000,
+  Number(process.env.NEXT_PUBLIC_SCADA_AUTO_CAPTURE_INTERVAL_MS || 2500)
+);
+const FRUIT_EXIT_EMPTY_FRAMES = 2;
 const MAX_HISTORY = 10;
 const ROI = {
   x1: 0.18,
@@ -120,7 +131,9 @@ function normalizeBaseUrl(value: string, fallbackProtocol: 'http' | 'ws') {
 }
 
 function isLoopbackHostname(hostname: string) {
-  return hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '::1';
+  return (
+    hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '::1'
+  );
 }
 
 function preferBrowserHostForLocalBuild(base: string) {
@@ -130,7 +143,11 @@ function preferBrowserHostForLocalBuild(base: string) {
     const url = new URL(base);
     const browserHost = window.location.hostname;
 
-    if (browserHost && isLoopbackHostname(url.hostname) && !isLoopbackHostname(browserHost)) {
+    if (
+      browserHost &&
+      isLoopbackHostname(url.hostname) &&
+      !isLoopbackHostname(browserHost)
+    ) {
       url.hostname = browserHost;
     }
 
@@ -166,7 +183,9 @@ function getScadaWsBase() {
       !(envUrl.hostname === 'localhost' && envUrl.port === '8080') &&
       !(envUrl.hostname === '127.0.0.1' && envUrl.port === '8080')
     ) {
-      return preferBrowserHostForLocalBuild(`${envUrl.protocol}//${envUrl.host}${envUrl.pathname.replace(/\/+$/, '')}`);
+      return preferBrowserHostForLocalBuild(
+        `${envUrl.protocol}//${envUrl.host}${envUrl.pathname.replace(/\/+$/, '')}`
+      );
     }
     return preferBrowserHostForLocalBuild(`${apiUrl.protocol}//${apiUrl.host}`);
   } catch {
@@ -319,7 +338,14 @@ function clearStaleStoredSessions(cameraCount: number) {
 }
 
 function detectionGrade(det: BoundingBox) {
+  if (det.class_name?.startsWith('demo_grade_')) return classGrade(det.class_name);
   return det.final_grade || classGrade(det.class_name);
+}
+
+function createInspectionBatchId() {
+  return `fruit-${Date.now().toString(36)}-${Math.random()
+    .toString(36)
+    .slice(2, 8)}`;
 }
 
 function saveStoredCrop(cameraId: number, dataUrl: string, timestamp: number) {
@@ -417,6 +443,33 @@ function drawMaskPolygon(
   ctx.restore();
 }
 
+function detectionBounds(box: BoundingBox) {
+  if (box.polygon && box.polygon.length >= 3) {
+    const xs = box.polygon
+      .map((point) => Number(point?.[0]))
+      .filter((value) => Number.isFinite(value));
+    const ys = box.polygon
+      .map((point) => Number(point?.[1]))
+      .filter((value) => Number.isFinite(value));
+
+    if (xs.length >= 3 && ys.length >= 3) {
+      return {
+        x1: Math.min(...xs),
+        y1: Math.min(...ys),
+        x2: Math.max(...xs),
+        y2: Math.max(...ys),
+      };
+    }
+  }
+
+  return {
+    x1: box.x1,
+    y1: box.y1,
+    x2: box.x2,
+    y2: box.y2,
+  };
+}
+
 function drawDetections(
   ctx: CanvasRenderingContext2D,
   canvas: HTMLCanvasElement,
@@ -432,10 +485,11 @@ function drawDetections(
   );
 
   result.detections.forEach((box) => {
-    const x1 = Math.max(0, Math.min(canvas.width, box.x1 * scale + offsetX));
-    const y1 = Math.max(0, Math.min(canvas.height, box.y1 * scale + offsetY));
-    const x2 = Math.max(0, Math.min(canvas.width, box.x2 * scale + offsetX));
-    const y2 = Math.max(0, Math.min(canvas.height, box.y2 * scale + offsetY));
+    const bounds = detectionBounds(box);
+    const x1 = Math.max(0, Math.min(canvas.width, bounds.x1 * scale + offsetX));
+    const y1 = Math.max(0, Math.min(canvas.height, bounds.y1 * scale + offsetY));
+    const x2 = Math.max(0, Math.min(canvas.width, bounds.x2 * scale + offsetX));
+    const y2 = Math.max(0, Math.min(canvas.height, bounds.y2 * scale + offsetY));
     const w = x2 - x1;
     const h = y2 - y1;
     if (w <= 1 || h <= 1) return;
@@ -500,7 +554,7 @@ function scaleCanvasToElement(
 
 export class ScadaCameraManager {
   cameras: CameraChannel[] = [];
-  private threshold = 0.25;
+  private threshold = 0.5;
 
   private fruitCounter = 0;
   private currentFruitId: string | null = null;
@@ -582,6 +636,8 @@ export class ScadaCameraManager {
 
   private displayIdsByTrack: Map<string, number>[] = [];
   private gradeCounters: Record<string, number>[] = [];
+  private autoBatchTimer: ReturnType<typeof setInterval> | null = null;
+  private autoBatchRunning = false;
 
   // constructor(count: number, onUpdate: (c: CameraChannel) => void) {
   //   this.onUpdate = onUpdate;
@@ -660,6 +716,9 @@ export class ScadaCameraManager {
       inspectionHistory: storedInspections,
       croppedTrackIds: new Set<number>(),
       cropLockedUntilEmpty: false,
+      waitingForFruitExit: false,
+      emptyFrameCount: 0,
+      batchStatus: null,
     };
   }
 
@@ -766,36 +825,9 @@ export class ScadaCameraManager {
     crop: { dataUrl: string; blob: Blob },
     fallback: ScadaResult
   ) {
-    let detections: BoundingBox[] = [];
-    let imageWidth: number | undefined;
-    let imageHeight: number | undefined;
-
-    // DEMO ONLY: backend already assigned B -> A -> C -> D on the accepted frame.
-    // Do not run crop re-detect here, otherwise the second API call can overwrite
-    // the demo label with the model's real class.
-    if (
-      fallback.detections.some((d) => d.class_name.startsWith('demo_grade_'))
-    ) {
-      detections = fallback.detections;
-      imageWidth = fallback.imageWidth;
-      imageHeight = fallback.imageHeight;
-    } else {
-      try {
-        const data = await detectWebcamFrame(crop.blob, this.threshold);
-        const cropDetections = (data.detections || []).filter(
-          (d) => d.confidence >= this.threshold
-        );
-        // detections = cropDetections;
-        detections = cropDetections;
-
-        // this.assignFruitId(detections);
-        this.assignFruitId(index, detections, 'ws');
-        imageWidth = data.image_width;
-        imageHeight = data.image_height;
-      } catch {
-        // Do not fall back to frame-level labels. Crop analysis is the source of truth.
-      }
-    }
+    const detections: BoundingBox[] = fallback.detections;
+    const imageWidth: number | undefined = fallback.imageWidth;
+    const imageHeight: number | undefined = fallback.imageHeight;
 
     this.decorateDisplayIds(index, detections, true);
 
@@ -810,13 +842,13 @@ export class ScadaCameraManager {
     const det = detections[0];
 
     if (det && det.fruit_id && crop.dataUrl) {
-  fruitStore.addCameraResult(
-    String(det.fruit_id),
-    index + 1,
-    getGrade(det),
-    crop.dataUrl
-  );
-}
+      fruitStore.addCameraResult(
+        String(det.fruit_id),
+        index + 1,
+        getGrade(det),
+        crop.dataUrl
+      );
+    }
 
     this.rememberCrop(index, item);
     this.markCapturedTrack(index, fallback);
@@ -944,6 +976,9 @@ export class ScadaCameraManager {
     cam.inspectionHistory = [];
     cam.croppedTrackIds = new Set<number>();
     cam.cropLockedUntilEmpty = false;
+    cam.waitingForFruitExit = false;
+    cam.emptyFrameCount = 0;
+    cam.batchStatus = null;
     cam.qualityPhase = 'idle';
     cam.qualityReason = 'waiting_for_fruit';
     cam.blurScore = undefined;
@@ -997,7 +1032,6 @@ export class ScadaCameraManager {
         cam.videoRef.current.onloadedmetadata = () => {
           cam.videoRef?.current?.play().catch(() => {});
           this.drawGuide(index);
-          if (cam.autoEnabled) this.startWebSocketDetect(index);
         };
         cam.videoRef.current.play().catch(() => {});
       }
@@ -1025,12 +1059,12 @@ export class ScadaCameraManager {
       await configScadaCameras({ [String(index)]: rtspUrl });
       await startScadaCamera(index);
       cam.isActive = true;
+      cam.qualityPhase = 'idle';
+      cam.qualityReason = 'waiting_for_fruit';
 
-      // Start frame-fetch loop: pull JPEG from backend, display in <img> via object URL
-      this.startFrameLoop(index);
+      // Snapshot mode: show only the processed frame returned by detection.
       this.drawGuide(index);
 
-      if (cam.autoEnabled) this.startAuto(index);
       this.onUpdate(cam);
     } catch (err) {
       cam.error = err instanceof Error ? err.message : 'Loi ket noi IP camera';
@@ -1049,14 +1083,17 @@ export class ScadaCameraManager {
         if (cam.frameTimer) clearInterval(cam.frameTimer);
         return;
       }
+      if (cam.waitingForFruitExit && cam.result?.detections.length) return;
 
       try {
         const blob = await fetchScadaFrame(index);
         const url = URL.createObjectURL(blob);
 
         if (cam.videoRef?.current) {
-          cam.videoRef.current.src = url;
-          cam.videoRef.current.play().catch(() => {});
+          cam.videoRef.current.pause();
+          cam.videoRef.current.removeAttribute('src');
+          cam.videoRef.current.poster = url;
+          cam.videoRef.current.load();
         }
 
         // 🔥 revoke URL cũ để tránh leak + đen video
@@ -1076,6 +1113,7 @@ export class ScadaCameraManager {
     }
     if (cam.videoRef?.current) {
       cam.videoRef.current.src = '';
+      cam.videoRef.current.poster = '';
     }
   }
 
@@ -1117,6 +1155,9 @@ export class ScadaCameraManager {
     cam.resultHistory = [];
     cam.croppedTrackIds = new Set<number>();
     cam.cropLockedUntilEmpty = false;
+    cam.waitingForFruitExit = false;
+    cam.emptyFrameCount = 0;
+    cam.batchStatus = null;
     cam.frameCount = 0;
     cam.qualityPhase = 'idle';
     cam.qualityReason = 'waiting_for_fruit';
@@ -1134,16 +1175,11 @@ export class ScadaCameraManager {
     const cam = this.cameras[index];
     if (!cam.isActive || cam.autoEnabled) return;
     cam.autoEnabled = true;
-    if (cam.mode === 'webcam') {
-      this.startWebSocketDetect(index);
-    } else {
-      this.captureAndDetect(index);
-      cam.captureTimer = setInterval(
-        () => this.captureAndDetect(index),
-        CAPTURE_INTERVAL_MS
-      );
-    }
+    cam.isDetecting = false;
+    cam.qualityPhase = 'idle';
+    cam.qualityReason = 'waiting_for_trigger';
     this.onUpdate(cam);
+    this.ensureAutoCaptureLoop();
   }
 
   stopAuto(index: number) {
@@ -1158,10 +1194,222 @@ export class ScadaCameraManager {
     }
     cam.autoEnabled = false;
     cam.isDetecting = false;
+    if (cam.isActive) {
+      cam.qualityPhase = 'idle';
+      cam.qualityReason = 'waiting_for_fruit';
+    }
     this.onUpdate(cam);
+    this.stopAutoCaptureLoopIfIdle();
+  }
+
+  private getAutoCaptureCameraIds() {
+    return this.cameras
+      .filter((cam) => cam.isActive && cam.autoEnabled)
+      .map((cam) => cam.id);
+  }
+
+  private ensureAutoCaptureLoop() {
+    if (this.autoBatchTimer) return;
+
+    this.autoBatchTimer = setInterval(() => {
+      void this.runAutoCaptureCycle();
+    }, AUTO_CAPTURE_INTERVAL_MS);
+
+    setTimeout(() => {
+      void this.runAutoCaptureCycle();
+    }, 1200);
+  }
+
+  private stopAutoCaptureLoopIfIdle() {
+    if (this.getAutoCaptureCameraIds().length > 0) return;
+    if (this.autoBatchTimer) {
+      clearInterval(this.autoBatchTimer);
+      this.autoBatchTimer = null;
+    }
+    this.autoBatchRunning = false;
+  }
+
+  private async runAutoCaptureCycle() {
+    if (this.autoBatchRunning) return;
+    const cameraIds = this.getAutoCaptureCameraIds();
+    if (cameraIds.length === 0) {
+      this.stopAutoCaptureLoopIfIdle();
+      return;
+    }
+
+    this.autoBatchRunning = true;
+    try {
+      const waitingCameraIds = cameraIds.filter(
+        (id) => this.cameras[id]?.waitingForFruitExit
+      );
+      if (waitingCameraIds.length > 0) {
+        await this.observeCameraIdsSequentially(waitingCameraIds);
+        return;
+      }
+
+      const batchId = createInspectionBatchId();
+      await this.captureCameraIdsInBatch(cameraIds, batchId);
+      await this.finalizeBatch(batchId);
+    } finally {
+      this.autoBatchRunning = false;
+    }
+  }
+
+  private async observeCameraIdsSequentially(cameraIds: number[]) {
+    for (let i = 0; i < cameraIds.length; i++) {
+      await this.observeFruitExit(cameraIds[i]);
+      if (i < cameraIds.length - 1) {
+        await new Promise((resolve) =>
+          setTimeout(resolve, ACTIVE_CAPTURE_STAGGER_MS)
+        );
+      }
+    }
+  }
+
+  private async captureCameraIdsInBatch(cameraIds: number[], batchId: string) {
+    await Promise.all(
+      cameraIds.map((id) => this.captureAndDetect(id, batchId))
+    );
+  }
+
+  private async finalizeBatch(batchId: string) {
+    try {
+      const response = await finalizeScadaBatch(batchId);
+      const status = response.status;
+      this.cameras.forEach((cam) => {
+        if (cam.result?.batchId === batchId) {
+          cam.batchStatus = status;
+          this.onUpdate(cam);
+        }
+      });
+    } catch {
+      // The per-camera detections are still shown even if the batch finalize call fails.
+    }
   }
 
   // ── WebSocket real-time detection (via Bun WS proxy on port 8080) ─────
+
+  private async observeFruitExit(index: number) {
+    const cam = this.cameras[index];
+    if (!cam.isActive || cam.isDetecting) return;
+
+    cam.isDetecting = true;
+    cam.qualityPhase = 'idle';
+    cam.qualityReason = 'waiting_for_empty_frame';
+    this.onUpdate(cam);
+
+    try {
+      const result = await this.detectCurrentFrame(index, true);
+      if (!result) return;
+
+      if (result.detections.length === 0) {
+        cam.emptyFrameCount = (cam.emptyFrameCount || 0) + 1;
+        if (cam.emptyFrameCount >= FRUIT_EXIT_EMPTY_FRAMES) {
+          this.clearResultAfterFruitExit(
+            index,
+            result.imageWidth,
+            result.imageHeight
+          );
+          return;
+        }
+      } else {
+        cam.emptyFrameCount = 0;
+        cam.qualityReason = 'fruit_captured_waiting_exit';
+      }
+      cam.error = null;
+    } catch (err) {
+      cam.error =
+        err instanceof Error ? err.message : 'Loi kiem tra khung hinh';
+    } finally {
+      cam.isDetecting = false;
+      this.onUpdate(cam);
+    }
+  }
+
+  private async detectCurrentFrame(index: number, observeOnly: boolean) {
+    const cam = this.cameras[index];
+    const video = cam.videoRef?.current;
+    if (!cam.isActive || !video) return null;
+    if (cam.mode === 'webcam' && video.readyState < 2) return null;
+
+    if (cam.mode === 'ip') {
+      const data = await detectScadaCamera(index, this.threshold, observeOnly);
+      const slotResult = data.results[0];
+      return {
+        detections: slotResult?.detections || [],
+        imageWidth: slotResult?.image_width || 640,
+        imageHeight: slotResult?.image_height || 480,
+        imageDataUrl: slotResult?.image_data_url || '',
+        timestamp: Date.now(),
+        scale: slotResult?.scale || data.scale || null,
+      } satisfies ScadaResult;
+    }
+
+    const tempCanvas = document.createElement('canvas');
+    tempCanvas.width = video.videoWidth;
+    tempCanvas.height = video.videoHeight;
+    const tctx = tempCanvas.getContext('2d');
+    if (!tctx) return null;
+    tctx.drawImage(video, 0, 0);
+
+    const blob = await new Promise<Blob | null>((resolve) =>
+      tempCanvas.toBlob(resolve, 'image/jpeg', 0.85)
+    );
+    if (!blob) throw new Error('Blob creation failed');
+
+    const data = await detectWebcamFrame(
+      blob,
+      this.threshold,
+      observeOnly,
+      index
+    );
+    const boxes = (data.detections || []).filter(
+      (d) => d.confidence >= this.threshold
+    );
+    return {
+      detections: boxes,
+      imageWidth: data.image_width || video.videoWidth,
+      imageHeight: data.image_height || video.videoHeight,
+      imageDataUrl: '',
+      timestamp: Date.now(),
+      scale: data.scale || null,
+    } satisfies ScadaResult;
+  }
+
+  private lockResultUntilFruitExit(index: number) {
+    const cam = this.cameras[index];
+    cam.waitingForFruitExit = true;
+    cam.emptyFrameCount = 0;
+    cam.qualityPhase = 'captured';
+    cam.qualityReason = 'fruit_captured_waiting_exit';
+  }
+
+  private clearResultAfterFruitExit(
+    index: number,
+    imageWidth?: number,
+    imageHeight?: number,
+    resetFruitId = true
+  ) {
+    const cam = this.cameras[index];
+    cam.result = null;
+    cam.waitingForFruitExit = false;
+    cam.emptyFrameCount = 0;
+    cam.batchStatus = null;
+    cam.croppedTrackIds = new Set<number>();
+    cam.cropLockedUntilEmpty = false;
+    cam.qualityPhase = 'idle';
+    cam.qualityReason = 'waiting_for_fruit';
+    cam.blurScore = undefined;
+    cam.stableFrames = 0;
+    cam.requiredStableFrames = undefined;
+    cam.lastRawDetectionCount = 0;
+    this.displayIdsByTrack[index] = new Map<string, number>();
+    if (resetFruitId) {
+      this.currentFruitId = null;
+    }
+    this.drawGuide(index, imageWidth, imageHeight);
+    this.onUpdate(cam);
+  }
 
   startWebSocketDetect(index: number) {
     const cam = this.cameras[index];
@@ -1292,14 +1540,6 @@ export class ScadaCameraManager {
         const isDemo = isDemoResult(result);
         cam.qualityPhase = isDemo ? 'captured' : 'cooldown';
         this.onUpdate(cam);
-        if (!isDemo) {
-          setTimeout(() => {
-            const current = this.cameras[index];
-            if (current.isActive) {
-              this.drawGuide(index, result.imageWidth, result.imageHeight);
-            }
-          }, 700);
-        }
       }
 
       if (
@@ -1412,9 +1652,10 @@ export class ScadaCameraManager {
 
   // ── Detect ─────────────────────────────────────────────────────
 
-  async captureAndDetect(index: number) {
+  async captureAndDetect(index: number, batchId?: string) {
     const cam = this.cameras[index];
     if (!cam.isActive || cam.isDetecting) return;
+    if (cam.waitingForFruitExit) return;
 
     const video = cam.videoRef?.current;
     if (!video) return;
@@ -1429,23 +1670,15 @@ export class ScadaCameraManager {
     try {
       if (cam.mode === 'ip') {
         // Use backend detection endpoint — sends RTSP frame through YOLO
-        const data = await detectScadaCamera(index, this.threshold);
+        const data = await detectScadaCamera(
+          index,
+          this.threshold,
+          false,
+          batchId
+        );
         const slotResult = data.results[0];
 
-        // Create a temporary canvas to hold the latest frame image
-        let dataUrl = '';
-        try {
-          const blob = await fetchScadaFrame(index);
-          dataUrl = await blobToDataUrl(blob);
-        } catch {
-          // Use existing video frame
-          const c = document.createElement('canvas');
-          c.width = video.videoWidth || video.clientWidth || 640;
-          c.height = video.videoHeight || video.clientHeight || 480;
-          const ctx2 = c.getContext('2d')!;
-          ctx2.drawImage(video, 0, 0);
-          dataUrl = c.toDataURL('image/jpeg', 0.85);
-        }
+        const dataUrl = slotResult?.image_data_url || '';
 
         const result: ScadaResult = {
           detections: slotResult?.detections || [],
@@ -1453,14 +1686,24 @@ export class ScadaCameraManager {
           imageHeight: slotResult?.image_height || 480,
           imageDataUrl: dataUrl,
           timestamp: Date.now(),
+          batchId: slotResult?.batch_id || data.batch_id || batchId,
           scale: slotResult?.scale || data.scale || null,
         };
+        if (result.detections.length === 0) {
+          this.clearResultAfterFruitExit(
+            index,
+            result.imageWidth,
+            result.imageHeight,
+            false
+          );
+          return;
+        }
         // this.assignFruitId(result.detections);
         this.assignFruitId(index, result.detections, 'ws');
 
         const crop = this.hasCapturedTrack(index, result)
           ? null
-          : this.captureCrop(index, result);
+          : await this.captureCropFromResultImage(result);
         if (crop) {
           await this.analyzeCrop(index, crop, result);
         } else {
@@ -1473,13 +1716,7 @@ export class ScadaCameraManager {
           MAX_HISTORY
         );
         cam.frameCount += 1;
-        if (!isDemoResult(result)) {
-          setTimeout(() => {
-            if (this.cameras[index].isActive) {
-              this.drawGuide(index, result.imageWidth, result.imageHeight);
-            }
-          }, 700);
-        }
+        this.lockResultUntilFruitExit(index);
       } else {
         // Webcam: capture canvas frame + upload to BE /detect/ endpoint
         const tempCanvas = document.createElement('canvas');
@@ -1494,7 +1731,13 @@ export class ScadaCameraManager {
         if (!blob) throw new Error('Blob creation failed');
 
         // Gui blob vua capture len backend de nhan dien
-        const data = await detectWebcamFrame(blob, this.threshold);
+        const data = await detectWebcamFrame(
+          blob,
+          this.threshold,
+          false,
+          index,
+          batchId
+        );
         const boxes = (data.detections || []).filter(
           (d) => d.confidence >= this.threshold
         );
@@ -1505,6 +1748,7 @@ export class ScadaCameraManager {
           imageHeight: data.image_height || video.videoHeight,
           imageDataUrl: '',
           timestamp: Date.now(),
+          batchId: data.batch_id || batchId,
           scale:
             data.scale ||
             (boxes[0]?.weight_kg !== undefined
@@ -1521,6 +1765,15 @@ export class ScadaCameraManager {
                 }
               : null),
         };
+        if (result.detections.length === 0) {
+          this.clearResultAfterFruitExit(
+            index,
+            result.imageWidth,
+            result.imageHeight,
+            false
+          );
+          return;
+        }
         // this.assignFruitId(result.detections);
         this.assignFruitId(index, result.detections, 'ws');
 
@@ -1539,13 +1792,7 @@ export class ScadaCameraManager {
           MAX_HISTORY
         );
         cam.frameCount += 1;
-        if (!isDemoResult(result)) {
-          setTimeout(() => {
-            if (this.cameras[index].isActive) {
-              this.drawGuide(index, result.imageWidth, result.imageHeight);
-            }
-          }, 700);
-        }
+        this.lockResultUntilFruitExit(index);
       }
 
       cam.error = null;
@@ -1557,11 +1804,28 @@ export class ScadaCameraManager {
     }
   }
 
+  async captureActiveOnce() {
+    const activeCameraIds = this.cameras
+      .filter((cam) => cam.isActive)
+      .map((cam) => cam.id);
+
+    const batchId = createInspectionBatchId();
+    await this.captureCameraIdsInBatch(activeCameraIds, batchId);
+    await this.finalizeBatch(batchId);
+  }
+
   private drawResult(index: number, result: ScadaResult) {
     const cam = this.cameras[index];
     const canvas = cam.canvasRef?.current;
     const video = cam.videoRef?.current;
     if (!canvas || !video) return;
+
+    if (cam.mode === 'ip' && result.imageDataUrl) {
+      video.pause();
+      video.removeAttribute('src');
+      video.poster = result.imageDataUrl;
+      video.load();
+    }
 
     if (cam.mode === 'ip') {
       // Scale canvas to video element size
@@ -1573,6 +1837,43 @@ export class ScadaCameraManager {
       const ctx = canvas.getContext('2d')!;
       drawDetections(ctx, canvas, result);
     }
+  }
+
+  private async captureCropFromResultImage(result: ScadaResult) {
+    if (!result.imageDataUrl || result.detections.length === 0) return null;
+
+    const image = await loadImage(result.imageDataUrl);
+    const best = [...result.detections].sort(
+      (a, b) => b.confidence - a.confidence
+    )[0];
+    const bounds = detectionBounds(best);
+    const sx = image.naturalWidth / result.imageWidth;
+    const sy = image.naturalHeight / result.imageHeight;
+    const padX = Math.max(16, (bounds.x2 - bounds.x1) * 0.14);
+    const padY = Math.max(16, (bounds.y2 - bounds.y1) * 0.14);
+    const x = Math.max(0, Math.floor((bounds.x1 - padX) * sx));
+    const y = Math.max(0, Math.floor((bounds.y1 - padY) * sy));
+    const w = Math.min(
+      image.naturalWidth - x,
+      Math.ceil((bounds.x2 - bounds.x1 + padX * 2) * sx)
+    );
+    const h = Math.min(
+      image.naturalHeight - y,
+      Math.ceil((bounds.y2 - bounds.y1 + padY * 2) * sy)
+    );
+    if (w <= 8 || h <= 8) return null;
+
+    const cropCanvas = document.createElement('canvas');
+    cropCanvas.width = w;
+    cropCanvas.height = h;
+    const ctx = cropCanvas.getContext('2d');
+    if (!ctx) return null;
+    ctx.drawImage(image, x, y, w, h, 0, 0, w, h);
+    const dataUrl = cropCanvas.toDataURL('image/jpeg', 0.88);
+    return {
+      dataUrl,
+      blob: dataUrlToBlob(dataUrl),
+    };
   }
 
   private drawGuide(index: number, imageWidth?: number, imageHeight?: number) {
@@ -1599,19 +1900,20 @@ export class ScadaCameraManager {
     const best = [...result.detections].sort(
       (a, b) => b.confidence - a.confidence
     )[0];
+    const bounds = detectionBounds(best);
     const sx = video.videoWidth / result.imageWidth;
     const sy = video.videoHeight / result.imageHeight;
-    const padX = Math.max(16, (best.x2 - best.x1) * 0.14);
-    const padY = Math.max(16, (best.y2 - best.y1) * 0.14);
-    const x = Math.max(0, Math.floor((best.x1 - padX) * sx));
-    const y = Math.max(0, Math.floor((best.y1 - padY) * sy));
+    const padX = Math.max(16, (bounds.x2 - bounds.x1) * 0.14);
+    const padY = Math.max(16, (bounds.y2 - bounds.y1) * 0.14);
+    const x = Math.max(0, Math.floor((bounds.x1 - padX) * sx));
+    const y = Math.max(0, Math.floor((bounds.y1 - padY) * sy));
     const w = Math.min(
       video.videoWidth - x,
-      Math.ceil((best.x2 - best.x1 + padX * 2) * sx)
+      Math.ceil((bounds.x2 - bounds.x1 + padX * 2) * sx)
     );
     const h = Math.min(
       video.videoHeight - y,
-      Math.ceil((best.y2 - best.y1 + padY * 2) * sy)
+      Math.ceil((bounds.y2 - bounds.y1 + padY * 2) * sy)
     );
     if (w <= 8 || h <= 8) return null;
 
@@ -1630,6 +1932,11 @@ export class ScadaCameraManager {
 
   cleanup() {
     this.cameras.forEach((_, i) => this.stopCamera(i));
+    if (this.autoBatchTimer) {
+      clearInterval(this.autoBatchTimer);
+      this.autoBatchTimer = null;
+    }
+    this.autoBatchRunning = false;
   }
 }
 
@@ -1639,5 +1946,14 @@ function blobToDataUrl(blob: Blob): Promise<string> {
     reader.onload = () => resolve(reader.result as string);
     reader.onerror = reject;
     reader.readAsDataURL(blob);
+  });
+}
+
+function loadImage(src: string): Promise<HTMLImageElement> {
+  return new Promise((resolve, reject) => {
+    const image = new Image();
+    image.onload = () => resolve(image);
+    image.onerror = reject;
+    image.src = src;
   });
 }

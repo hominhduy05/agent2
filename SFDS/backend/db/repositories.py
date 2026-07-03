@@ -68,6 +68,7 @@ def serialize_sorting_command(command: SortingCommandLog) -> dict[str, Any]:
         "source": command.source,
         "line_id": command.line_id,
         "camera_slot": command.camera_slot,
+        "batch_id": (command.payload or {}).get("batch_id"),
         "fruit_key": command.fruit_key,
         "fruit_id": command.fruit_id,
         "track_id": command.track_id,
@@ -97,6 +98,7 @@ def save_detection_event(
     width: int,
     height: int,
     confidence_threshold: float,
+    batch_id: str | None = None,
     raw_detection_count: int | None = None,
     quality: dict[str, Any] | None = None,
     scale: dict[str, Any] | None = None,
@@ -109,6 +111,7 @@ def save_detection_event(
         db.add(DetectionEvent(
             source=source,
             camera_slot=slot,
+            batch_id=batch_id,
             fruit_id=best.get("fruit_id"),
             track_id=best.get("track_id"),
             class_name=best.get("class_name"),

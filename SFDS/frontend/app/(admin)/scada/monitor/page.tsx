@@ -6,6 +6,7 @@ import DetectionPanel from '@/components/scada/DetectionPanel';
 import CameraConfig from '@/components/scada/CameraConfig';
 import { classColor } from '@/lib/demo-class-display';
 import {
+  getScadaCameras,
   getScadaDemoMode,
   getScadaScale,
   ScadaScaleStatus,
@@ -24,7 +25,7 @@ interface MediaDevice {
 export default function ScadaPage() {
   const [cameras, setCameras] = useState<CameraChannel[]>([]);
   const [selectedId, setSelectedId] = useState<number | null>(null);
-  const [threshold, setThreshold] = useState(0.25);
+  const [threshold, setThreshold] = useState(0.5);
   const [devices, setDevices] = useState<MediaDevice[]>([]);
   const [showDeviceModal, setShowDeviceModal] = useState(false);
   const [showConfigModal, setShowConfigModal] = useState(false);
@@ -61,11 +62,11 @@ export default function ScadaPage() {
         const cam = m.cameras[i];
 
         if (cam?.isActive && cam.deviceId === dev.deviceId) {
+          if (!cam.autoEnabled) m.startAuto(i);
           continue;
         }
 
         await m.startWebcam(i, dev.deviceId, dev.label);
-
         m.startAuto(i);
 
         console.log(`Camera ${i + 1} connected`);
@@ -77,6 +78,34 @@ export default function ScadaPage() {
     setCameras([...m.cameras]);
 
     setSelectedId((prev) => (prev === null ? 0 : prev));
+  };
+
+  const autoStartConfiguredIPCameras = async () => {
+    const m = managerRef.current;
+    if (!m) return;
+
+    try {
+      const config = await getScadaCameras();
+      for (let i = 0; i < 5; i++) {
+        const saved = config.cameras[String(i)];
+        const rtspUrl = saved?.url?.trim();
+        if (!rtspUrl) continue;
+
+        if (m.cameras[i]?.isActive) {
+          if (!m.cameras[i].autoEnabled) m.startAuto(i);
+          continue;
+        }
+
+        await m.startIPCamera(i, rtspUrl, `Camera ${i + 1}`);
+        m.startAuto(i);
+        console.log(`IP Camera ${i + 1} auto-started`);
+      }
+
+      setCameras([...m.cameras]);
+      setSelectedId((prev) => (prev === null ? 0 : prev));
+    } catch (err) {
+      console.error('Auto-start IP cameras failed', err);
+    }
   };
 
   const syncDisconnectedCameras = async (webcams: MediaDevice[]) => {
@@ -157,9 +186,11 @@ export default function ScadaPage() {
         setDevices(webcams);
 
         await autoConnectCameras(webcams);
+        await autoStartConfiguredIPCameras();
       } catch (err) {
         console.error(err);
         setDevices([]);
+        await autoStartConfiguredIPCameras();
       }
     }
     loadDevices();
@@ -308,8 +339,8 @@ export default function ScadaPage() {
     m.cameras[id].autoEnabled ? m.stopAuto(id) : m.startAuto(id);
   };
 
-  const handleCapture = (id: number) => {
-    managerRef.current?.captureAndDetect(id);
+  const handleCapture = (_id: number) => {
+    void managerRef.current?.captureActiveOnce();
   };
 
   const handleDemoModeToggle = async () => {
@@ -423,11 +454,10 @@ export default function ScadaPage() {
       <div className={styles.cameraPanel}>
         <div className={styles.panelHeader}>
           <div>
-            <h1 className={styles.panelTitle}>
-              SCADA — Giam sat thoi gian thuc
-            </h1>
+            <h1 className={styles.panelTitle}>SCADA - Tự động phân loại</h1>
             <p className={styles.panelSubtitle}>
-              {devices.length} webcam | {activeCount} camera dang hoat dong
+              {devices.length} webcam | {activeCount} camera sẵn sàng | AI chạy
+              theo trigger tự động
             </p>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
@@ -550,11 +580,11 @@ export default function ScadaPage() {
             const badgeLabel = cam.error
               ? 'Lỗi'
               : hasResult
-                ? 'Đang phân tích'
+                ? 'Đã chụp'
                 : cam.isActive
                   ? cam.autoEnabled
-                    ? 'Auto'
-                    : 'Đang chạy'
+                    ? 'Tự động'
+                    : 'Preview'
                   : 'Chưa bật';
             const modeIcon =
               cam.mode === 'ip' ? (

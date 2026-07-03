@@ -173,8 +173,10 @@ export interface ScadaDetectionResult {
       final_grade?: string | null;
       classification_source?: string | null;
     }>;
+    batch_id?: string | null;
     image_width: number;
     image_height: number;
+    image_data_url?: string | null;
     model_format: string;
     detection_count: number;
     unique_mature: number;
@@ -184,16 +186,25 @@ export interface ScadaDetectionResult {
     scale?: ScadaScaleSnapshot | null;
   }>;
   total_unique_objects: number;
+  batch_id?: string | null;
   timestamp: string;
   scale?: ScadaScaleSnapshot | null;
 }
 
 export async function detectScadaCamera(
   slot: number,
-  conf = 0.25
+  conf = 0.25,
+  observeOnly = false,
+  batchId?: string
 ): Promise<ScadaDetectionResult> {
+  const params = new URLSearchParams({
+    conf: String(conf),
+  });
+  if (observeOnly) params.set('observe_only', 'true');
+  if (batchId) params.set('batch_id', batchId);
+
   const res = await fetch(
-    `${API_BASE}/api/scada/detect/${slot}/?conf=${conf}`,
+    `${API_BASE}/api/scada/detect/${slot}/?${params.toString()}`,
     {
       method: 'POST',
     }
@@ -228,20 +239,88 @@ export interface WebcamDetectResult {
   image_height: number;
   model_format: string;
   detection_count: number;
+  batch_id?: string | null;
   scale?: ScadaScaleSnapshot | null;
+  sorting_commands?: Array<Record<string, unknown>>;
+}
+
+export interface ScadaBatchStatus {
+  batch_id: string;
+  processed_camera_count: number;
+  processed_cameras: Array<{
+    camera_slot: number;
+    processed: boolean;
+    detection_count: number;
+    raw_detection_count: number;
+    image_width?: number | null;
+    image_height?: number | null;
+    error?: string | null;
+    updated_at?: string | null;
+  }>;
+  votes_required: number;
+  votes_received: number;
+  counts: Record<string, number>;
+  ready_to_sort: boolean;
+  can_activate_cylinder: boolean;
+  final_grade?: string | null;
+  finalized: boolean;
+  command?: {
+    command_id?: string | null;
+    grade?: string | null;
+    action?: string | null;
+    actuator?: string | null;
+    relay_channel?: number | null;
+    enabled?: boolean | null;
+    dry_run?: boolean | null;
+    hardware?: Record<string, unknown>;
+  } | null;
 }
 
 export async function detectWebcamFrame(
   imageBlob: Blob,
-  conf = 0.25
+  conf = 0.25,
+  observeOnly = false,
+  slotIndex?: number,
+  batchId?: string
 ): Promise<WebcamDetectResult> {
   const formData = new FormData();
   formData.append('file', imageBlob, 'capture.jpg');
-  const res = await fetch(`${API_BASE}/detect/?conf=${conf}`, {
+  formData.append('conf', String(conf));
+  formData.append('observe_only', observeOnly ? 'true' : 'false');
+  if (slotIndex !== undefined) formData.append('slot_index', String(slotIndex));
+  if (batchId) formData.append('batch_id', batchId);
+  const res = await fetch(`${API_BASE}/detect/`, {
     method: 'POST',
     body: formData,
   });
   if (!res.ok) throw new Error('Loi nhan dien webcam');
+  return res.json();
+}
+
+export async function finalizeScadaBatch(batchId: string): Promise<{
+  batch_id: string;
+  commands: Array<Record<string, unknown>>;
+  command_count: number;
+  status: ScadaBatchStatus;
+}> {
+  const res = await fetch(
+    `${API_BASE}/api/scada/batches/${encodeURIComponent(batchId)}/finalize/`,
+    {
+      method: 'POST',
+    }
+  );
+  if (!res.ok) throw new Error('Khong the chot batch phan loai');
+  return res.json();
+}
+
+export async function getScadaBatchStatus(
+  batchId: string
+): Promise<ScadaBatchStatus> {
+  const res = await fetch(
+    `${API_BASE}/api/scada/batches/${encodeURIComponent(batchId)}/status/`,
+    { cache: 'no-store' }
+  );
+  if (!res.ok) throw new Error('Khong the lay trang thai batch');
   return res.json();
 }
 
@@ -382,13 +461,15 @@ export interface AuditSummary {
   camera_counts: Record<string, number>;
 }
 
-export async function listAuditDetections(params: {
-  limit?: number;
-  offset?: number;
-  camera_slot?: number;
-  grade?: string;
-  date?: string;
-} = {}): Promise<AuditListResponse<AuditDetectionEvent>> {
+export async function listAuditDetections(
+  params: {
+    limit?: number;
+    offset?: number;
+    camera_slot?: number;
+    grade?: string;
+    date?: string;
+  } = {}
+): Promise<AuditListResponse<AuditDetectionEvent>> {
   const qs = new URLSearchParams();
   if (params.limit) qs.set('limit', String(params.limit));
   if (params.offset) qs.set('offset', String(params.offset));

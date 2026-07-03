@@ -33,7 +33,7 @@ export default function ScadaDetailPage() {
 
   const [camera, setCamera] = useState<CameraChannel | null>(null);
 
-  const [threshold, setThreshold] = useState(0.25);
+  const [threshold, setThreshold] = useState(0.5);
 
   const [demoMode, setDemoMode] = useState(false);
 
@@ -491,7 +491,7 @@ export default function ScadaDetailPage() {
               force((v) => v + 1);
             }}
             onCapture={() => {
-              manager.captureAndDetect(id);
+              void manager.captureActiveOnce();
             }}
             onReset={() => {
               manager.resetSession(id);

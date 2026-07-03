@@ -34,8 +34,11 @@ from db.repositories import (
 from services.mqtt_publisher import publish_enterprise_event
 from services.sorting_controller import (
     dispatch_sorting_commands,
+    finalize_sorting_batch,
     get_recent_sorting_commands,
+    get_sorting_batch_status,
     get_sorting_config,
+    record_sorting_batch_camera_processed,
 )
 from services.esp32_relay_controller import get_esp32_relay_status
 from core.demo_label_override import (
@@ -46,7 +49,9 @@ from core.demo_label_override import (
     mark_demo_slot_empty,
     set_demo_enabled,
 )
+from core.inference_scheduler import get_detect_concurrency, run_inference
 from core.sort_tracker import TrackerManager
+from services.sfds_logger import log_sorting_event, sorting_log_path
 from core.shared import (
     engine_obj, model_loaded, model_format,
     BoundingBox,
@@ -385,6 +390,7 @@ def _publish_detection_completed(
     height: int,
     conf: float,
     *,
+    batch_id: str | None = None,
     track_ids: list[int] | None = None,
     quality: dict | None = None,
     scale: dict | None = None,
@@ -406,6 +412,7 @@ def _publish_detection_completed(
             "image": {"width": width, "height": height},
             "model": {"format": model_format},
             "confidence_threshold": conf,
+            "batch_id": batch_id,
             "quality": quality or {},
             "scale": scale or {},
             "sorting_commands": sorting_commands or [],
@@ -420,13 +427,14 @@ def _publish_detection_completed(
             width=width,
             height=height,
             confidence_threshold=conf,
+            batch_id=batch_id,
             raw_detection_count=raw_detection_count,
             quality=quality,
             scale=scale,
             sorting_commands=sorting_commands,
         )
     except Exception as exc:
-        print(f"[WARN] Could not persist detection event: {exc}")
+        log_sorting_event("persist_detection_failed", source="scada", error=str(exc))
 
 
 def _persist_sorting_commands(commands: list[dict]) -> None:
@@ -434,12 +442,20 @@ def _persist_sorting_commands(commands: list[dict]) -> None:
         try:
             save_sorting_command(command)
         except Exception as exc:
-            print(f"[WARN] Could not persist sorting command: {exc}")
+            log_sorting_event(
+                "persist_sorting_command_failed",
+                source="scada",
+                command_id=command.get("command_id"),
+                error=str(exc),
+            )
 
 
 @router.get("/api/scada/sorting/config/")
 async def get_scada_sorting_config() -> dict:
-    return get_sorting_config()
+    return {
+        **get_sorting_config(),
+        "detect_concurrency": get_detect_concurrency(),
+    }
 
 
 @router.get("/api/scada/sorting/commands/")
@@ -447,6 +463,28 @@ async def get_scada_sorting_commands(limit: int = 50) -> dict:
     return {
         "commands": get_recent_sorting_commands(limit),
     }
+
+
+@router.get("/api/scada/sorting/log-path/")
+async def get_scada_sorting_log_path() -> dict:
+    return {"path": sorting_log_path()}
+
+
+@router.post("/api/scada/batches/{batch_id}/finalize/")
+async def finalize_scada_batch(batch_id: str) -> dict:
+    commands = finalize_sorting_batch(batch_id)
+    _persist_sorting_commands(commands)
+    return {
+        "batch_id": batch_id,
+        "commands": commands,
+        "command_count": len(commands),
+        "status": get_sorting_batch_status(batch_id),
+    }
+
+
+@router.get("/api/scada/batches/{batch_id}/status/")
+async def get_scada_batch_status(batch_id: str) -> dict:
+    return get_sorting_batch_status(batch_id)
 
 
 @router.get("/api/scada/sorting/esp32/")
@@ -821,7 +859,7 @@ async def ws_scada_detect(ws: WebSocket, slot: int):
                     continue
 
                 try:
-                    raw = engine_obj.predict(image, conf=frame_conf, iou=0.45)
+                    raw = await run_inference(engine_obj.predict, image, conf=frame_conf, iou=0.45)
                     tracked = get_tracker_mgr().update(slot, raw)
                 except Exception as e:
                     print(f"[WS] Inference error slot {slot}: {e}")
@@ -1045,7 +1083,9 @@ async def get_camera_frame(slot: int) -> StreamingResponse:
 @router.post("/api/scada/detect/{slot}/", response_model=BatchDetectResponse)
 async def detect_camera_frame(
     slot: int,
-    conf: float = Form(0.25),
+    conf: float = 0.25,
+    observe_only: bool = False,
+    batch_id: str | None = None,
 ) -> BatchDetectResponse:
     if not _is_valid_slot(slot):
         raise HTTPException(status_code=400, detail=VALID_SLOT_MESSAGE)
@@ -1071,14 +1111,24 @@ async def detect_camera_frame(
         raise HTTPException(status_code=502, detail="Cannot read frame from camera")
 
     import cv2
+    ok, jpg_encoded = cv2.imencode(".jpg", frame)
+    image_data_url = ""
+    if ok:
+        image_data_url = "data:image/jpeg;base64," + base64.b64encode(jpg_encoded.tobytes()).decode("ascii")
+
     rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
     image = Image.fromarray(rgb)
     width, height = image.size
 
-    raw = engine_obj.predict(image, conf=conf, iou=0.45)
+    raw = await run_inference(engine_obj.predict, image, conf=conf, iou=0.45)
     tracked = get_tracker_mgr().update(slot, raw)
-    # DEMO ONLY: replace model class labels with B -> A -> C -> D.
-    tracked = apply_demo_label_override(tracked, slot=slot)
+    if observe_only:
+        if not tracked:
+            mark_demo_slot_empty(slot)
+            clear_demo_track_labels(slot)
+    else:
+        # DEMO ONLY: replace model class labels with B -> A -> C -> D.
+        tracked = apply_demo_label_override(tracked, slot=slot)
     scale = get_scale_snapshot() if is_demo_enabled() else None
     tracked = attach_scale_to_detections(tracked, scale)
 
@@ -1099,33 +1149,46 @@ async def detect_camera_frame(
         elif cls == "defective":
             unique_defective += 1
 
-    sorting_commands = dispatch_sorting_commands(
-        camera_slot=slot,
-        detections=tracked,
-        image_width=width,
-        image_height=height,
-        source="scada_rtsp_detect",
-        confidence_threshold=conf,
-        scale=scale,
-    )
-    _persist_sorting_commands(sorting_commands)
+    sorting_commands: list[dict] = []
+    if not observe_only:
+        record_sorting_batch_camera_processed(
+            batch_id,
+            camera_slot=slot,
+            detection_count=len(tracked),
+            raw_detection_count=len(raw),
+            image_width=width,
+            image_height=height,
+        )
+        sorting_commands = dispatch_sorting_commands(
+            camera_slot=slot,
+            detections=tracked,
+            image_width=width,
+            image_height=height,
+            source="scada_rtsp_detect",
+            confidence_threshold=conf,
+            batch_id=batch_id,
+            scale=scale,
+        )
+        _persist_sorting_commands(sorting_commands)
 
-    _publish_detection_completed(
-        slot,
-        tracked,
-        width,
-        height,
-        conf,
-        track_ids=track_ids,
-        scale=scale,
-        sorting_commands=sorting_commands,
-        raw_detection_count=len(raw),
-    )
+        _publish_detection_completed(
+            slot,
+            tracked,
+            width,
+            height,
+            conf,
+            batch_id=batch_id,
+            track_ids=track_ids,
+            scale=scale,
+            sorting_commands=sorting_commands,
+            raw_detection_count=len(raw),
+        )
 
     return BatchDetectResponse(
         results=[
             SlotDetectionResponse(
                 slot_index=slot,
+                batch_id=batch_id,
                 detections=[
                     BoundingBox(
                         x1=o["x1"], y1=o["y1"], x2=o["x2"], y2=o["y2"],
@@ -1147,6 +1210,7 @@ async def detect_camera_frame(
                 ],
                 image_width=width,
                 image_height=height,
+                image_data_url=image_data_url,
                 model_format=model_format,
                 detection_count=len(tracked),
                 unique_mature=unique_mature,
@@ -1156,6 +1220,7 @@ async def detect_camera_frame(
                 scale=scale,
             )
         ],
+        batch_id=batch_id,
         total_unique_objects=len(track_ids),
         timestamp=datetime.utcnow().isoformat(),
         scale=scale,

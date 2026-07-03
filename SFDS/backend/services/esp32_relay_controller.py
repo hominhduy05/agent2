@@ -6,9 +6,11 @@ import threading
 import time
 from typing import Any
 
+from services.sfds_logger import log_sorting_event
+
 
 DEFAULT_BAUD = 115200
-DEFAULT_ACK_TIMEOUT_SECONDS = 0.6
+DEFAULT_ACK_TIMEOUT_SECONDS = 1.2
 
 
 @dataclass
@@ -30,6 +32,62 @@ _serial: Any = None
 
 
 def get_esp32_relay_status() -> dict:
+    port, baud, mode, ack_timeout = _serial_config()
+    _status.enabled = bool(port)
+    _status.port = port or None
+    _status.baud = baud
+    _status.mode = mode if mode in {"arm", "pulse"} else "arm"
+
+    if not port:
+        _status.connected = False
+        _status.last_error = "ESP32_RELAY_PORT is not set"
+        return asdict(_status)
+
+    with _lock:
+        try:
+            ser = _get_serial()
+            if ser is None:
+                return asdict(_status)
+            try:
+                ser.reset_input_buffer()
+            except Exception:
+                pass
+            ser.write(b"PING\n")
+            ser.flush()
+            response = _read_ack(ser, "PONG", ack_timeout)
+            _status.connected = bool(response and "PONG" in response)
+            _status.last_command = "PING"
+            _status.last_response = response
+            _status.last_error = None if _status.connected else "No PONG response from ESP32"
+            _status.updated_at = time.time()
+            log_sorting_event(
+                "esp32_status_checked",
+                connected=_status.connected,
+                port=_status.port,
+                baud=_status.baud,
+                mode=_status.mode,
+                response=response,
+                error=_status.last_error,
+            )
+        except Exception as exc:
+            global _serial
+            try:
+                if _serial is not None:
+                    _serial.close()
+            except Exception:
+                pass
+            _serial = None
+            _status.connected = False
+            _status.last_error = str(exc)
+            _status.updated_at = time.time()
+            log_sorting_event(
+                "esp32_status_error",
+                connected=False,
+                port=_status.port,
+                baud=_status.baud,
+                mode=_status.mode,
+                error=str(exc),
+            )
     return asdict(_status)
 
 
@@ -93,17 +151,29 @@ def _get_serial():
 
 def _read_ack(ser, command_id: str, timeout_seconds: float) -> str | None:
     deadline = time.time() + max(0.05, timeout_seconds)
+    buffer = ""
     last_line = None
     while time.time() < deadline:
-        raw = ser.readline()
+        try:
+            pending = int(getattr(ser, "in_waiting", 0) or 0)
+        except Exception:
+            pending = 0
+        raw = ser.read(max(1, pending))
         if not raw:
             continue
-        line = raw.decode("utf-8", errors="ignore").strip()
-        if not line:
+        chunk = raw.decode("utf-8", errors="ignore")
+        if not chunk:
             continue
-        last_line = line
-        if command_id in line or line.startswith("ACK") or line.startswith("ERR") or line.startswith("BUSY"):
-            return line
+        buffer = (buffer + chunk)[-2048:]
+        cleaned = " ".join(buffer.replace("\r", "\n").split())
+        if cleaned:
+            last_line = cleaned
+        if command_id in buffer:
+            return cleaned
+        for line in buffer.replace("\r", "\n").split("\n"):
+            line = line.strip()
+            if line.startswith("ACK") or line.startswith("ERR") or line.startswith("BUSY"):
+                return line
     return last_line
 
 
@@ -112,6 +182,12 @@ def send_sorting_command(command: dict[str, Any]) -> dict:
 
     relay_channel = command.get("relay_channel")
     if relay_channel is None:
+        log_sorting_event(
+            "esp32_command_skipped",
+            reason="no_relay_channel",
+            command_id=command.get("command_id"),
+            grade=command.get("grade"),
+        )
         return {"sent": False, "reason": "no_relay_channel"}
 
     port, _, mode, ack_timeout = _serial_config()
@@ -143,6 +219,15 @@ def send_sorting_command(command: dict[str, Any]) -> dict:
             _status.last_response = response
             _status.last_error = None
             _status.updated_at = time.time()
+            log_sorting_event(
+                "esp32_command_sent",
+                command_id=command_id,
+                line=line,
+                response=response,
+                mode=action.lower(),
+                port=_status.port,
+                relay_channel=relay_channel,
+            )
             return {
                 "sent": True,
                 "line": line,
@@ -160,4 +245,12 @@ def send_sorting_command(command: dict[str, Any]) -> dict:
             _status.connected = False
             _status.last_error = str(exc)
             _status.updated_at = time.time()
+            log_sorting_event(
+                "esp32_command_error",
+                command_id=command_id,
+                line=line,
+                port=_status.port,
+                relay_channel=relay_channel,
+                error=str(exc),
+            )
             return {"sent": False, "reason": str(exc)}

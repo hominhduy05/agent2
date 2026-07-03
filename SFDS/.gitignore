@@ -38,6 +38,7 @@ backend/scada_cameras.json
 backend/.sfds_requirements.sha256
 sfds_launch_info.txt
 .sfds_postgres.local.env
+.sfds_hardware.local.env
 backend/.venv/
 backend/.ultralytics/
 backend/env/

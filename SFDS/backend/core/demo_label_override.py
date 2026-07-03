@@ -4,7 +4,7 @@ Demo-only detection label override.
 Purpose:
 - Keep the trained model and normal detection pipeline running.
 - For demo runs, replace accepted detections with a fixed visible grade order:
-  first fruit -> C, second fruit -> B, third fruit -> A, fourth fruit -> D.
+  first fruit -> B, second fruit -> A, third fruit -> C, fourth fruit -> D.
 - All 5 camera slots share one fruit label. A new label is assigned only when
   the same camera slot sees the next fruit after the same-fruit time window.
 
@@ -32,9 +32,9 @@ from copy import deepcopy
 
 
 DEMO_SEQUENCE = [
-    ("demo_grade_c", 903),
     ("demo_grade_b", 901),
     ("demo_grade_a", 902),
+    ("demo_grade_c", 903),
     ("demo_grade_d", 904),
 ]
 DEMO_SAME_FRUIT_WINDOW_SECONDS = float(

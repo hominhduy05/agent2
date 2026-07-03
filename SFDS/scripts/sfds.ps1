@@ -27,6 +27,7 @@ $BackendDepsMarker = Join-Path $BackendDir ".sfds_requirements.sha256"
 $FrontendDepsMarker = Join-Path $FrontendDir ".sfds_frontend_deps.sha256"
 $LaunchInfoPath = Join-Path $ProjectRoot "sfds_launch_info.txt"
 $PostgresStatePath = Join-Path $ProjectRoot ".sfds_postgres.local.env"
+$HardwareStatePath = Join-Path $ProjectRoot ".sfds_hardware.local.env"
 $PostgresNeedsRecreate = $false
 
 function Import-SfdsEnvFile {
@@ -244,6 +245,7 @@ function Start-CmdWindow {
 function Get-SfdsConfig {
   Import-SfdsEnvFile -Path $EnvPath
   Import-SfdsEnvFile -Path $PostgresStatePath -Override
+  Import-SfdsEnvFile -Path $HardwareStatePath -Override
 
   $script:DbContainer = if ($Container) { $Container } else { $env:SFDS_POSTGRES_CONTAINER }
   if (-not $script:DbContainer) { $script:DbContainer = "sfds_postgres" }

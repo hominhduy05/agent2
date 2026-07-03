@@ -30,6 +30,7 @@ export interface DetectionResponse {
   device: string;
   model_format: string;
   detection_count: number;
+  batch_id?: string | null;
 }
 
 export const CLASS_COLORS: Record<string, string> = {

@@ -24,8 +24,20 @@ from services.dataset_service import (
     EXPORT_CATEGORIES,
 )
 from services.mqtt_publisher import publish_enterprise_event
-from core.demo_label_override import is_demo_enabled
+from services.sorting_controller import (
+    dispatch_sorting_commands,
+    record_sorting_batch_camera_processed,
+)
+from core.demo_label_override import (
+    apply_demo_label_override,
+    clear_demo_track_labels,
+    is_demo_enabled,
+    mark_demo_slot_empty,
+)
+from core.inference_scheduler import run_inference
 from core.scale_state import attach_scale_to_detections, get_scale_snapshot
+from db.repositories import save_detection_event, save_sorting_command
+from services.sfds_logger import log_sorting_event
 from core.shared import (
     engine_obj, model_loaded, model_format, device_name,
     BoundingBox, DetectionResponse,
@@ -41,6 +53,9 @@ def _publish_detection_completed(
     conf: float,
     *,
     slot_index: int | None = None,
+    batch_id: str | None = None,
+    sorting_commands: list[dict] | None = None,
+    scale: dict | None = None,
 ):
     counts = {
         "mature": sum(1 for d in detections if d.get("class_name") == "mature"),
@@ -56,10 +71,42 @@ def _publish_detection_completed(
             "image": {"width": width, "height": height},
             "model": {"format": model_format, "device": device_name},
             "confidence_threshold": conf,
+            "batch_id": batch_id,
+            "scale": scale or {},
+            "sorting_commands": sorting_commands or [],
         },
         camera_slot=slot_index,
         topic="detection/completed",
     )
+    if slot_index is None:
+        return
+    try:
+        save_detection_event(
+            slot=slot_index,
+            detections=detections,
+            width=width,
+            height=height,
+            confidence_threshold=conf,
+            batch_id=batch_id,
+            scale=scale,
+            sorting_commands=sorting_commands,
+            source="webcam_detect",
+        )
+    except Exception as exc:
+        log_sorting_event("persist_detection_failed", source="webcam_detect", error=str(exc))
+
+
+def _persist_sorting_commands(commands: list[dict]) -> None:
+    for command in commands:
+        try:
+            save_sorting_command(command)
+        except Exception as exc:
+            log_sorting_event(
+                "persist_sorting_command_failed",
+                source="webcam_detect",
+                command_id=command.get("command_id"),
+                error=str(exc),
+            )
 
 
 # ---------------------------------------------------------------------------
@@ -69,6 +116,9 @@ def _publish_detection_completed(
 async def detect_objects(
     file: UploadFile = File(...),
     conf: float = Form(0.25),
+    observe_only: bool = Form(False),
+    slot_index: int | None = Form(None),
+    batch_id: str | None = Form(None),
 ):
     if not model_loaded or engine_obj is None:
         raise HTTPException(status_code=503, detail="Model not loaded.")
@@ -82,10 +132,47 @@ async def detect_objects(
         raise HTTPException(status_code=400, detail="Invalid image file")
 
     width, height = image.size
-    detections = engine_obj.predict(image, conf=conf, iou=0.45)
+    detections = await run_inference(engine_obj.predict, image, conf=conf, iou=0.45)
+    if observe_only:
+        if not detections:
+            mark_demo_slot_empty(slot_index)
+            clear_demo_track_labels(slot_index)
+    else:
+        detections = apply_demo_label_override(detections, slot=slot_index)
     scale = get_scale_snapshot() if is_demo_enabled() else None
     detections = attach_scale_to_detections(detections, scale)
-    _publish_detection_completed(detections, width, height, conf)
+    sorting_commands: list[dict] = []
+    if not observe_only:
+        if slot_index is not None:
+            record_sorting_batch_camera_processed(
+                batch_id,
+                camera_slot=slot_index,
+                detection_count=len(detections),
+                raw_detection_count=len(detections),
+                image_width=width,
+                image_height=height,
+            )
+            sorting_commands = dispatch_sorting_commands(
+                camera_slot=slot_index,
+                detections=detections,
+                image_width=width,
+                image_height=height,
+                source="webcam_detect",
+                confidence_threshold=conf,
+                batch_id=batch_id,
+                scale=scale,
+            )
+            _persist_sorting_commands(sorting_commands)
+        _publish_detection_completed(
+            detections,
+            width,
+            height,
+            conf,
+            slot_index=slot_index,
+            batch_id=batch_id,
+            sorting_commands=sorting_commands,
+            scale=scale,
+        )
 
     return DetectionResponse(
         detections=[BoundingBox(**d) for d in detections],
@@ -94,7 +181,9 @@ async def detect_objects(
         device=device_name,
         model_format=model_format,
         detection_count=len(detections),
+        batch_id=batch_id,
         scale=scale,
+        sorting_commands=sorting_commands,
     )
 
 

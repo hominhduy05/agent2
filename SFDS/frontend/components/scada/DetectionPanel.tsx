@@ -15,6 +15,7 @@ interface DetectionPanelProps {
   onToggleAuto: () => void;
   onCapture: () => void;
   onReset: () => void;
+  showManualControls?: boolean;
 }
 
 function StatCard({
@@ -30,11 +31,11 @@ function StatCard({
     <div
       style={{
         background: 'var(--bg-elevated)',
-        borderRadius: '10px',
-        padding: '12px 14px',
+        borderRadius: '8px',
+        padding: '8px 10px',
         display: 'flex',
         flexDirection: 'column',
-        gap: '4px',
+        gap: '3px',
       }}
     >
       <span
@@ -52,7 +53,7 @@ function StatCard({
       <span
         style={{
           color,
-          fontSize: '20px',
+          fontSize: '18px',
           fontFamily: 'var(--font-sora)',
           fontWeight: 700,
           lineHeight: 1,
@@ -84,10 +85,10 @@ function WeightPanel({
         border: online
           ? '1px solid rgba(34,197,94,0.35)'
           : '1px solid var(--border-soft)',
-        padding: '14px',
+        padding: '10px 12px',
         display: 'flex',
         flexDirection: 'column',
-        gap: '10px',
+        gap: '6px',
         opacity: demoMode ? 1 : 0.5,
       }}
     >
@@ -123,7 +124,7 @@ function WeightPanel({
       {/* Value */}
       <div
         style={{
-          fontSize: '26px',
+          fontSize: '20px',
           fontWeight: 800,
           color: online ? '#22c55e' : 'var(--text-faint)',
         }}
@@ -155,6 +156,7 @@ function detectionGrade(box: {
   class_name: string;
   final_grade?: string | null;
 }) {
+  if (box.class_name?.startsWith('demo_grade_')) return classGrade(box.class_name);
   return box.final_grade || classGrade(box.class_name);
 }
 
@@ -338,6 +340,9 @@ function HistoryRow({
 function qualityLabel(reason?: string) {
   const labels: Record<string, string> = {
     waiting_for_fruit: 'Hãy cho trái vào vùng nhìn',
+    waiting_for_trigger: 'Đang chờ tín hiệu chụp',
+    fruit_captured_waiting_exit: 'Đã chụp, chờ trái ra khỏi khung',
+    waiting_for_empty_frame: 'Đang chờ khung trống',
     fruit_outside_roi: 'Trái nằm ngoài vùng nhìn',
     fruit_too_small_or_large: 'Chưa đủ kích thước',
     fruit_too_close_to_edge: 'Trái sát mép khung hình',
@@ -362,6 +367,7 @@ export default function DetectionPanel({
   onToggleAuto,
   onCapture,
   onReset,
+  showManualControls = false,
 }: DetectionPanelProps) {
   const result = camera.result;
 
@@ -456,6 +462,17 @@ export default function DetectionPanel({
         displayDetections.length) *
       100
     : 0;
+  const batchStatus = camera.batchStatus;
+  const batchCommand = batchStatus?.command;
+  const batchHardware = batchCommand?.hardware || {};
+  const hardwareSent = batchHardware.sent === true;
+  const hardwareReason =
+    typeof batchHardware.reason === 'string' ? batchHardware.reason : '';
+  const actuatorText = batchCommand?.relay_channel
+    ? `${batchCommand.actuator || 'xi lanh'} / relay ${batchCommand.relay_channel}`
+    : batchCommand?.action === 'pass_through'
+      ? 'Di thang'
+      : 'Chua co lenh';
 
   return (
     <div
@@ -465,8 +482,9 @@ export default function DetectionPanel({
         height: '100%',
         minHeight: 0,
         gap: '16px',
+        maxHeight: '100%',
         overflow: 'hidden',
-        padding: "10px"
+        padding: '8px',
       }}
     >
       <div
@@ -482,7 +500,7 @@ export default function DetectionPanel({
           onClick={() => setActiveTab('info')}
           style={{
             flex: 1,
-            padding: '8px',
+            padding: '7px 6px',
             border: 'none',
             borderRadius: '8px',
             background: activeTab === 'info' ? 'var(--accent)' : 'transparent',
@@ -498,7 +516,7 @@ export default function DetectionPanel({
           onClick={() => setActiveTab('detection')}
           style={{
             flex: 1,
-            padding: '8px',
+            padding: '7px 6px',
             border: 'none',
             borderRadius: '8px',
             background:
@@ -516,7 +534,7 @@ export default function DetectionPanel({
           onClick={() => setActiveTab('history')}
           style={{
             flex: 1,
-            padding: '8px',
+            padding: '7px 6px',
             border: 'none',
             borderRadius: '8px',
             background:
@@ -536,16 +554,19 @@ export default function DetectionPanel({
           style={{
             display: 'flex',
             flexDirection: 'column',
-            gap: '12px',
+            gap: '8px',
+            flex: 1,
+            minHeight: 0,
+            overflow: 'hidden',
           }}
         >
           {/* Header */}
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
             <div
               style={{
-                width: '36px',
-                height: '36px',
-                borderRadius: '10px',
+                width: '32px',
+                height: '32px',
+                borderRadius: '8px',
                 background: 'var(--accent-dim)',
                 display: 'flex',
                 alignItems: 'center',
@@ -570,7 +591,7 @@ export default function DetectionPanel({
                 style={{
                   fontFamily: 'var(--font-sora)',
                   fontWeight: 700,
-                  fontSize: '15px',
+                  fontSize: '14px',
                   color: 'var(--text)',
                 }}
               >
@@ -708,7 +729,7 @@ export default function DetectionPanel({
               <rect x="2" y="2" width="20" height="20" rx="2" />
               <path d="M10 8l6 4-6 4V8z" fill="currentColor" />
             </svg>
-            {camera.frameCount} frame da xu ly
+            {camera.frameCount} lần chụp đã xử lý
             {result?.rawDetectionCount !== undefined && (
               <span>
                 YOLO raw: {result.rawDetectionCount} | Track:{' '}
@@ -776,14 +797,151 @@ export default function DetectionPanel({
             </div>
           )}
 
+          {batchStatus && (
+            <div
+              style={{
+                background: 'var(--bg-elevated)',
+                border: batchStatus.can_activate_cylinder
+                  ? '1px solid rgba(34,197,94,0.35)'
+                  : '1px solid var(--border-soft)',
+                borderRadius: '8px',
+                padding: '9px 10px',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '7px',
+                fontFamily: 'var(--font-outfit)',
+              }}
+            >
+              <div
+                style={{
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  gap: '8px',
+                  alignItems: 'center',
+                }}
+              >
+                <span
+                  style={{
+                    color: 'var(--text-muted)',
+                    fontSize: '11px',
+                    fontWeight: 700,
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.05em',
+                  }}
+                >
+                  Trang thai phan loai
+                </span>
+                <span
+                  style={{
+                    color: batchStatus.can_activate_cylinder
+                      ? '#22c55e'
+                      : 'var(--text-faint)',
+                    fontSize: '11px',
+                    fontWeight: 700,
+                  }}
+                >
+                  {batchStatus.finalized ? 'Da chot' : 'Dang gom'}
+                </span>
+              </div>
+
+              <div
+                style={{
+                  display: 'grid',
+                  gridTemplateColumns: '1fr 1fr',
+                  gap: '8px',
+                  fontSize: '11px',
+                }}
+              >
+                <div style={{ color: 'var(--text-muted)' }}>
+                  Anh da xu ly:{' '}
+                  <b style={{ color: 'var(--text)' }}>
+                    {batchStatus.processed_camera_count}/
+                    {batchStatus.votes_required}
+                  </b>
+                </div>
+                <div style={{ color: 'var(--text-muted)' }}>
+                  Vote hop le:{' '}
+                  <b style={{ color: 'var(--text)' }}>
+                    {batchStatus.votes_received}/{batchStatus.votes_required}
+                  </b>
+                </div>
+              </div>
+
+              <div
+                style={{
+                  display: 'flex',
+                  gap: '6px',
+                  flexWrap: 'wrap',
+                  fontSize: '11px',
+                  color: 'var(--text-muted)',
+                }}
+              >
+                {(['A', 'B', 'C', 'D'] as const).map((grade) => (
+                  <span
+                    key={grade}
+                    style={{
+                      background: 'rgba(148,163,184,0.12)',
+                      borderRadius: '999px',
+                      padding: '2px 8px',
+                    }}
+                  >
+                    {grade}: {batchStatus.counts?.[grade] || 0}
+                  </span>
+                ))}
+              </div>
+
+              <div
+                style={{
+                  display: 'grid',
+                  gridTemplateColumns: '1fr',
+                  gap: '4px',
+                  fontSize: '11px',
+                  color: 'var(--text-muted)',
+                }}
+              >
+                <div>
+                  Final:{' '}
+                  <b style={{ color: 'var(--accent)' }}>
+                    {batchStatus.final_grade || '-'}
+                  </b>{' '}
+                  | {actuatorText}
+                </div>
+                <div>
+                  Xi lanh:{' '}
+                  <b
+                    style={{
+                      color: batchStatus.can_activate_cylinder
+                        ? '#22c55e'
+                        : '#f59e0b',
+                    }}
+                  >
+                    {batchStatus.can_activate_cylinder
+                      ? hardwareSent
+                        ? 'Da gui ESP32'
+                        : 'Du dieu kien kich'
+                      : batchCommand?.dry_run
+                        ? 'Dang dry-run'
+                        : batchCommand?.action === 'pass_through'
+                          ? 'Khong can kich'
+                          : 'Chua du dieu kien'}
+                  </b>
+                  {hardwareReason ? ` (${hardwareReason})` : ''}
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* Last crop */}
           <div
             style={{
               background: 'var(--bg-elevated)',
-              borderRadius: '10px',
+              borderRadius: '8px',
               overflow: 'hidden',
               border: '1px solid var(--border-soft)',
-              flexShrink: 0,
+              flex: '1 1 120px',
+              minHeight: 0,
+              display: 'flex',
+              flexDirection: 'column',
             }}
           >
             <div
@@ -791,7 +949,7 @@ export default function DetectionPanel({
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'space-between',
-                padding: '9px 11px',
+                padding: '7px 10px',
                 borderBottom: '1px solid var(--border-soft)',
                 fontFamily: 'var(--font-outfit)',
               }}
@@ -843,183 +1001,185 @@ export default function DetectionPanel({
         </div>
       )}
 
-      <div
-        style={{
-          flex: 1,
-          minHeight: 0,
-          overflowY: 'auto',
-        }}
-      >
-        {/* Detection Tab */}
-        {activeTab === 'detection' && (
-          <div
-            style={{
-              display: 'flex',
-              flexDirection: 'column',
-              gap: '6px',
-            }}
-          >
-            <div
-              style={{
-                fontFamily: 'var(--font-outfit)',
-                fontWeight: 600,
-                fontSize: '12px',
-                color: 'var(--text-muted)',
-                textTransform: 'uppercase',
-                letterSpacing: '0.05em',
-                marginBottom: '2px',
-              }}
-            >
-              Chi tiết phát hiện ({total})
-            </div>
-
+      {activeTab !== 'info' && (
+        <div
+          style={{
+            flex: 1,
+            minHeight: 0,
+            overflowY: 'auto',
+          }}
+        >
+          {/* Detection Tab */}
+          {activeTab === 'detection' && (
             <div
               style={{
                 display: 'flex',
+                flexDirection: 'column',
                 gap: '6px',
-                flexWrap: 'wrap',
-                marginBottom: '10px',
               }}
             >
-              {['ALL', 'A', 'B', 'C', 'D'].map((g) => (
-                <button
-                  key={g}
-                  onClick={() => setGradeFilter(g as any)}
-                  style={{
-                    padding: '4px 10px',
-                    borderRadius: '20px',
-                    border: 'none',
-                    cursor: 'pointer',
-                    fontSize: '11px',
-                    fontWeight: 600,
-                    background:
-                      gradeFilter === g
-                        ? 'var(--accent)'
-                        : 'var(--bg-elevated)',
-                    color: gradeFilter === g ? '#fff' : 'var(--text-muted)',
-                  }}
-                >
-                  {g}
-                </button>
-              ))}
-            </div>
-
-            {!camera.isActive && (
               <div
                 style={{
-                  color: 'var(--text-faint)',
-                  fontSize: '13px',
                   fontFamily: 'var(--font-outfit)',
-                  textAlign: 'center',
-                  padding: '24px',
+                  fontWeight: 600,
+                  fontSize: '12px',
+                  color: 'var(--text-muted)',
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.05em',
+                  marginBottom: '2px',
                 }}
               >
-                Camera chưa bật. Chọn một camera để xem kết quả.
+                Chi tiết phát hiện ({total})
               </div>
-            )}
 
-            {camera.isActive && total === 0 && (
               <div
                 style={{
-                  color: 'var(--text-faint)',
-                  fontSize: '13px',
-                  fontFamily: 'var(--font-outfit)',
-                  textAlign: 'center',
-                  padding: '24px',
+                  display: 'flex',
+                  gap: '6px',
+                  flexWrap: 'wrap',
+                  marginBottom: '10px',
                 }}
               >
-                Không có trái nào được phát hiện.
-              </div>
-            )}
-
-            {camera.isActive &&
-              filteredDetections.map((d, i) => (
-                <DetetionRow key={i} box={d} showScale={demoMode} />
-              ))}
-          </div>
-        )}
-
-        {/* History Tab */}
-        {activeTab === 'history' && (
-          <div
-            style={{
-              display: 'flex',
-              flexDirection: 'column',
-              gap: '6px',
-            }}
-          >
-            <div
-              style={{
-                fontFamily: 'var(--font-outfit)',
-                fontWeight: 600,
-                fontSize: '12px',
-                color: 'var(--text-muted)',
-                textTransform: 'uppercase',
-                letterSpacing: '0.05em',
-                marginBottom: '6px',
-              }}
-            >
-              Lịch sử ({camera.resultHistory.length})
-            </div>
-            <div
-              style={{
-                display: 'flex',
-                gap: '6px',
-                marginBottom: '10px',
-                flexWrap: 'wrap',
-              }}
-            >
-              {['ALL', 'A', 'B', 'C', 'D'].map((g) => (
-                <button
-                  key={g}
-                  onClick={() => setHistoryFilter(g as any)}
-                  style={{
-                    padding: '4px 10px',
-                    borderRadius: '20px',
-                    border: 'none',
-                    cursor: 'pointer',
-                    fontSize: '11px',
-                    fontWeight: 600,
-                    background:
-                      historyFilter === g
-                        ? 'var(--accent)'
-                        : 'var(--bg-elevated)',
-                    color: historyFilter === g ? '#fff' : 'var(--text-muted)',
-                  }}
-                >
-                  {g}
-                </button>
-              ))}
-            </div>
-
-            {camera.resultHistory.length > 0 ? (
-              <div
-                style={{
-                  background: 'var(--bg-elevated)',
-                  borderRadius: '10px',
-                  overflow: 'hidden',
-                }}
-              >
-                {filteredHistory.map((r, i) => (
-                  <HistoryRow key={i} result={r} />
+                {['ALL', 'A', 'B', 'C', 'D'].map((g) => (
+                  <button
+                    key={g}
+                    onClick={() => setGradeFilter(g as any)}
+                    style={{
+                      padding: '4px 10px',
+                      borderRadius: '20px',
+                      border: 'none',
+                      cursor: 'pointer',
+                      fontSize: '11px',
+                      fontWeight: 600,
+                      background:
+                        gradeFilter === g
+                          ? 'var(--accent)'
+                          : 'var(--bg-elevated)',
+                      color: gradeFilter === g ? '#fff' : 'var(--text-muted)',
+                    }}
+                  >
+                    {g}
+                  </button>
                 ))}
               </div>
-            ) : (
+
+              {!camera.isActive && (
+                <div
+                  style={{
+                    color: 'var(--text-faint)',
+                    fontSize: '13px',
+                    fontFamily: 'var(--font-outfit)',
+                    textAlign: 'center',
+                    padding: '24px',
+                  }}
+                >
+                  Camera chưa bật. Chọn một camera để xem kết quả.
+                </div>
+              )}
+
+              {camera.isActive && total === 0 && (
+                <div
+                  style={{
+                    color: 'var(--text-faint)',
+                    fontSize: '13px',
+                    fontFamily: 'var(--font-outfit)',
+                    textAlign: 'center',
+                    padding: '24px',
+                  }}
+                >
+                  Không có trái nào được phát hiện.
+                </div>
+              )}
+
+              {camera.isActive &&
+                filteredDetections.map((d, i) => (
+                  <DetetionRow key={i} box={d} showScale={demoMode} />
+                ))}
+            </div>
+          )}
+
+          {/* History Tab */}
+          {activeTab === 'history' && (
+            <div
+              style={{
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '6px',
+              }}
+            >
               <div
                 style={{
-                  color: 'var(--text-faint)',
-                  fontSize: '13px',
                   fontFamily: 'var(--font-outfit)',
-                  textAlign: 'center',
-                  padding: '24px',
+                  fontWeight: 600,
+                  fontSize: '12px',
+                  color: 'var(--text-muted)',
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.05em',
+                  marginBottom: '6px',
                 }}
               >
-                Chưa có dữ liệu lịch sử
+                Lịch sử ({camera.resultHistory.length})
               </div>
-            )}
-          </div>
-        )}
-      </div>
+              <div
+                style={{
+                  display: 'flex',
+                  gap: '6px',
+                  marginBottom: '10px',
+                  flexWrap: 'wrap',
+                }}
+              >
+                {['ALL', 'A', 'B', 'C', 'D'].map((g) => (
+                  <button
+                    key={g}
+                    onClick={() => setHistoryFilter(g as any)}
+                    style={{
+                      padding: '4px 10px',
+                      borderRadius: '20px',
+                      border: 'none',
+                      cursor: 'pointer',
+                      fontSize: '11px',
+                      fontWeight: 600,
+                      background:
+                        historyFilter === g
+                          ? 'var(--accent)'
+                          : 'var(--bg-elevated)',
+                      color: historyFilter === g ? '#fff' : 'var(--text-muted)',
+                    }}
+                  >
+                    {g}
+                  </button>
+                ))}
+              </div>
+
+              {camera.resultHistory.length > 0 ? (
+                <div
+                  style={{
+                    background: 'var(--bg-elevated)',
+                    borderRadius: '10px',
+                    overflow: 'hidden',
+                  }}
+                >
+                  {filteredHistory.map((r, i) => (
+                    <HistoryRow key={i} result={r} />
+                  ))}
+                </div>
+              ) : (
+                <div
+                  style={{
+                    color: 'var(--text-faint)',
+                    fontSize: '13px',
+                    fontFamily: 'var(--font-outfit)',
+                    textAlign: 'center',
+                    padding: '24px',
+                  }}
+                >
+                  Chưa có dữ liệu lịch sử
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Controls */}
       <div
@@ -1064,122 +1224,126 @@ export default function DetectionPanel({
         </div>
 
         {/* Buttons */}
-        <div style={{ display: 'flex', gap: '8px' }}>
-          <button
-            onClick={onToggleAuto}
-            disabled={!camera.isActive}
-            style={{
-              flex: 1,
-              padding: '9px 12px',
-              borderRadius: '8px',
-              border: camera.autoEnabled
-                ? '1px solid var(--accent)'
-                : '1px solid var(--border)',
-              background: camera.autoEnabled
-                ? 'var(--accent-dim)'
-                : 'var(--bg-elevated)',
-              color: camera.autoEnabled ? 'var(--accent)' : 'var(--text-muted)',
-              fontSize: '12px',
-              fontWeight: 600,
-              fontFamily: 'var(--font-outfit)',
-              cursor: camera.isActive ? 'pointer' : 'not-allowed',
-              opacity: camera.isActive ? 1 : 0.5,
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: '6px',
-            }}
-          >
-            <svg
-              width="12"
-              height="12"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
+        {showManualControls && (
+          <div style={{ display: 'flex', gap: '8px' }}>
+            <button
+              onClick={onToggleAuto}
+              disabled={!camera.isActive}
+              style={{
+                flex: 1,
+                padding: '9px 12px',
+                borderRadius: '8px',
+                border: camera.autoEnabled
+                  ? '1px solid var(--accent)'
+                  : '1px solid var(--border)',
+                background: camera.autoEnabled
+                  ? 'var(--accent-dim)'
+                  : 'var(--bg-elevated)',
+                color: camera.autoEnabled
+                  ? 'var(--accent)'
+                  : 'var(--text-muted)',
+                fontSize: '12px',
+                fontWeight: 600,
+                fontFamily: 'var(--font-outfit)',
+                cursor: camera.isActive ? 'pointer' : 'not-allowed',
+                opacity: camera.isActive ? 1 : 0.5,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '6px',
+              }}
             >
-              {camera.autoEnabled ? (
-                <>
-                  <rect x="6" y="4" width="4" height="16" />
-                  <rect x="14" y="4" width="4" height="16" />
-                </>
-              ) : (
-                <polygon points="5,3 19,12 5,21" />
-              )}
-            </svg>
-            {camera.autoEnabled ? 'Dung Auto' : 'Auto'}
-          </button>
+              <svg
+                width="12"
+                height="12"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+              >
+                {camera.autoEnabled ? (
+                  <>
+                    <rect x="6" y="4" width="4" height="16" />
+                    <rect x="14" y="4" width="4" height="16" />
+                  </>
+                ) : (
+                  <polygon points="5,3 19,12 5,21" />
+                )}
+              </svg>
+              {camera.autoEnabled ? 'Tắt trigger' : 'Bật trigger'}
+            </button>
 
-          <button
-            onClick={onCapture}
-            disabled={!camera.isActive || camera.isDetecting}
-            style={{
-              flex: 1,
-              padding: '9px 12px',
-              borderRadius: '8px',
-              border: '1px solid var(--border)',
-              background: 'var(--bg-elevated)',
-              color: camera.isActive ? 'var(--text)' : 'var(--text-faint)',
-              fontSize: '12px',
-              fontWeight: 600,
-              fontFamily: 'var(--font-outfit)',
-              cursor:
-                camera.isActive && !camera.isDetecting
-                  ? 'pointer'
-                  : 'not-allowed',
-              opacity: camera.isActive && !camera.isDetecting ? 1 : 0.5,
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: '6px',
-            }}
-          >
-            <svg
-              width="12"
-              height="12"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
+            <button
+              onClick={onCapture}
+              disabled={!camera.isActive || camera.isDetecting}
+              style={{
+                flex: 1,
+                padding: '9px 12px',
+                borderRadius: '8px',
+                border: '1px solid var(--border)',
+                background: 'var(--bg-elevated)',
+                color: camera.isActive ? 'var(--text)' : 'var(--text-faint)',
+                fontSize: '12px',
+                fontWeight: 600,
+                fontFamily: 'var(--font-outfit)',
+                cursor:
+                  camera.isActive && !camera.isDetecting
+                    ? 'pointer'
+                    : 'not-allowed',
+                opacity: camera.isActive && !camera.isDetecting ? 1 : 0.5,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '6px',
+              }}
             >
-              <circle cx="12" cy="12" r="3" />
-              <path d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
-            </svg>
-            {camera.isDetecting ? 'Dang xu ly...' : 'Chup ngay'}
-          </button>
+              <svg
+                width="12"
+                height="12"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+              >
+                <circle cx="12" cy="12" r="3" />
+                <path d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
+              </svg>
+              {camera.isDetecting ? 'Dang xu ly...' : 'Chup ngay'}
+            </button>
 
-          <button
-            onClick={onReset}
-            disabled={!camera.isActive}
-            style={{
-              padding: '9px 12px',
-              borderRadius: '8px',
-              border: '1px solid var(--border)',
-              background: 'var(--bg-elevated)',
-              color: 'var(--text-muted)',
-              fontSize: '12px',
-              fontWeight: 600,
-              fontFamily: 'var(--font-outfit)',
-              cursor: camera.isActive ? 'pointer' : 'not-allowed',
-              opacity: camera.isActive ? 1 : 0.5,
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-            }}
-          >
-            <svg
-              width="12"
-              height="12"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
+            <button
+              onClick={onReset}
+              disabled={!camera.isActive}
+              style={{
+                padding: '9px 12px',
+                borderRadius: '8px',
+                border: '1px solid var(--border)',
+                background: 'var(--bg-elevated)',
+                color: 'var(--text-muted)',
+                fontSize: '12px',
+                fontWeight: 600,
+                fontFamily: 'var(--font-outfit)',
+                cursor: camera.isActive ? 'pointer' : 'not-allowed',
+                opacity: camera.isActive ? 1 : 0.5,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}
             >
-              <polyline points="1 4 1 10 7 10" />
-              <path d="M3.51 15a9 9 0 102.13-9.36L1 10" />
-            </svg>
-          </button>
-        </div>
+              <svg
+                width="12"
+                height="12"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+              >
+                <polyline points="1 4 1 10 7 10" />
+                <path d="M3.51 15a9 9 0 102.13-9.36L1 10" />
+              </svg>
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );

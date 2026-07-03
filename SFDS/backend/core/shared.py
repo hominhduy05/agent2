@@ -285,8 +285,10 @@ class DetectionResponse(BaseModel):
     detections: List[BoundingBox]
     image_width: int; image_height: int
     device: str; model_format: str; detection_count: int
+    batch_id: Optional[str] = None
     session_id: Optional[int] = None
     scale: Optional[dict] = None
+    sorting_commands: Optional[List[dict]] = None
 
 
 # Auth schemas
@@ -434,9 +436,11 @@ class ScadaStatus(BaseModel):
 # Detection schemas
 class SlotDetectionResponse(BaseModel):
     slot_index: int
+    batch_id: Optional[str] = None
     detections: List[BoundingBox]
     image_width: int
     image_height: int
+    image_data_url: Optional[str] = None
     model_format: str
     detection_count: int
     unique_mature: int = 0
@@ -448,6 +452,7 @@ class SlotDetectionResponse(BaseModel):
 
 class BatchDetectResponse(BaseModel):
     results: List[SlotDetectionResponse]
+    batch_id: Optional[str] = None
     total_unique_objects: int
     timestamp: str
     scale: Optional[dict] = None

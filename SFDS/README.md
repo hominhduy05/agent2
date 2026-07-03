@@ -305,18 +305,22 @@ GET  /api/audit/summary/
 ## Sorting / Relay Commands
 
 After SCADA accepts fruit detections, the backend aggregates camera votes and
-emits one sorting command per fruit. The default vote rule expects 5 camera
-votes:
+emits one sorting command per fruit. The default vote rule uses 5 camera votes
+when available:
 
 ```text
 3A + 1B + 1C -> final A -> relay 1 -> cylinder_1
 3A + 1B + 1D -> final D -> pass_through, no relay pulse
+1D in any camera -> final D -> pass_through, no relay pulse
 2A + 2B + 1C -> final C -> relay 3 -> cylinder_3
+fewer than 5 votes after timeout -> final C -> relay 3 -> cylinder_3
 ```
 
-Grade D is treated as a defect/safety veto when votes are finalized. Without
-D, A/B/C use clear-majority voting. If no grade reaches majority, the system
-routes to the strictest/lower-quality grade present.
+Grade D is treated as an immediate defect/safety veto. Without D, A/B/C use
+clear-majority voting when all 5 cameras vote. If no grade reaches majority, or
+if fewer than 5 cameras vote before `SORTING_INCOMPLETE_TIMEOUT_SECONDS`, the
+system routes to the strictest/lower-quality grade, defaulting incomplete votes
+to C.
 
 Commands are published as enterprise events on topic `sorting/command`.
 If `ESP32_RELAY_PORT` is configured, the backend also sends the command to the
@@ -331,10 +335,13 @@ set SORTING_DRY_RUN=false
 set SORTING_GRADE_A_RELAY=1
 set SORTING_GRADE_B_RELAY=2
 set SORTING_GRADE_C_RELAY=3
+set SCADA_DETECT_CONCURRENCY=2
 set SORTING_VOTE_REQUIRED=5
 set SORTING_CAMERAS_PER_ROOM=5
 set SORTING_DEFECT_VETO=true
-set SORTING_EARLY_DEFECT_VETO=false
+set SORTING_EARLY_DEFECT_VETO=true
+set SORTING_INCOMPLETE_GRADE=C
+set SORTING_INCOMPLETE_TIMEOUT_SECONDS=3
 set SORTING_GRADE_A_PULSE_MS=2000
 set SORTING_GRADE_B_PULSE_MS=2000
 set SORTING_GRADE_C_PULSE_MS=2000
@@ -351,6 +358,12 @@ to each cylinder at the current conveyor speed. `ESP32_RELAY_COMMAND_MODE=arm`
 waits for the selected E3F sensor before pulsing the relay; use `pulse` only
 when the backend delay alone should trigger the cylinder. Keep
 `SORTING_DRY_RUN=true` while commissioning the PLC/relay wiring.
+
+For 5-camera snapshot sorting, each conveyor stop should use one
+`batch_id`. The frontend sends all active camera snapshots with the same
+batch, the backend limits GPU inference with `SCADA_DETECT_CONCURRENCY`, then
+finalizes the batch after all camera attempts finish. If fewer than
+`SORTING_VOTE_REQUIRED` cameras voted, the incomplete grade rule applies.
 
 Check the serial bridge status:
 

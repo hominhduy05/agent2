@@ -411,21 +411,21 @@
   border-radius: 999px;
 }
 .cropPreview {
-  height: 150px;
-
+  flex: 1;
+  min-height: 88px;
+  max-height: 128px;
   display: grid;
   grid-template-columns: repeat(3, 1fr);
-  gap: 8px;
-  padding: 8px;
-  overflow-y: auto;
+  gap: 6px;
+  padding: 6px;
+  overflow: hidden;
   background: var(--crop-container-bg);
 }
 
 .cropItem {
   width: 100%;
-  aspect-ratio: 1 / 1;
-  min-height: 132px;
-  border-radius: 8px;
+  min-height: 0;
+  border-radius: 6px;
   overflow: hidden;
   position: relative;
 }

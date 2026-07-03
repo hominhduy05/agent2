@@ -11,33 +11,32 @@ export const GRADE_RULES = {
 };
 
 export function getGrade(item: any): 'A' | 'B' | 'C' | 'D' {
-  const finalGrade = String(item?.final_grade ?? '').toLowerCase();
-
-  if (finalGrade) {
-    if (finalGrade.includes('grade_a')) return 'A';
-
-    if (finalGrade.includes('grade_b')) return 'B';
-
-    if (finalGrade.includes('grade_c')) return 'C';
-
-    if (finalGrade.includes('grade_d')) return 'D';
-  }
-
   const className = String(item?.class_name ?? '').toLowerCase();
 
   if (className) {
+    if (className.includes('demo_grade_a')) return 'A';
+    if (className.includes('demo_grade_b')) return 'B';
+    if (className.includes('demo_grade_c')) return 'C';
+    if (className.includes('demo_grade_d')) return 'D';
+
     if (
       className.includes('ripe') ||
-      className.includes('mature') ||
-      className.includes('demo_grade_a')
+      className.includes('mature')
     )
       return 'A';
 
-    if (className.includes('semi') || className.includes('demo_grade_b'))
-      return 'B';
+    if (className.includes('semi')) return 'B';
 
-    if (className.includes('green') || className.includes('demo_grade_c'))
-      return 'C';
+    if (className.includes('green')) return 'C';
+  }
+
+  const finalGrade = String(item?.final_grade ?? '').toLowerCase();
+
+  if (finalGrade) {
+    if (finalGrade === 'a' || finalGrade.includes('grade_a')) return 'A';
+    if (finalGrade === 'b' || finalGrade.includes('grade_b')) return 'B';
+    if (finalGrade === 'c' || finalGrade.includes('grade_c')) return 'C';
+    if (finalGrade === 'd' || finalGrade.includes('grade_d')) return 'D';
   }
 
   const weight = Number(item?.weight_kg ?? 0);
