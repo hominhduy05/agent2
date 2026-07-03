@@ -108,7 +108,7 @@ export const DetectionHistoryFilters: React.FC<FiltersProps> = ({
             max="95" 
             value={minConfidence} 
             onChange={e => setMinConfidence(Number(e.target.value))}
-            className="w-full h-1 bg-gray-250 dark:bg-gray-800 rounded-lg appearance-none cursor-pointer accent-brand-500" 
+            className="w-full h-0.5 bg-gray-300 dark:bg-gray-800 rounded-lg cursor-pointer accent-brand-500" 
           />
           <span className="text-sm font-bold text-brand-500 w-10 text-right">{minConfidence}%</span>
         </div>

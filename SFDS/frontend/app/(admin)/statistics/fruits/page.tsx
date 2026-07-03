@@ -122,7 +122,9 @@ export default function StatisticsPage() {
       });
     });
 
-    result.ton = result.kg / 1000;
+    if (result.kg < 1000) result.ton = result.kg;
+    else result.ton = result.kg / 1000;
+
     return result;
   }, [filtered]);
 
@@ -208,7 +210,7 @@ export default function StatisticsPage() {
 
       <section className={styles.cards}>
         <Card title="Tổng quả" value={summary.total} />
-        <Card title="Khối lượng" value={`${summary.ton.toFixed(3)} Tấn`} />
+        <Card title="Khối lượng" value={`${summary.kg < 1000 ? `${summary.ton} Kg` : `${summary.ton.toFixed(3)} Tấn`}`} />
         <Card title="Grade A" value={summary.A} />
         <Card title="Grade B" value={summary.B} />
         <Card title="Grade C" value={summary.C} />

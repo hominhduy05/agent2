@@ -29,7 +29,7 @@ const SidebarWidget: React.FC = () => {
             fontFamily: 'Outfit, sans-serif',
           }}
         >
-          DurianPro v1.0
+          PioneTrace v1.0
         </h4>
       </div>
       <p
