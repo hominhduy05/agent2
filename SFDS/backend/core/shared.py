@@ -2,6 +2,7 @@ from datetime import datetime
 import os
 from pathlib import Path
 from typing import List, Optional
+import threading
 
 from pydantic import BaseModel, Field
 from PIL import Image
@@ -67,17 +68,25 @@ class YOLOEngine:
         _patch_yolo26_compat()
         self.model = YOLO(str(model_path))
         self.device = device
+        self._predict_lock = threading.Lock()
 
     def predict(self, image: Image.Image, conf: float, iou: float):
-        try:
-            results = self.model.predict(image, conf=conf, iou=iou, device=self.device, verbose=False)
-        except Exception as exc:
-            if self.device == "cuda":
-                print(f"[WARN] CUDA inference failed: {exc}. Falling back to CPU.")
-                self.device = "cpu"
+        with self._predict_lock:
+            try:
                 results = self.model.predict(image, conf=conf, iou=iou, device=self.device, verbose=False)
-            else:
-                raise
+            except AttributeError as exc:
+                if "has no attribute 'bn'" in str(exc):
+                    self.model.predictor = None
+                    results = self.model.predict(image, conf=conf, iou=iou, device=self.device, verbose=False)
+                else:
+                    raise
+            except Exception as exc:
+                if self.device == "cuda":
+                    print(f"[WARN] CUDA inference failed: {exc}. Falling back to CPU.")
+                    self.device = "cpu"
+                    results = self.model.predict(image, conf=conf, iou=iou, device=self.device, verbose=False)
+                else:
+                    raise
         parsed = []
         for r in (results or []):
             if r.boxes is None or len(r.boxes) == 0:

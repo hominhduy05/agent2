@@ -22,6 +22,7 @@ class Esp32RelayStatus:
     mode: str = "arm"
     last_command: str | None = None
     last_response: str | None = None
+    controller_status: str | None = None
     last_error: str | None = None
     updated_at: float | None = None
 
@@ -58,6 +59,11 @@ def get_esp32_relay_status() -> dict:
             _status.connected = bool(response and "PONG" in response)
             _status.last_command = "PING"
             _status.last_response = response
+            _status.controller_status = None
+            if _status.connected:
+                ser.write(b"STATUS\n")
+                ser.flush()
+                _status.controller_status = _read_ack(ser, "STATUS", ack_timeout)
             _status.last_error = None if _status.connected else "No PONG response from ESP32"
             _status.updated_at = time.time()
             log_sorting_event(
@@ -67,6 +73,7 @@ def get_esp32_relay_status() -> dict:
                 baud=_status.baud,
                 mode=_status.mode,
                 response=response,
+                controller_status=_status.controller_status,
                 error=_status.last_error,
             )
         except Exception as exc:

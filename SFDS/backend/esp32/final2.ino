@@ -25,12 +25,15 @@
 #define RELAY_3_PIN 27
 
 const bool RELAY_ACTIVE_LOW = true;
+const int SENSOR_INPUT_MODE = INPUT_PULLUP;
+const bool SENSOR_AUTO_CALIBRATE = true;
 const int SENSOR_ACTIVE_LEVEL = LOW;
 
 const unsigned long DEBOUNCE_MS = 50;
 const unsigned long DEFAULT_DETECT_TO_PUSH_DELAY_MS = 2000;
 const unsigned long DEFAULT_PUSH_TIME_MS = 2000;
 const unsigned long ARM_TIMEOUT_MS = 10000;
+const unsigned long SENSOR_LATCH_MS = 3000;
 
 enum ChannelState {
   IDLE,
@@ -49,14 +52,17 @@ struct SortChannel {
   unsigned long stateStartTime;
   unsigned long delayMs;
   unsigned long pulseMs;
+  unsigned long lastSensorHitTime;
+  int idleLevel;
+  bool sensorWasDetected;
   String commandId;
   const char* name;
 };
 
 SortChannel channels[] = {
-  {SENSOR_1_PIN, RELAY_1_PIN, IDLE, 0, DEFAULT_DETECT_TO_PUSH_DELAY_MS, DEFAULT_PUSH_TIME_MS, "", "CH1"},
-  {SENSOR_2_PIN, RELAY_2_PIN, IDLE, 0, DEFAULT_DETECT_TO_PUSH_DELAY_MS, DEFAULT_PUSH_TIME_MS, "", "CH2"},
-  {SENSOR_3_PIN, RELAY_3_PIN, IDLE, 0, DEFAULT_DETECT_TO_PUSH_DELAY_MS, DEFAULT_PUSH_TIME_MS, "", "CH3"}
+  {SENSOR_1_PIN, RELAY_1_PIN, IDLE, 0, DEFAULT_DETECT_TO_PUSH_DELAY_MS, DEFAULT_PUSH_TIME_MS, 0, HIGH, false, "", "CH1"},
+  {SENSOR_2_PIN, RELAY_2_PIN, IDLE, 0, DEFAULT_DETECT_TO_PUSH_DELAY_MS, DEFAULT_PUSH_TIME_MS, 0, HIGH, false, "", "CH2"},
+  {SENSOR_3_PIN, RELAY_3_PIN, IDLE, 0, DEFAULT_DETECT_TO_PUSH_DELAY_MS, DEFAULT_PUSH_TIME_MS, 0, HIGH, false, "", "CH3"}
 };
 
 const int CHANNEL_COUNT = sizeof(channels) / sizeof(channels[0]);
@@ -70,8 +76,29 @@ void setRelay(uint8_t relayPin, bool turnOn) {
   }
 }
 
-bool isObjectDetected(uint8_t sensorPin) {
-  return digitalRead(sensorPin) == SENSOR_ACTIVE_LEVEL;
+bool isObjectDetected(const SortChannel &channel) {
+  int rawLevel = digitalRead(channel.sensorPin);
+  if (SENSOR_AUTO_CALIBRATE) {
+    return rawLevel != channel.idleLevel;
+  }
+  return rawLevel == SENSOR_ACTIVE_LEVEL;
+}
+
+bool hasRecentSensorHit(const SortChannel &channel, unsigned long now) {
+  return channel.lastSensorHitTime > 0 && now - channel.lastSensorHitTime <= SENSOR_LATCH_MS;
+}
+
+void updateSensorLatch(SortChannel &channel, bool objectDetected, unsigned long now) {
+  if (objectDetected && !channel.sensorWasDetected) {
+    channel.lastSensorHitTime = now;
+    channel.sensorWasDetected = true;
+    Serial.print("SENSOR_EDGE channel=");
+    Serial.print(channel.name);
+    Serial.print(" latch_ms=");
+    Serial.println(SENSOR_LATCH_MS);
+  } else if (!objectDetected) {
+    channel.sensorWasDetected = false;
+  }
 }
 
 void turnOffAllRelays() {
@@ -136,8 +163,14 @@ void armChannel(int channelNumber, unsigned long delayMs, unsigned long pulseMs,
   channel.delayMs = delayMs;
   channel.pulseMs = pulseMs;
   channel.commandId = commandId;
-  channel.state = ARMED_WAIT_OBJECT;
-  channel.stateStartTime = millis();
+  unsigned long now = millis();
+  if (hasRecentSensorHit(channel, now)) {
+    channel.state = WAIT_TO_PUSH;
+    channel.stateStartTime = channel.lastSensorHitTime;
+  } else {
+    channel.state = ARMED_WAIT_OBJECT;
+    channel.stateStartTime = now;
+  }
 
   Serial.print("ACK ARM channel=");
   Serial.print(channel.name);
@@ -145,6 +178,8 @@ void armChannel(int channelNumber, unsigned long delayMs, unsigned long pulseMs,
   Serial.print(delayMs);
   Serial.print(" pulse_ms=");
   Serial.print(pulseMs);
+  Serial.print(" latched=");
+  Serial.print(channel.state == WAIT_TO_PUSH ? "1" : "0");
   Serial.print(" command_id=");
   Serial.println(commandId);
 }
@@ -215,8 +250,15 @@ void handleSerialLine(String line) {
       Serial.print(channels[i].name);
       Serial.print("_state=");
       Serial.print((int)channels[i].state);
+      Serial.print(" raw=");
+      Serial.print(digitalRead(channels[i].sensorPin));
+      Serial.print(" idle=");
+      Serial.print(channels[i].idleLevel);
       Serial.print(" sensor=");
-      Serial.print(isObjectDetected(channels[i].sensorPin) ? "1" : "0");
+      Serial.print(isObjectDetected(channels[i]) ? "1" : "0");
+      Serial.print(" latch_age_ms=");
+      unsigned long age = channels[i].lastSensorHitTime > 0 ? millis() - channels[i].lastSensorHitTime : 999999;
+      Serial.print(age);
     }
     Serial.println();
     return;
@@ -264,7 +306,8 @@ void pollSerial() {
 }
 
 void processChannel(SortChannel &channel, unsigned long now) {
-  bool objectDetected = isObjectDetected(channel.sensorPin);
+  bool objectDetected = isObjectDetected(channel);
+  updateSensorLatch(channel, objectDetected, now);
 
   switch (channel.state) {
     case IDLE:
@@ -296,6 +339,13 @@ void processChannel(SortChannel &channel, unsigned long now) {
       } else if (objectDetected) {
         channel.state = ARMED_DEBOUNCE;
         channel.stateStartTime = now;
+      } else if (hasRecentSensorHit(channel, now)) {
+        Serial.print("SENSOR_LATCH_HIT channel=");
+        Serial.print(channel.name);
+        Serial.print(" command_id=");
+        Serial.println(channel.commandId);
+        channel.state = WAIT_TO_PUSH;
+        channel.stateStartTime = channel.lastSensorHitTime;
       }
       break;
 
@@ -341,12 +391,20 @@ void setup() {
   delay(500);
 
   for (int i = 0; i < CHANNEL_COUNT; i++) {
-    pinMode(channels[i].sensorPin, INPUT_PULLUP);
+    pinMode(channels[i].sensorPin, SENSOR_INPUT_MODE);
     pinMode(channels[i].relayPin, OUTPUT);
     resetChannel(channels[i]);
   }
 
   turnOffAllRelays();
+  delay(100);
+  for (int i = 0; i < CHANNEL_COUNT; i++) {
+    channels[i].idleLevel = digitalRead(channels[i].sensorPin);
+    Serial.print("SENSOR_IDLE channel=");
+    Serial.print(channels[i].name);
+    Serial.print(" idle=");
+    Serial.println(channels[i].idleLevel);
+  }
   Serial.println("READY final2 mode=BE baud=115200");
 }
 

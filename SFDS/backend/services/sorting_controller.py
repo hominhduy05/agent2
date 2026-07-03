@@ -329,7 +329,11 @@ def _calculate_final_vote(
         if counts[grade] >= majority_threshold:
             return grade
 
-    # No clear majority: route to the strictest/lower-quality grade present.
+    # No clear majority, e.g. 1A + 1B in two-camera testing: route to the
+    # configured fallback grade instead of choosing one camera over the other.
+    if settings.incomplete_grade:
+        return settings.incomplete_grade
+
     for grade in ("C", "B", "A"):
         if counts[grade] > 0:
             return grade
