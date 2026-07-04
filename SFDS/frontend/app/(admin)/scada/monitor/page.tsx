@@ -207,17 +207,7 @@ export default function ScadaPage() {
     };
   }, []);
 
-  const selectedIndex =
-    selectedId !== null ? cameras.findIndex((c) => c.id === selectedId) : 0;
-
-  const orderedCameras = (
-    selectedIndex >= 0
-      ? [
-          cameras[selectedIndex],
-          ...cameras.filter((_, i) => i !== selectedIndex),
-        ]
-      : cameras
-  ).filter(Boolean) as CameraChannel[];
+  const orderedCameras = cameras;
 
   useEffect(() => {
     getScadaDemoMode()
