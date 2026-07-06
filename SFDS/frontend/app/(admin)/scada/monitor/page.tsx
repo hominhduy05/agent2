@@ -16,6 +16,7 @@ import styles from '../page.module.css';
 import { useRouter } from 'next/navigation';
 import { getScadaManager } from '@/lib/scada-manager';
 import { scadaStore } from '@/lib/scada-store';
+import toast from 'react-hot-toast';
 
 interface MediaDevice {
   deviceId: string;
@@ -31,8 +32,7 @@ export default function ScadaPage() {
   const [showConfigModal, setShowConfigModal] = useState(false);
   const [pendingId, setPendingId] = useState<number | null>(null);
   const [sourceMode, setSourceMode] = useState<'webcam' | 'ip'>('webcam');
-  const [demoMode, setDemoMode] = useState(false);
-  const [demoBusy, setDemoBusy] = useState(false);
+  const [demoMode, setDemoMode] = useState(true);
   const [scaleStatus, setScaleStatus] = useState<ScadaScaleStatus | null>(null);
 
   // const managerRef = useRef<ScadaCameraManager | null>(null);
@@ -344,18 +344,22 @@ export default function ScadaPage() {
   };
 
   const handleDemoModeToggle = async () => {
-    if (demoBusy) return;
-    setDemoBusy(true);
-    try {
-      const status = await setScadaDemoMode(!demoMode);
-      const enabled = Boolean(status.enabled);
-      setDemoMode(enabled);
-      if (!enabled) setScaleStatus(null);
-      managerRef.current?.setDemoMode(enabled);
-    } finally {
-      setDemoBusy(false);
+  try {
+    const status = await setScadaDemoMode(!demoMode);
+    const enabled = Boolean(status.enabled);
+
+    setDemoMode(enabled);
+
+    if (!enabled) {
+      setScaleStatus(null);
     }
-  };
+
+    managerRef.current?.setDemoMode(enabled);
+  } catch (error) {
+    toast.error('Toggle demo mode failed:');
+    console.error('Toggle demo mode failed:', error);
+  }
+};
 
   const handleReset = (id: number) => {
     const m = managerRef.current;
@@ -463,32 +467,25 @@ export default function ScadaPage() {
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
             <button
               onClick={handleDemoModeToggle}
-              disabled={demoBusy}
               title="Bat/tat che do demo gan nhan B-A-C-D"
               style={{
                 height: '32px',
                 padding: '0 12px',
                 borderRadius: '8px',
 
-                border: demoBusy
-                  ? '1px solid rgba(234,179,8,0.6)' // yellow
-                  : demoMode
+                border: demoMode
                     ? '1px solid rgba(34,197,94,0.55)'
                     : '1px solid var(--border)',
 
-                background: demoBusy
-                  ? 'rgba(234,179,8,0.12)' // yellow bg
-                  : demoMode
+                background: demoMode
                     ? 'rgba(34,197,94,0.14)'
                     : 'var(--bg-elevated)',
 
-                color: demoBusy
-                  ? '#fbbf24' // yellow text
-                  : demoMode
+                color: demoMode
                     ? '#22c55e'
                     : 'var(--text-muted)',
 
-                cursor: demoBusy ? 'wait' : 'pointer',
+                cursor: 'pointer',
                 display: 'flex',
                 alignItems: 'center',
                 gap: '6px',
@@ -497,16 +494,10 @@ export default function ScadaPage() {
                 fontWeight: 800,
                 letterSpacing: '0.02em',
                 transition: 'all 0.15s',
-                opacity: demoBusy ? 0.7 : 1,
+                opacity: 1,
               }}
             >
-              {demoBusy ? (
-                <span className="pendingWrap">
-                  <span className="spinner" />
-                  PENDING
-                </span>
-              ) : (
-                <>
+              
                   <span
                     style={{
                       width: 7,
@@ -519,8 +510,7 @@ export default function ScadaPage() {
                     }}
                   />
                   {demoMode ? 'ON' : 'OFF'}
-                </>
-              )}
+                
             </button>
             {/* Config gear button */}
             <button
