@@ -25,6 +25,11 @@ const ROOM_CAMERA_MAP: Record<string, number[]> = {
 
 export default function StatisticsPage() {
   const [fruits, setFruits] = useState<FruitStatistics[]>([]);
+  const [total, setTotal] = useState(0);
+
+  const LIMIT = 200;
+  const [page, setPage] = useState(1);
+
   const [room, setRoom] = useState('ALL');
   const [grade, setGrade] = useState('ALL');
   const [date, setDate] = useState('');
@@ -38,15 +43,23 @@ export default function StatisticsPage() {
 
     async function loadFruits() {
       try {
-        const response = await listAuditDetections({ limit: 200 });
+        const response = await listAuditDetections({
+          limit: LIMIT,
+          offset: (page - 1) * LIMIT,
+        });
+        // const response = await listAuditDetections({ limit: 200 });
         if (cancelled) return;
         setFruits(mapAuditEventsToFruitStatistics(response.items));
+        setTotal(response.total);
+
         setError(null);
       } catch (err) {
         if (cancelled) return;
         setFruits([]);
         setError(
-          err instanceof Error ? err.message : 'Không thể tải dữ liệu PostgreSQL'
+          err instanceof Error
+            ? err.message
+            : 'Không thể tải dữ liệu PostgreSQL'
         );
       }
     }
@@ -58,7 +71,7 @@ export default function StatisticsPage() {
       cancelled = true;
       clearInterval(timer);
     };
-  }, []);
+  }, [page]);
 
   const filtered = useMemo(() => {
     return fruits.filter((fruit) => {
@@ -104,6 +117,8 @@ export default function StatisticsPage() {
     });
   }, [fruits, room, grade, date, time, range, maxTon]);
 
+  const totalPages = Math.ceil(total / LIMIT);
+
   const summary = useMemo(() => {
     const result = {
       total: filtered.length,
@@ -115,15 +130,25 @@ export default function StatisticsPage() {
       D: 0,
     };
 
+    const toGram = (kg: number) => Math.round(kg * 1000);
+
+    const fromGram = (g: number) => g / 1000;
+    let kgGram = 0;
+
     filtered.forEach((fruit) => {
-      result.kg += fruit.weight || 0;
+      kgGram += toGram(fruit.weight || 0);
+
       fruit.cameras.forEach((camera) => {
-        if (camera.grade) result[camera.grade]++;
+        const g = camera.grade;
+        if (g === 'A' || g === 'B' || g === 'C' || g === 'D') {
+          result[g]++;
+        }
       });
     });
+    result.kg = fromGram(kgGram);
 
-    if (result.kg < 1000) result.ton = result.kg;
-    else result.ton = result.kg / 1000;
+    result.ton =
+      result.kg < 1000 ? result.kg : Number((result.kg / 1000).toFixed(3));
 
     return result;
   }, [filtered]);
@@ -210,7 +235,10 @@ export default function StatisticsPage() {
 
       <section className={styles.cards}>
         <Card title="Tổng quả" value={summary.total} />
-        <Card title="Khối lượng" value={`${summary.kg < 1000 ? `${summary.ton} Kg` : `${summary.ton.toFixed(3)} Tấn`}`} />
+        <Card
+          title="Khối lượng"
+          value={`${summary.kg < 1000 ? `${summary.ton} Kg` : `${summary.ton.toFixed(3)} Tấn`}`}
+        />
         <Card title="Grade A" value={summary.A} />
         <Card title="Grade B" value={summary.B} />
         <Card title="Grade C" value={summary.C} />
@@ -276,6 +304,52 @@ export default function StatisticsPage() {
             ))}
           </tbody>
         </table>
+        <div className={styles.pagination}>
+          <button
+            className={styles.nav}
+            disabled={page === 1}
+            onClick={() => setPage(page - 1)}
+          >
+            ‹
+          </button>
+
+          {Array.from({ length: totalPages }, (_, i) => i + 1)
+            .filter((p) => {
+              return p === 1 || p === totalPages || Math.abs(p - page) <= 1;
+            })
+            .reduce<(number | string)[]>((acc, p, i, arr) => {
+              if (i > 0 && p - (arr[i - 1] as number) > 1) {
+                acc.push('...');
+              }
+              acc.push(p);
+              return acc;
+            }, [])
+            .map((item, index) =>
+              item === '...' ? (
+                <span key={index} className={styles.dots}>
+                  ...
+                </span>
+              ) : (
+                <button
+                  key={index}
+                  className={`${styles.pageBtn} ${
+                    page === item ? styles.active : ''
+                  }`}
+                  onClick={() => setPage(Number(item))}
+                >
+                  {item}
+                </button>
+              )
+            )}
+
+          <button
+            className={styles.nav}
+            disabled={page === totalPages}
+            onClick={() => setPage(page + 1)}
+          >
+            ›
+          </button>
+        </div>
       </section>
     </div>
   );

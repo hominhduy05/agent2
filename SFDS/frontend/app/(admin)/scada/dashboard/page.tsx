@@ -31,6 +31,12 @@ export default function DashboardPage() {
   const activeRate =
     totalCams > 0 ? Math.round((activeCams / totalCams) * 100) : 0;
 
+  const kpiStatus = useMemo(() => {
+    if (activeRate === 0) return 'OFFLINE';
+    if (errorCams > 0) return 'ATTENTION';
+    return 'ONLINE';
+  }, [activeRate, errorCams]);
+
   const priorityCameras = useMemo(() => {
     return [...visibleCameras]
       .sort(
@@ -38,7 +44,7 @@ export default function DashboardPage() {
           (b?.result?.detections?.length || 0) -
           (a?.result?.detections?.length || 0)
       )
-      .slice(0, 4);
+      .slice(0, 5);
   }, [visibleCameras]);
 
   const rangeOptions = [
@@ -116,7 +122,17 @@ export default function DashboardPage() {
               <div className={styles.kpiLabel}>Active Rate</div>
               <div className={styles.kpiValue}>{activeRate}%</div>
             </div>
-            <span className={styles.kpiChipWarning}>ATTENTION</span>
+            <span
+              className={
+                kpiStatus === 'OFFLINE'
+                  ? styles.kpiChipNeutral
+                  : kpiStatus === 'ATTENTION'
+                    ? styles.kpiChipWarning
+                    : styles.kpiChipSuccess
+              }
+            >
+              {kpiStatus}
+            </span>
           </div>
           <div className={styles.kpiMeta}>
             {errorCams} camera(s) reporting issues
@@ -125,55 +141,6 @@ export default function DashboardPage() {
       </section>
 
       <CameraStrip cameras={visibleCameras.slice(0, 5)} />
-
-      <section className={styles.mainGrid}>
-        <div className={styles.chartCard}>
-          <div className={styles.sectionHeader}>
-            <div>
-              <h3 className={styles.cardTitle}>Detection Activity</h3>
-              <p className={styles.sectionSubtitle}>
-                Live detection counts by camera
-              </p>
-            </div>
-          </div>
-
-          <div className={styles.chartArea}>
-            <DetectionChart cameras={visibleCameras} />
-          </div>
-        </div>
-
-        <div className={styles.sideStack}>
-          <div className={styles.chartCard}>
-            <div className={styles.sectionHeader}>
-              <div>
-                <h3 className={styles.cardTitle}>System Status</h3>
-                <p className={styles.sectionSubtitle}>
-                  Online vs offline availability
-                </p>
-              </div>
-            </div>
-
-            <div className={styles.chartAreaSmall}>
-              <StatusDonut active={activeCams} inactive={inactiveCams} />
-            </div>
-          </div>
-        </div>
-      </section>
-
-      <div className={styles.chartCardAlert}>
-        <div className={styles.sectionHeader}>
-          <div>
-            <h3 className={styles.cardHeader}>Recent Alerts</h3>
-            <p className={styles.sectionSubtitle}>
-              Latest detections with activity
-            </p>
-          </div>
-        </div>
-
-        <div className={styles.chartBody}>
-          <RecentAlerts cameras={visibleCameras} />
-        </div>
-      </div>
 
       <section className={styles.bottomGrid}>
         <div className={styles.chartCard}>
