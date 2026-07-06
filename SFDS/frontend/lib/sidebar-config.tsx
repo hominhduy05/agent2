@@ -9,6 +9,8 @@ import {
   CameraManagerIcon,
   PieChartIcon,
   BellIcon,
+  DatasetIcon,
+  ScadaIcon,
 } from '@/icons';
 
 import { UserRole } from './auth-users';
@@ -28,7 +30,7 @@ export const SIDEBAR_BY_ROLE: Record<UserRole, SidebarItem[]> = {
   ADMIN: [
     {
       name: 'SCADA',
-      icon: <PieChartIcon />,
+      icon: <UserCircleIcon />,
       subItems: [
         {
           name: 'Dashboard',
@@ -43,7 +45,7 @@ export const SIDEBAR_BY_ROLE: Record<UserRole, SidebarItem[]> = {
 
     {
       name: 'Dataset',
-      icon: <AnalyserIcon />,
+      icon: <DatasetIcon />,
       path: '/dataset',
     },
 

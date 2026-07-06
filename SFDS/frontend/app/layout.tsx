@@ -3,6 +3,7 @@ import './globals.css';
 import { ThemeProvider } from '@/components/context/ThemeContext';
 import { SidebarProvider } from '@/components/context/SidebarContext';
 import { AuthProvider } from '@/components/dashboard/AuthProvider';
+import { Toaster } from 'react-hot-toast';
 
 export const metadata: Metadata = {
   title: 'Pione Trace — Smart Agriculture',
@@ -37,7 +38,10 @@ export default function RootLayout({
       <body>
         <ThemeProvider>
           <SidebarProvider>
-            <AuthProvider>{children}</AuthProvider>
+            <AuthProvider>
+              <Toaster position="top-right" />
+              {children}
+              </AuthProvider>
           </SidebarProvider>
         </ThemeProvider>
       </body>
