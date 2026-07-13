@@ -1,4 +1,4 @@
-# SFDS - Smart Fruit/Durian Sorting System
+# Smart Durian Sorting System
 
 Repository này chứa hệ thống phân loại sầu riêng theo thời gian thực và lớp
 Agentic AI giám sát đang được tách riêng để review trước khi tích hợp vào runtime
