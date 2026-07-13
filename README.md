@@ -1,663 +1,419 @@
-# SFDS — Durian Sorting & Fault Detection System
+# SFDS - Smart Fruit/Durian Sorting System
 
-A real-time IoT system for durian sorting combined with an AI vision assistant. It consists of two subsystems: **SFDS** (SCADA + YOLO) and **Agent** (Multi-Agent AI).
+Repository này chứa hệ thống phân loại sầu riêng theo thời gian thực và lớp
+Agentic AI giám sát đang được tách riêng để review trước khi tích hợp vào runtime
+chính.
 
----
+Hiện codebase được tổ chức thành 2 phần chính:
 
-## Table of Contents
+| Folder | Vai trò | Trạng thái |
+| --- | --- | --- |
+| `SFDS/` | Hệ thống chính: FastAPI backend, Next.js frontend, YOLO inference, SCADA, camera, dataset, sorting, PostgreSQL/SQLite, ESP32 relay | Runtime chính |
+| `agentic/` | Scaffold Agentic AI: monitor, anomaly detection, recommendation, action policy, UI/API mẫu | Staging, chưa nằm trong luồng điều khiển thật |
 
-1. [System Architecture](#system-architecture)
-2. [Installation](#installation)
-3. [Launching the System](#launching-the-system)
-4. [LM Studio — LLM Inference Server](#lm-studio--llm-inference-server)
-5. [SFDS Backend — SCADA + YOLO Detection](#sfds-backend--scada--yolo-detection)
-6. [SFDS Frontend — Dashboard & SCADA UI](#sfds-frontend--dashboard--scada-ui)
-7. [Agent Backend — Multi-Agent AI](#agent-backend--multi-agent-ai)
-8. [Agent Frontend — AI Assistant UI](#agent-frontend--ai-assistant-ui)
-9. [Database & Storage](#database--storage)
-10. [API Reference](#api-reference)
-11. [Model & Training](#model--training)
-12. [WebSocket — Realtime Detection](#websocket--realtime-detection)
+> Nguyên tắc an toàn: luồng camera -> YOLO -> sorting -> relay/cylinder vẫn là
+> deterministic. Agentic AI chỉ quan sát, phân tích, cảnh báo, gợi ý và audit;
+> không trực tiếp điều khiển relay, cylinder hoặc emergency flow.
 
 ---
 
-## System Architecture
+## Cấu trúc thư mục tổng
 
+```text
+.
+├── README.md
+├── SFDS/
+│   ├── README.md
+│   ├── sfds.bat
+│   ├── docker-compose.postgres.yml
+│   ├── docker/
+│   │   └── postgres/
+│   ├── scripts/
+│   │   └── sfds.ps1
+│   ├── docs/
+│   │   └── agentic-ai-structure.md
+│   ├── backend/
+│   │   ├── main.py
+│   │   ├── requirements.txt
+│   │   ├── api/
+│   │   ├── core/
+│   │   ├── db/
+│   │   ├── routers/
+│   │   ├── services/
+│   │   ├── scripts/
+│   │   ├── esp32/
+│   │   ├── dataset/
+│   │   ├── model/
+│   │   └── runs/
+│   └── frontend/
+│       ├── app/
+│       ├── components/
+│       ├── hooks/
+│       ├── icons/
+│       ├── lib/
+│       ├── public/
+│       ├── package.json
+│       └── bun-ws.ts
+└── agentic/
+    ├── README.md
+    ├── SFDS_AGENTIC_AI_IMPLEMENTATION_PROMPT.md
+    ├── backend/
+    │   ├── agentic/
+    │   │   ├── actions/
+    │   │   ├── agents/
+    │   │   ├── analyzers/
+    │   │   ├── memory/
+    │   │   ├── monitors/
+    │   │   ├── policies/
+    │   │   ├── runtime/
+    │   │   └── schemas/
+    │   └── routers/
+    │       └── agent_router.py
+    ├── frontend/
+    │   ├── app/
+    │   ├── components/
+    │   └── lib/
+    └── tests/
 ```
-BROWSER
-│
-├─── http://localhost:3000 ──────────────────────────────── Agent Frontend (Next.js)
-│         │                                                  │
-│         │ POST /api/agent/stream (SSE)                    │
-│         │ GET  /api/vision/analyze (multipart)             │
-│         │ GET  /api/report/list                            │
-│         │                                                  │
-│         └────────────────┬─────────────────────────────────┘
-│                          │ REST / SSE
-│              ┌───────────▼───────────┐
-│              │   Agent Backend      │  port 8001
-│              │   FastAPI + LangGraph │  (Vision Assistant API)
-│              │   3 agents:          │
-│              │   Vision / Chat /     │
-│              │   Report             │
-│              └───────────┬───────────┘
-│                          │ httpx (calls SFDS health/cameras/stats)
-│              ┌───────────▼───────────┐
-│              │   SFDS Backend        │  port 9000
-│              │   FastAPI + YOLOv8    │  (SCADA Detection API)
-│              │   WebSocket Server    │
-│              └───────────┬───────────┘
-│                          │ httpx (calls LLM)
-│              ┌───────────▼───────────┐
-│              │   LM Studio          │  port 1234
-│              │   LLM Inference      │  (nvidia/nemotron-3-nano-*)
-│              └───────────────────────┘
-```
-
-### Two Subsystems
-
-| Subsystem | Directory | Description | Port |
-|-----------|-----------|-------------|------|
-| **SFDS** | `SFDS/` | Real-time SCADA + YOLO detection + Dataset management | 9000 |
-| **Agent** | `agent/` | Multi-agent AI assistant (vision analysis, chat, reports) | 8001 |
 
 ---
 
-## Installation
+## SFDS runtime chính
 
-### System Requirements
+`SFDS/` là ứng dụng đang chạy thật.
 
-- Python 3.10+
-- Node.js / Bun (for frontend)
-- CUDA-capable GPU (optional, for faster YOLO inference)
-- [LM Studio](https://lmstudio.ai/) (for running LLM locally)
+### Backend
 
-### 1. SFDS Backend
+Backend nằm tại `SFDS/backend/` và dùng FastAPI.
+
+Các nhóm chính:
+
+| Path | Mục đích |
+| --- | --- |
+| `main.py` | Khởi tạo FastAPI app, CORS, database, serial scale reader và mount router |
+| `routers/scada_router.py` | Camera, SCADA, WebSocket realtime detection, sorting endpoints |
+| `routers/dataset_router.py` | Dataset capture, label, export và detect API |
+| `routers/audit_router.py` | Audit detection/sorting/summary |
+| `core/` | Inference engine, tracking, auth, shared state, database helpers |
+| `db/` | SQLAlchemy models, session, repository, database lifecycle |
+| `services/` | Sorting controller, MQTT publisher, ESP32 relay, scale reader, dataset service, logging |
+| `scripts/` | Train, evaluate, export model, prepare dataset |
+| `esp32/` | Firmware relay controller |
+| `model/` | Nơi đặt model YOLO local, không commit model lớn |
+| `dataset/` | Ảnh và label YOLO thu thập tại máy |
+
+Backend mặc định chạy ở:
+
+```text
+http://127.0.0.1:9000
+```
+
+Endpoint quan trọng:
+
+```text
+GET  /health/
+POST /detect/
+GET  /api/scada/cameras/
+GET  /api/scada/cameras/health/
+POST /api/scada/detect/{slot}/
+WS   /ws/scada/detect/{slot}/
+GET  /api/scada/sorting/config/
+GET  /api/scada/sorting/commands/
+GET  /api/scada/sorting/esp32/
+GET  /api/audit/detections/
+GET  /api/audit/sorting-commands/
+GET  /api/audit/summary/
+```
+
+### Frontend
+
+Frontend nằm tại `SFDS/frontend/` và dùng Next.js.
+
+Các nhóm chính:
+
+| Path | Mục đích |
+| --- | --- |
+| `app/` | App Router, layout, login, admin pages |
+| `app/(admin)/scada/` | SCADA dashboard, monitor, camera room |
+| `app/(admin)/dataset/` | Thu thập ảnh, gán nhãn, quản lý dataset |
+| `app/(admin)/analytics/` | Thống kê và phân tích |
+| `app/(admin)/detection-history/` | Lịch sử detection |
+| `app/(admin)/statistics/` | Thống kê trái và hệ thống |
+| `components/` | UI, dashboard, layout, SCADA camera components |
+| `hooks/` | Hook realtime và SCADA state |
+| `lib/` | API client, WebSocket client, auth, stores, camera/detection utilities |
+| `bun-ws.ts` | WebSocket proxy cũ cho một số flow realtime |
+
+Frontend mặc định chạy ở:
+
+```text
+http://127.0.0.1:3000
+```
+
+---
+
+## Chạy nhanh trên Windows
+
+Vào folder `SFDS/` rồi chạy:
+
+```bat
+sfds.bat
+```
+
+Lệnh này chạy chế độ server/factory:
+
+1. Khởi động PostgreSQL bằng Docker.
+2. Chuẩn bị Conda backend environment.
+3. Cài backend dependencies nếu cần.
+4. Cài frontend dependencies nếu cần.
+5. Chọn IP LAN và port còn trống.
+6. Mở backend, frontend và Bun proxy nếu có Bun.
+7. Lưu URL vào `SFDS/sfds_launch_info.txt`.
+
+Chạy demo/dev không cần Docker PostgreSQL:
+
+```bat
+sfds.bat dev
+```
+
+Một số lệnh hỗ trợ:
+
+```bat
+sfds.bat db-status
+sfds.bat db-logs
+sfds.bat backup
+sfds.bat camera-check
+sfds.bat webcam-check
+```
+
+Xem chi tiết trong `SFDS/README.md`.
+
+---
+
+## Chạy thủ công
+
+### Backend
 
 ```bash
-cd F:/system/SFDS/backend
+cd SFDS/backend
+conda activate admin
 pip install -r requirements.txt
+uvicorn main:app --host 127.0.0.1 --port 9000 --reload
 ```
 
-### 2. Agent Backend
+Kiểm tra:
 
-```bash
-cd F:/system/agent/backend
-pip install -r requirements.txt
+```text
+http://127.0.0.1:9000/health/
+http://127.0.0.1:9000/docs
 ```
 
-### 3. SFDS Frontend
+### Frontend
 
 ```bash
-cd F:/system/SFDS/frontend
-bun install
-```
-
-### 4. Agent Frontend
-
-```bash
-cd F:/system/agent/frontend
+cd SFDS/frontend
 npm install
-```
-
----
-
-## Launching the System
-
-### Required Startup Order
-
-```
-1. LM Studio        Load model + Start Server  →  port 1234
-2. SFDS Backend     uvicorn main:app           →  port 9000
-3. Agent Backend    uvicorn app.main:app       →  port 8001
-4. SFDS Frontend    bun run dev                →  port 5173 (or 3000)
-5. Agent Frontend   npm run dev                →  port 3000
-```
-
-### 1. LM Studio
-
-1. Open LM Studio and download models:
-   - `nvidia/nemotron-3-nano-omni` (for Vision Agent)
-   - `nvidia/nemotron-3-nano-4b` (for Chat Agent)
-   - `qwen/qwen3.5-9b` (for Report Agent)
-2. Click **Server** (developer icon in the bottom-left corner) → **Start Server**
-3. Default: `http://localhost:1234`
-
-### 2. SFDS Backend
-
-```bash
-cd F:/system/SFDS/backend
-uvicorn main:app --reload --port 9000
-```
-
-- API docs: http://localhost:9000/docs
-- Health: http://localhost:9000/health/
-- Model auto-loads on startup (`.pt` → `.onnx` → TensorRT)
-
-### 3. Agent Backend
-
-```bash
-cd F:/system/agent/backend
-uvicorn app.main:app --host 0.0.0.0 --port 8001
-```
-
-- API docs: http://localhost:8001/docs
-- Health: http://localhost:8001/health
-- Agent stream: POST http://localhost:8001/api/agent/stream
-
-### 4. SFDS Frontend
-
-```bash
-cd F:/system/SFDS/frontend
-bun run dev
-```
-
-- Dashboard: http://localhost:5173
-- SCADA: http://localhost:5173/scada
-- Dataset: http://localhost:5173/dataset
-
-### 5. Agent Frontend
-
-```bash
-cd F:/system/agent/frontend
 npm run dev
 ```
 
-- Home: http://localhost:3000
-- Chat: http://localhost:3000/chat
-- Analyze: http://localhost:3000/analyze
-- Reports: http://localhost:3000/reports
-
----
-
-## LM Studio — LLM Inference Server
-
-LM Studio is a local LLM inference server. Both the **Agent Backend** and **SFDS Backend** call LM Studio via REST API.
-
-### Configuration in Agent Backend
-
-Create the file `agent/backend/.env` if needed:
-
-```env
-lm_studio_url=http://localhost:1234/v1/chat/completions
-vision_agent_model=nvidia/nemotron-3-nano-omni
-chat_agent_model=nvidia/nemotron-3-nano-4b
-report_agent_model=qwen/qwen3.5-9b
-sfds_base_url=http://localhost:9000
-```
-
-### Check LM Studio status
+Nếu cần chạy kèm Bun WebSocket proxy:
 
 ```bash
-curl http://localhost:1234/v1/models
+npm run dev:full
 ```
 
 ---
 
-## SFDS Backend — SCADA + YOLO Detection
+## Model YOLO
 
-### Structure
+Model lớn không được commit vào git. Sau khi clone hoặc chuyển máy, đặt model
+vào:
 
-```
-SFDS/backend/
-├── main.py                    # FastAPI app (port 9000)
-├── routers/
-│   ├── scada_router.py        # WebSocket, RTSP camera proxy
-│   └── dataset_router.py       # Detection, Dataset CRUD
-├── core/
-│   ├── shared.py              # YOLO engine, schemas
-│   ├── database.py             # SQLite models
-│   └── sort_tracker.py         # SORT Kalman tracking
-├── services/
-│   ├── dataset_service.py      # Save images + YOLO labels
-│   └── mqtt_publisher.py       # MQTT broker client
-├── scripts/
-│   ├── train.py               # Train YOLOv8
-│   ├── export_model.py        # Export .pt → .onnx
-│   └── evaluate_model.py      # Evaluation
-└── model/
-    ├── durian_yolov8.pt       # YOLOv8 PyTorch (PREFERRED)
-    ├── durian_yolov8.onnx     # YOLOv8 ONNX
-    ├── durian_yolov8.engine   # TensorRT CUDA
-    ├── durian_abc.pt          # ABC grading model (A/B/C)
-    └── durian_abc.onnx
+```text
+SFDS/backend/model/
 ```
 
-### Model Loading Priority
+Các tên file backend đang hỗ trợ:
 
-| Order | File | Engine | Device |
-|-------|------|--------|--------|
-| 1 | `durian_yolov8.pt` | YOLOEngine (ultralytics) | CUDA / CPU |
-| 2 | `durian_yolov8.onnx` | YOLOEngine (ultralytics) | CUDA / CPU |
-| 3 | TensorRT `.engine` | TRTEngine (ONNX Runtime CUDA) | CUDA only |
-
-### Detection Classes
-
-```
-defective  → rotten, damaged
-immature   → unripe
-mature     → ripe
+```text
+durian_yolo26m_seg.pt
+durian_yolov8.pt
+durian_yolo26m_seg.onnx
+durian_yolov8.onnx
+durian_yolo26m_seg.engine
 ```
 
-### Quality Gate (WebSocket)
+Hoặc trỏ trực tiếp bằng biến môi trường:
 
-When a frame is received via WebSocket, the system runs through a **Quality Gate** to ensure only high-quality frames proceed to classification:
-
-1. **Blur check** — cv2.Laplacian variance >= 40
-2. **ROI check** — fruit center is within 18%–82% (x) and 16%–84% (y)
-3. **Edge margin** — fruit is at least 3.5% away from frame edges
-4. **Area ratio** — fruit size is 2%–75% of frame area
-5. **Stability** — fruit remains at the same position for 2+ consecutive frames
-
-If all checks pass → the result is sent back to the client via WebSocket.
-
-### SORT Tracker
-
-Uses **SORT (Simple Online and Realtime Tracking)** to assign IDs to each fruit and count unique items:
-
-- **Kalman Filter** — predicts position in the next frame
-- **Hungarian Algorithm** — matches detections to existing tracks
-- **IOU Matching** — only matches if IOU >= 0.3
-
----
-
-## SFDS Frontend — Dashboard & SCADA UI
-
-### Structure
-
-```
-SFDS/frontend/
-├── app/
-│   ├── page.tsx               # Root → redirect /dashboard
-│   ├── dashboard/             # Overview page
-│   ├── scada/                 # Realtime camera + detection
-│   └── dataset/               # Image collection + labeling
-├── components/
-│   ├── scada/                 # Camera, detection overlay
-│   ├── dashboard/
-│   └── ui/
-└── lib/
-    ├── api.ts                 # REST API calls
-    ├── scada-camera.ts        # Camera capture + WebSocket
-    ├── ws-client.ts           # WebSocket client
-    └── types.ts
+```powershell
+$env:DURIAN_MODEL_PATH="D:\path\to\model.pt"
 ```
 
-### Main Pages
+Thiết bị inference:
 
-| Route | Description |
-|-------|-------------|
-| `/dashboard` | Overview of KPIs, charts, statistics |
-| `/scada` | Realtime camera, durian detection |
-| `/dataset` | Image collection + YOLO labeling |
-
----
-
-## Agent Backend — Multi-Agent AI
-
-### Multi-Agent Architecture (LangGraph)
-
-```
-User message
-    │
-    ▼
-┌─────────────────┐
-│ supervisor_node │  ← Keyword routing
-└───────┬─────────┘
-        │
-        ├── image? ────────────→ vision_agent ──→ END
-        ├── report/pdf? ───────→ report_agent ──→ END
-        └── default ───────────→ chat_agent ────→ END
-
-chat_agent tools:    get_sfds_health, get_sfds_cameras, get_sfds_stats,
-                     get_chat_history, get_current_sfds_status
-
-vision_agent tools:  analyze_image, extract_dashboard_metrics,
-                     diagnose_error, get_sfds_health, get_sfds_cameras
-
-report_agent tools:  generate_report (PDF / DOCX / HTML)
-```
-
-### ReAct Loop
-
-Each agent uses **ReAct** (Reason + Act) — the LLM iterates through the following loop:
-
-```
-LLM analyzes message
-    │
-    ├── No tool needed → Reply with text
-    │
-    └── Tool needed → Call tool function → Get result
-         │
-         ▼
-    LLM reasons further with tool result
-         │
-         ├── Another tool? → Repeat
-         └── Final answer
-```
-
-### Structure
-
-```
-agent/backend/app/
-├── main.py                  # FastAPI bootstrap
-├── core/config.py           # Settings + system prompts
-├── api/v1/
-│   ├── api.py               # Router aggregation
-│   └── endpoints/
-│       ├── chat.py          # /api/chat/* (offline mode)
-│       ├── agent.py         # /api/agent/* (multi-agent)
-│       ├── vision.py        # /api/vision/*
-│       ├── report.py        # /api/report/*
-│       └── sfds.py          # /api/sfds/*
-├── agents/
-│   ├── graph.py             # LangGraph state machine
-│   ├── router.py            # Agent streaming endpoint
-│   ├── base.py              # LMStudio LLM wrapper
-│   ├── state.py             # AgentState TypedDict
-│   ├── session.py           # Session manager
-│   └── tools/
-│       ├── sfds.py          # SFDS tools (health, cameras, stats)
-│       ├── chat.py          # Chat tools (history, status)
-│       ├── vision.py        # Vision tools (analyze, diagnose)
-│       └── report.py        # Report tool (PDF/DOCX/HTML)
-├── services/
-│   ├── llm_service.py       # Direct LLM calls (bypassing agent)
-│   ├── sfds_service.py      # Proxy SFDS backend
-│   ├── report_service.py    # Generate PDF/DOCX/HTML
-│   └── sfds_event_store.py  # In-memory event log
-└── schemas/schemas.py
-```
-
-### Available Tools
-
-| Tool | Agent | Description |
-|------|-------|-------------|
-| `get_sfds_health` | chat, vision | Get SFDS backend status |
-| `get_sfds_cameras` | chat, vision | Get camera configuration |
-| `get_sfds_stats` | chat, vision | Get dataset statistics |
-| `get_chat_history` | chat | Retrieve conversation history |
-| `get_current_sfds_status` | chat | Retrieve current SFDS status |
-| `analyze_image` | vision | Analyze image with vision LLM |
-| `extract_dashboard_metrics` | vision | Extract metrics from dashboard image |
-| `diagnose_error` | vision | Diagnose errors from image |
-| `generate_report` | report | Generate PDF / DOCX / HTML report |
-
----
-
-## Agent Frontend — AI Assistant UI
-
-### Structure
-
-```
-agent/frontend/src/
-├── app/
-│   ├── page.tsx             # Home - overview + quick actions
-│   ├── layout.tsx           # Root layout
-│   ├── globals.css          # Global styles
-│   ├── chat/page.tsx        # Chat assistant
-│   ├── analyze/page.tsx     # Image analysis
-│   └── reports/page.tsx     # Report list & download
-├── components/
-│   ├── AppShell.tsx         # Main layout wrapper
-│   ├── StatusPill.tsx       # Status indicator
-│   ├── ChatAssistant.tsx    # Main chat component
-│   └── chat/
-│       ├── ChatContainer.tsx
-│       ├── ChatInput.tsx
-│       ├── ChatMessages.tsx
-│       └── MarkdownContent.tsx
-└── lib/
-    └── api.ts               # Backend API calls
-```
-
-### Pages
-
-| Route | Description |
-|-------|-------------|
-| `/` | Dashboard overview, system status pills, quick actions |
-| `/chat` | Chat Assistant — Q&A with multi-agent |
-| `/analyze` | Image analysis — upload/capture + select analysis type |
-| `/analyze?tab=dashboard` | Dashboard reader — extract metrics |
-| `/analyze?tab=error` | Error diagnosis |
-| `/reports` | Report list + download PDF/DOCX/HTML |
-
----
-
-## Database & Storage
-
-### SFDS Backend Database
-
-SQLite at `SFDS/backend/durian.db`:
-
-| Table | Description |
-|-------|-------------|
-| `employees` | User accounts (admin/inspector) |
-| `inspection_logs` | Inspection history |
-| `kpi_targets` | KPI targets |
-| `shifts` | Production shifts |
-| `alarm_logs` | Alarm log |
-| `trace_logs` | Fruit traceability |
-
-Default admin: `admin` / `admin123`
-
-### Dataset Storage
-
-`SFDS/backend/dataset/`:
-
-```
-dataset/
-├── images/
-│   ├── export_criteria/      A/ B/ C/ D (ABCD grading)
-│   └── condition/           Green/ Frosted/ Ripe/ Damaged/ Rotten
-└── labels/                  (YOLO format .txt)
-```
-
-### Agent Report Storage
-
-`agent/backend/storage/`:
-
-```
-storage/
-├── images/                   Analyzed images
-└── reports/                  Generated PDF/DOCX/HTML
+```bat
+set DURIAN_DEVICE=auto
+set DURIAN_DEVICE=cpu
+set DURIAN_DEVICE=cuda
 ```
 
 ---
 
-## API Reference
+## Database và storage
 
-### SFDS Backend (port 9000)
+SFDS hỗ trợ:
 
-#### Detection
+| Mode | Mục đích |
+| --- | --- |
+| SQLite local | Demo/dev nhanh |
+| PostgreSQL offline qua Docker | Factory/server mode |
 
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| POST | `/detect/` | Upload image → YOLO detection |
-| POST | `/api/scada/detect/{slot}/` | Detect frame from IP camera slot |
-| POST | `/api/detect/batch/` | Batch detection |
+Các dữ liệu runtime quan trọng:
 
-#### SCADA — RTSP Camera
+```text
+SFDS/backend/dataset/      Ảnh và label YOLO
+SFDS/backend/model/        Model local
+SFDS/backend/runs/         Kết quả train/evaluate
+SFDS/logs/                 Log vận hành
+SFDS/sfds_launch_info.txt  URL sau khi chạy launcher
+```
 
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| GET | `/api/scada/cameras/` | Get configuration of 4 RTSP slots |
-| POST | `/api/scada/cameras/` | Save RTSP URL configuration |
-| GET | `/api/scada/frame/{slot}/` | Read one JPEG frame from IP camera |
-| POST | `/api/scada/cameras/{slot}/start/` | Start IP camera |
-| POST | `/api/scada/cameras/{slot}/stop/` | Stop IP camera |
-| WS | `/ws/scada/detect/{slot}/` | Realtime detection via WebSocket |
-
-#### Dataset
-
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| POST | `/api/dataset/save-face/` | Save image + YOLO labels |
-| GET | `/api/dataset/items/` | List items |
-| GET | `/api/dataset/stats/` | Statistics by label |
-| DELETE | `/api/dataset/items/{cat}/{label}/{file}/` | Delete item |
-| GET | `/api/dataset/export/` | Export dataset as ZIP |
-| GET | `/api/dataset/data-yaml/` | Generate `data.yaml` |
-
-### Agent Backend (port 8001)
-
-#### Vision
-
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| POST | `/api/vision/analyze` | Analyze image |
-| POST | `/api/vision/dashboard` | Extract dashboard metrics |
-| POST | `/api/vision/error` | Diagnose error |
-| POST | `/api/vision/camera` | Analyze camera frame |
-
-#### Chat (offline mode — bypassing agent)
-
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| POST | `/api/chat/message` | Send message (sync) |
-| POST | `/api/chat/stream` | Send message (streaming SSE) |
-| GET | `/api/chat/history/{session_id}` | Get history |
-
-#### Agent (multi-agent mode)
-
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| POST | `/api/agent/stream` | Stream multi-agent response (SSE) |
-| GET | `/api/agent/models` | List models |
-| GET | `/api/agent/session/{session_id}` | Get session info |
-| GET | `/api/agent/sessions` | List sessions |
-| DELETE | `/api/agent/session/{session_id}` | Delete session |
-
-#### Report
-
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| POST | `/api/report/generate` | Generate report |
-| GET | `/api/report/list` | List reports |
-| GET | `/api/report/download/{report_id}` | Download report |
-
-#### SFDS Proxy
-
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| GET | `/api/sfds/health` | Check SFDS online/offline |
-| GET | `/api/sfds/cameras` | Proxy get cameras |
-| GET | `/api/sfds/stats` | Proxy get stats |
-| POST | `/api/sfds/events` | Send event |
-| GET | `/api/sfds/events` | Get event log |
+Các file runtime/machine-specific như database local, model, camera config,
+node_modules và cache đã được ignore.
 
 ---
 
-## WebSocket — Realtime Detection
+## Sorting và phần cứng
 
+Luồng sorting nằm trong `SFDS/backend/services/` và `SFDS/backend/routers/scada_router.py`.
+
+Các thành phần liên quan:
+
+| Thành phần | File/folder |
+| --- | --- |
+| Vote/final grade/sorting command | `services/sorting_controller.py` |
+| Publish MQTT/event | `services/mqtt_publisher.py` |
+| ESP32 relay bridge | `services/esp32_relay_controller.py` |
+| Serial scale | `services/serial_scale_reader.py` |
+| Firmware | `backend/esp32/final2.ino` |
+
+Mặc định nên giữ chế độ dry-run trong giai đoạn commissioning. Chỉ bật relay
+thật khi đã kiểm tra wiring, delay, sensor và rule sorting.
+
+---
+
+## Agentic AI scaffold
+
+`agentic/` là lớp Agentic AI giám sát đang được để riêng ngoài runtime chính.
+Mục tiêu là review và kiểm thử trước khi copy/wire vào `SFDS/`.
+
+Các phần chính:
+
+| Path | Mục đích |
+| --- | --- |
+| `backend/agentic/runtime/` | Orchestrator và vòng đời agent run |
+| `backend/agentic/monitors/` | Thu thập snapshot hệ thống |
+| `backend/agentic/analyzers/` | Rule-based anomaly detection |
+| `backend/agentic/agents/supervisor/` | Supervisor giải thích cảnh báo và khuyến nghị |
+| `backend/agentic/actions/` | Action registry và executor an toàn |
+| `backend/agentic/policies/` | Threshold, policy, approval/risk checks |
+| `backend/agentic/memory/` | Event store MVP và alert deduplication |
+| `backend/agentic/schemas/` | Pydantic schemas |
+| `backend/routers/agent_router.py` | Router API mẫu để wire vào SFDS backend |
+| `frontend/app/(admin)/agent/` | Trang admin Agent mẫu |
+| `frontend/components/agent/` | Overview, alerts, recommendations, timeline |
+| `tests/` | Test safety và anomaly rules |
+
+Endpoint MVP của scaffold:
+
+```text
+GET  /api/agent/status
+POST /api/agent/runs
+GET  /api/agent/runs
+GET  /api/agent/alerts
+POST /api/agent/alerts/{alert_id}/acknowledge
+GET  /api/agent/recommendations
+GET  /api/agent/actions
+POST /api/agent/actions
 ```
-ws://localhost:9000/ws/scada/detect/{slot}/
+
+Khi tích hợp vào runtime chính, target dự kiến là:
+
+```text
+SFDS/backend/agentic/
+SFDS/backend/routers/agent_router.py
+SFDS/frontend/app/(admin)/agent/
+SFDS/frontend/components/agent/
+SFDS/frontend/lib/agent-api.ts
+SFDS/frontend/lib/agent-types.ts
 ```
 
-**Client → Server:**
+Sau đó mount router trong `SFDS/backend/main.py`:
 
-```json
-{ "type": "frame", "data": "<base64 jpeg>" }
-{ "type": "set_confidence", "value": 0.25 }
-{ "type": "ping" }
-```
+```python
+from routers.agent_router import router as agent_router
 
-**Server → Client:**
-
-```json
-// Quality status (not yet met)
-{
-  "type": "quality_status",
-  "slot": 0,
-  "phase": "tracking",
-  "reason": "waiting_for_stability",
-  "blur_score": 85.2,
-  "stable_frames": 1,
-  "checks": { "area_ok": true, "roi_ok": true, ... }
-}
-
-// Detection result (met)
-{
-  "type": "result",
-  "slot": 0,
-  "detections": [
-    { "x1": 0, "y1": 0, "x2": 100, "y2": 200,
-      "confidence": 0.92, "class_name": "mature" }
-  ],
-  "image_width": 640,
-  "image_height": 480,
-  "unique_mature": 1,
-  "unique_immature": 0,
-  "unique_defective": 0,
-  "quality": { "phase": "captured", "reason": "frame_accepted", "blur_score": 85.2 }
-}
+app.include_router(agent_router)
 ```
 
 ---
 
-## Model & Training
+## Test nhanh
 
-### YOLO Label Format
-
-Each line: `class_id x_center y_center width height` (normalized 0 → 1)
-
-```
-0 0.5123 0.4876 0.2341 0.3187
-```
-
-### Class IDs
-
-**export_criteria:**
-
-| ID | Label |
-|----|-------|
-| 0 | A |
-| 1 | B |
-| 2 | C |
-| 3 | D |
-
-**condition:**
-
-| ID | Label |
-|----|-------|
-| 0 | Green |
-| 1 | Frosted |
-| 2 | Ripe |
-| 3 | Damaged |
-| 4 | Rotten |
-
-### Training
+Chạy test Agentic AI scaffold:
 
 ```bash
-cd F:/system/SFDS/backend
-python scripts/train.py
+python -m pytest agentic/tests
 ```
 
-The model is saved to `backend/model/durian_yolov8.pt`.
+Chạy backend health sau khi start SFDS:
 
-### Export to ONNX
-
-```bash
-cd F:/system/SFDS/backend
-python scripts/export_model.py
+```text
+http://127.0.0.1:9000/health/
 ```
 
-### Export to TensorRT (requires CUDA GPU)
+Chạy camera check:
 
-```bash
-cd F:/system/SFDS/backend
-python -c "
-from ultralytics import YOLO
-model = YOLO('model/durian_yolov8.pt')
-model.export(format='engine')
-"
+```bat
+cd SFDS
+sfds.bat camera-check
 ```
 
 ---
 
-## Notes
+## Tài liệu chi tiết
 
-- `bun run lint` on the SFDS frontend may fail because `next lint` has been deprecated (Next.js 15).
-- `bun run build` may hang on Windows. Prefer `dev`.
-- Both SFDS Backend and Agent Backend require LM Studio to be running in order to function properly.
-- The dataset export format is YOLO standard and is compatible with `yolo detect train`.
+| File | Nội dung |
+| --- | --- |
+| `SFDS/README.md` | Hướng dẫn chạy SFDS, model, camera, PostgreSQL offline, sorting/relay |
+| `agentic/README.md` | Mô tả scaffold Agentic AI và target tích hợp |
+| `agentic/SFDS_AGENTIC_AI_IMPLEMENTATION_PROMPT.md` | Prompt/spec thiết kế Agentic AI supervision layer |
+| `SFDS/docs/agentic-ai-structure.md` | Ghi chú cấu trúc Agentic AI trong ngữ cảnh SFDS |
+
+---
+
+## Ghi chú trước khi commit
+
+Không commit các artifact runtime hoặc file nặng:
+
+```text
+SFDS/backend/**/*.db
+SFDS/backend/model/*.pt
+SFDS/backend/model/*.onnx
+SFDS/backend/model/*.engine
+SFDS/frontend/node_modules/
+SFDS/backend/__pycache__/
+SFDS/backend/.ultralytics/
+```
+
+Nên commit:
+
+```text
+source code
+README/docs
+requirements.txt
+package.json
+package-lock.json
+config example
+test files
+```
