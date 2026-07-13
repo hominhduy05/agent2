@@ -176,7 +176,7 @@ export default function CameraManagementPage() {
       <div className={styles.header}>
         <div>
           <div className={styles.title}>
-            <Camera size={16} style={{ marginRight: 8 }} />
+            <Camera size={18}/>
             CAMERA MANAGEMENT
           </div>
 

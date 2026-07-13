@@ -314,6 +314,65 @@ const CameraManagerIcon: React.FC<{ className?: string }> = ({ className }) => (
   </svg>
 );
 
+const DatasetIcon: React.FC<{ className?: string }> = ({ className }) => (
+  <svg
+    className={className}
+    width="24"
+    height="24"
+    viewBox="0 0 24 24"
+    fill="none"
+  >
+    <ellipse
+      cx="12"
+      cy="5"
+      rx="8"
+      ry="3"
+      stroke="currentColor"
+      strokeWidth="1.5"
+    />
+    <path
+      d="M4 5v6c0 1.66 3.58 3 8 3s8-1.34 8-3V5"
+      stroke="currentColor"
+      strokeWidth="1.5"
+    />
+    <path
+      d="M4 11v6c0 1.66 3.58 3 8 3s8-1.34 8-3v-6"
+      stroke="currentColor"
+      strokeWidth="1.5"
+    />
+  </svg>
+);
+
+const ScadaIcon: React.FC<{ className?: string }> = ({ className }) => (
+  <svg
+    className={className}
+    width="24"
+    height="24"
+    viewBox="0 0 24 24"
+    fill="none"
+  >
+    <path
+      d="M4 18h16"
+      stroke="currentColor"
+      strokeWidth="1.5"
+      strokeLinecap="round"
+    />
+
+    <path
+      d="M6 14l3-3 3 3 6-6"
+      stroke="currentColor"
+      strokeWidth="1.5"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
+
+    <circle cx="6" cy="14" r="1.5" fill="currentColor" />
+    <circle cx="9" cy="11" r="1.5" fill="currentColor" />
+    <circle cx="12" cy="14" r="1.5" fill="currentColor" />
+    <circle cx="18" cy="8" r="1.5" fill="currentColor" />
+  </svg>
+);
+
 export {
   GridIcon,
   ChevronDownIcon,
@@ -332,4 +391,6 @@ export {
   AlertIcon,
   DetectIcon,
   CameraManagerIcon,
+  DatasetIcon,
+  ScadaIcon,
 };
